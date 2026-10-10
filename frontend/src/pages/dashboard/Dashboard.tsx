@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Factory, AlertTriangle, TrendingUp, Activity, Clock, ArrowRight, Cpu, Sparkles } from 'lucide-react';
+import { Factory, AlertTriangle, TrendingUp, Activity, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from 'recharts';
@@ -155,6 +155,15 @@ export default function Dashboard() {
   const handleShopFloorClick = useCallback(() => navigate('/production/shopfloor'), [navigate]);
   const handleYarnAlertsClick = useCallback(() => navigate('/yarn/alerts'), [navigate]);
 
+  // Historical chart data: Only past months (e.g. May through Oct)
+  const historicalChartData = useMemo(() => 
+    monthlyTrend.map(d => ({
+      month: d.month,
+      historicalRevenue: d.revenue,
+      cost: d.cost,
+    })),
+  [monthlyTrend]);
+
   // Combined chart data: Historical + ONNX predictions
   const combinedChartData = useMemo(() => [
     ...monthlyTrend.map(d => ({
@@ -179,6 +188,13 @@ export default function Dashboard() {
       predictedRevenue: f.predictedRevenue,
     })),
   ], [monthlyTrend, forecast]);
+
+  // Active chart data based on selected viewMode
+  const chartData = useMemo(() => {
+    if (viewMode === 'historical') return historicalChartData;
+    if (viewMode === 'forecast') return forecast.map(f => ({ month: f.monthName, revenue: f.predictedRevenue }));
+    return combinedChartData;
+  }, [viewMode, historicalChartData, forecast, combinedChartData]);
 
   return (
     <div className="space-y-6">
@@ -221,12 +237,7 @@ export default function Dashboard() {
         <div className="card p-5 lg:col-span-2 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-display font-semibold text-[var(--text)]">Financial Performance & Forecast</h2>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                  <Cpu size={12} /> ONNX Engine
-                </span>
-              </div>
+              <h2 className="text-base font-display font-semibold text-[var(--text)]">Financial Performance & Forecast</h2>
               <p className="text-xs text-[var(--text-soft)]">6-Month historical vs ONNX XGBoost revenue forecast</p>
             </div>
             
@@ -248,7 +259,7 @@ export default function Dashboard() {
           </div>
 
           <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={viewMode === 'forecast' ? forecast.map(f => ({ month: f.monthName, revenue: f.predictedRevenue })) : combinedChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis dataKey="month" tick={{ fill: 'var(--cyprus-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--cyprus-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
