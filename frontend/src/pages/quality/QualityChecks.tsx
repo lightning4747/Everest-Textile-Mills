@@ -5,11 +5,11 @@ import { fabricRolls, salesOrders, machines } from '../../data/mockData';
 import type { QCResult } from '../../types';
 
 const filters: { label: string; value: QCResult | 'all' }[] = [
-  { label: 'All',      value: 'all' },
-  { label: 'Passed',   value: 'passed' },
-  { label: 'Rework',   value: 'rework' },
-  { label: 'Rejected', value: 'rejected' },
-  { label: 'Pending',  value: 'pending' },
+  { label: 'All Inspections', value: 'all' },
+  { label: 'Passed',          value: 'passed' },
+  { label: 'Rework',          value: 'rework' },
+  { label: 'Rejected',        value: 'rejected' },
+  { label: 'Pending',         value: 'pending' },
 ];
 
 export default function QualityChecks() {
@@ -26,61 +26,84 @@ export default function QualityChecks() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          {filters.map(f => (
-            <button key={f.value} onClick={() => setFilter(f.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                filter === f.value
-                  ? 'bg-amber-100 text-amber-700 border-amber-300'
-                  : 'text-slate-500 border-slate-200 hover:text-slate-700 hover:border-slate-300 bg-white'
-              }`}>
-              {f.label} <span className="ml-1 opacity-60">{counts[f.value]}</span>
-            </button>
-          ))}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
+          {filters.map(f => {
+            const active = filter === f.value;
+            return (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                  active
+                    ? 'bg-[var(--olive-dark)] text-[var(--cream)] border-[var(--olive-dark)]'
+                    : 'bg-[var(--surface)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--sand)]/50'
+                }`}
+              >
+                {f.label} <span className="ml-1 font-mono opacity-75">({counts[f.value]})</span>
+              </button>
+            );
+          })}
         </div>
-        <button className="btn-primary text-xs"><Plus size={13} /> Log Check</button>
+        <button className="btn-primary text-xs">
+          <Plus size={14} /> Log Quality Inspection
+        </button>
       </div>
 
       <div className="card overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50">
-              {['Roll ID','Order','Buyer','Machine','Metres','Produced','Defects','Checked By','Checked At','Result'].map(h=>(
-                <th key={h} className="px-4 py-3 text-left section-title whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(roll => {
-              const order   = salesOrders.find(o => o.id === roll.orderId);
-              const machine = machines.find(m => m.id === roll.machineId);
-              return (
-                <tr key={roll.id} className="border-b border-slate-50 table-row-hover">
-                  <td className="px-4 py-3"><div className="flex items-center gap-1.5"><ShieldCheck size={12} className="text-slate-400" /><span className="text-xs font-mono text-amber-600 font-semibold">{roll.id}</span></div></td>
-                  <td className="px-4 py-3 text-xs font-mono text-sky-600">{roll.orderId}</td>
-                  <td className="px-4 py-3 text-xs text-slate-700">{order?.buyer ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <p className="text-xs font-mono text-slate-700">{machine?.id ?? roll.machineId}</p>
-                    <p className="text-[10px] text-slate-400">{machine?.name}</p>
-                  </td>
-                  <td className="px-4 py-3 text-xs font-mono text-slate-700">{roll.metres} m</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{roll.producedDate}</td>
-                  <td className="px-4 py-3">
-                    {roll.defects?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {roll.defects.map(d => <span key={d} className="badge-red text-[10px]">{d}</span>)}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
+                {['Roll ID','Order Ref','Buyer','Machine Unit','Batch (m)','Produced','Defect Log','Inspector','Timestamp','Verdict'].map(h=>(
+                  <th key={h} className="px-4 py-3 section-title whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border)]">
+              {filtered.map(roll => {
+                const order   = salesOrders.find(o => o.id === roll.orderId);
+                const machine = machines.find(m => m.id === roll.machineId);
+                return (
+                  <tr key={roll.id} className="table-row-hover">
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck size={14} className="text-[var(--olive-grey)]" />
+                        <span className="text-xs font-mono font-bold text-[var(--olive-dark)]">{roll.id}</span>
                       </div>
-                    ) : <span className="text-xs text-slate-400">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{roll.checkedBy ?? '—'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-400">{roll.checkedAt ?? '—'}</td>
-                  <td className="px-4 py-3"><StatusBadge status={roll.qcResult} /></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)]">{roll.orderId}</td>
+                    <td className="px-4 py-3.5 text-xs font-medium text-[var(--text)]">{order?.buyer ?? '—'}</td>
+                    <td className="px-4 py-3.5">
+                      <p className="text-xs font-mono text-[var(--text)]">{machine?.id ?? roll.machineId}</p>
+                      <p className="text-[10px] text-[var(--text-soft)]">{machine?.name}</p>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)]">{roll.metres} m</td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">{roll.producedDate}</td>
+                    <td className="px-4 py-3.5">
+                      {roll.defects?.length ? (
+                        <div className="flex flex-wrap gap-1">
+                          {roll.defects.map(d => (
+                            <span key={d} className="badge-status-bad text-[10px] py-0.5">
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs font-mono text-[var(--olive-grey)]">None</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text)]">{roll.checkedBy ?? '—'}</td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">{roll.checkedAt ?? '—'}</td>
+                    <td className="px-4 py-3.5">
+                      <StatusBadge status={roll.qcResult} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

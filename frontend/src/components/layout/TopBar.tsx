@@ -2,23 +2,23 @@ import { Bell, Search, User } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 const pageTitles: Record<string, string> = {
-  '/dashboard':             'Dashboard',
+  '/dashboard':             'Dashboard & Operations',
   '/yarn/receipts':         'Yarn Receipts',
   '/yarn/stock':            'Raw Material Stock',
   '/yarn/alerts':           'Low Stock Alerts',
-  '/production/machines':   'Machines',
+  '/production/machines':   'Machine Fleet',
   '/production/orders':     'Production Orders',
   '/production/shopfloor':  'Shop Floor Board',
-  '/quality/checks':        'Quality Checks',
-  '/quality/rolls':         'Fabric Rolls',
-  '/quality/pending':       'Pending Inspection',
+  '/quality/checks':        'Quality Assurance Logs',
+  '/quality/rolls':         'Fabric Roll Traceability',
+  '/quality/pending':       'Pending Inspection Queue',
   '/sales/orders':          'Sales Orders',
-  '/sales/status':          'Order Status',
-  '/sales/finished':        'Finished Goods Stock',
-  '/sales/dispatches':      'Dispatches',
-  '/reports/costing':       'Order Costing',
-  '/reports/machines':      'Machine Performance',
-  '/reports/monthly':       'Monthly Summary',
+  '/sales/status':          'Live Order Status Pipeline',
+  '/sales/finished':        'Finished Goods Inventory',
+  '/sales/dispatches':      'Dispatch Logistics',
+  '/reports/costing':       'Order Costing & Margins',
+  '/reports/machines':      'Machine Performance & OEE',
+  '/reports/monthly':       'Monthly Production & P&L Summary',
 };
 
 export default function TopBar() {
@@ -32,35 +32,43 @@ export default function TopBar() {
   const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <header className="h-[60px] flex items-center justify-between px-6 bg-white border-b border-slate-200 flex-shrink-0">
-      {/* Left */}
+    <header className="h-[64px] flex items-center justify-between px-6 bg-[var(--surface)] border-b border-[var(--border)] flex-shrink-0 z-10">
+      {/* Left Title */}
       <div>
-        <h1 className="text-base font-semibold text-slate-900">{title}</h1>
-        <p className="text-[10px] text-slate-400">{dateStr} · {timeStr}</p>
+        <h1 className="text-lg font-display font-semibold text-[var(--text)] leading-tight">{title}</h1>
+        <p className="text-[11px] font-mono text-[var(--text-soft)]">{dateStr} · {timeStr}</p>
       </div>
 
-      {/* Right */}
-      <div className="flex items-center gap-2">
+      {/* Right Actions */}
+      <div className="flex items-center gap-3">
         <div className="relative hidden md:flex items-center">
-          <Search size={13} className="absolute left-3 text-slate-400" />
+          <Search size={13} className="absolute left-3 text-[var(--olive-grey)] pointer-events-none" />
           <input
             type="text"
-            placeholder="Search orders, rolls…"
-            className="bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-amber-400 w-48"
+            placeholder="Search roll, order ref, machine..."
+            className="input-field pl-8 pr-3 py-1.5 text-xs w-56 font-mono"
           />
         </div>
 
-        <button className="relative p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+        <button
+          className="relative p-2 rounded-lg text-[var(--olive-grey)] hover:text-[var(--text)] hover:bg-[var(--sand)] transition-colors"
+          title="Alerts"
+        >
           <Bell size={16} />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--bad)] border border-[var(--surface)]"></span>
         </button>
 
-        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-          <div className="w-6 h-6 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center">
-            <User size={12} className="text-amber-600" />
+        <div className="h-6 w-px bg-[var(--border)]" />
+
+        <div className="flex items-center gap-2.5 px-2 py-1 rounded-lg">
+          <div className="w-7 h-7 rounded-full bg-[var(--sand)] border border-[var(--border)] flex items-center justify-center text-[var(--olive-dark)]">
+            <User size={13} />
           </div>
-          <span className="text-xs text-slate-600 hidden md:block">Admin</span>
-        </button>
+          <div className="hidden md:block text-left">
+            <p className="text-xs font-semibold text-[var(--text)] leading-none">Shift Supervisor</p>
+            <p className="text-[10px] font-mono text-[var(--text-soft)] leading-tight">Mill Floor A</p>
+          </div>
+        </div>
       </div>
     </header>
   );

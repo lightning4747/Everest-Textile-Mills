@@ -92,45 +92,45 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`flex flex-col h-screen bg-white border-r border-slate-200 transition-all duration-200 flex-shrink-0 ${
-        collapsed ? 'w-[60px]' : 'w-[220px]'
+      className={`flex flex-col h-screen bg-[#004643] text-[#FAFAFA] border-r border-[var(--border)] transition-all duration-200 flex-shrink-0 z-20 select-none ${
+        collapsed ? 'w-[64px]' : 'w-[236px]'
       }`}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-200 min-h-[60px]">
-        <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-sm">E</span>
+      {/* Brand Header */}
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-[rgba(250,250,250,0.15)] min-h-[64px]">
+        <div className="w-8 h-8 rounded-lg bg-[#FFFFFF] text-[#004643] flex items-center justify-center flex-shrink-0 font-display font-bold text-base shadow-sm">
+          E
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <p className="text-sm font-semibold text-slate-900 leading-tight truncate">Everest Mills</p>
-            <p className="text-[10px] text-slate-400 leading-tight">Manufacturing ERP</p>
+            <h2 className="text-sm font-display font-semibold text-[#FAFAFA] leading-tight truncate tracking-wide">Everest Mills</h2>
+            <p className="text-[10px] text-[#E0EFEA] opacity-80 leading-tight tracking-wider uppercase font-mono font-medium">Textile ERP · 1954</p>
           </div>
         )}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+      {/* Nav List */}
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
         {navItems.map((item) => (
           <div key={item.label}>
             {item.children ? (
               <>
                 <button
                   onClick={() => !collapsed && toggleSection(item.label)}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors duration-100
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors duration-150
                     ${isParentActive(item)
-                      ? 'text-amber-600 bg-amber-50'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                      ? 'text-[#FAFAFA] bg-[rgba(255,255,255,0.15)] font-bold'
+                      : 'text-[#FAFAFA] opacity-85 hover:opacity-100 hover:bg-[rgba(250,250,250,0.1)]'
                     }`}
                   title={collapsed ? item.label : undefined}
                 >
-                  <span className="flex-shrink-0">{item.icon}</span>
+                  <span className="flex-shrink-0 text-[#E0EFEA]">{item.icon}</span>
                   {!collapsed && (
                     <>
-                      <span className="flex-1 text-left font-medium text-xs">{item.label}</span>
+                      <span className="flex-1 text-left truncate">{item.label}</span>
                       <ChevronRight
                         size={12}
-                        className={`transition-transform duration-150 ${
+                        className={`transition-transform duration-150 text-[#E0EFEA] ${
                           openSections.includes(item.label) ? 'rotate-90' : ''
                         }`}
                       />
@@ -139,36 +139,39 @@ export default function Sidebar() {
                 </button>
 
                 {!collapsed && openSections.includes(item.label) && (
-                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-200 pl-3">
-                    {item.children.map((child) => (
-                      <NavLink
-                        key={child.path}
-                        to={child.path}
-                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors duration-100
-                          ${isActive(child.path)
-                            ? 'text-amber-600 bg-amber-50 font-semibold'
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                          }`}
-                      >
-                        {child.icon}
-                        <span>{child.label}</span>
-                      </NavLink>
-                    ))}
+                  <div className="ml-3 mt-1 space-y-1 border-l border-[rgba(250,250,250,0.2)] pl-2.5">
+                    {item.children.map((child) => {
+                      const active = isActive(child.path);
+                      return (
+                        <NavLink
+                          key={child.path}
+                          to={child.path}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors duration-150
+                            ${active
+                              ? 'bg-[#FFFFFF] text-[#004643] font-bold shadow-sm'
+                              : 'text-[#FAFAFA] opacity-75 hover:opacity-100 hover:bg-[rgba(250,250,250,0.1)]'
+                            }`}
+                        >
+                          <span className={active ? 'text-[#004643]' : 'text-[#E0EFEA]'}>{child.icon}</span>
+                          <span className="truncate">{child.label}</span>
+                        </NavLink>
+                      );
+                    })}
                   </div>
                 )}
               </>
             ) : (
               <NavLink
                 to={item.path}
-                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors duration-100
+                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-colors duration-150
                   ${isActive(item.path)
-                    ? 'text-amber-600 bg-amber-50 font-semibold'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                    ? 'bg-[#FFFFFF] text-[#004643] font-bold shadow-sm'
+                    : 'text-[#FAFAFA] opacity-85 hover:opacity-100 hover:bg-[rgba(250,250,250,0.1)]'
                   }`}
                 title={collapsed ? item.label : undefined}
               >
-                <span className="flex-shrink-0">{item.icon}</span>
-                {!collapsed && <span className="font-medium text-xs">{item.label}</span>}
+                <span className={`flex-shrink-0 ${isActive(item.path) ? 'text-[#004643]' : 'text-[#E0EFEA]'}`}>{item.icon}</span>
+                {!collapsed && <span className="font-medium truncate">{item.label}</span>}
               </NavLink>
             )}
           </div>
@@ -176,10 +179,10 @@ export default function Sidebar() {
       </nav>
 
       {/* Collapse toggle */}
-      <div className="p-2 border-t border-slate-200">
+      <div className="p-2 border-t border-[rgba(250,250,250,0.15)]">
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center gap-2 px-2 py-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors text-xs"
+          className="w-full flex items-center justify-center gap-2 px-2 py-2 rounded-lg text-[#FAFAFA] opacity-75 hover:opacity-100 hover:bg-[rgba(250,250,250,0.1)] transition-colors text-xs font-medium"
         >
           {collapsed ? <ChevronRight size={14} /> : <><ChevronLeft size={14} /><span>Collapse</span></>}
         </button>

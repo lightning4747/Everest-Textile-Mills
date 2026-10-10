@@ -2,29 +2,44 @@ import type { MachineStatus, OrderStatus, QCResult } from '../../types';
 
 type StatusValue = MachineStatus | OrderStatus | QCResult | string;
 
-const statusConfig: Record<string, { label: string; cls: string; dot: string }> = {
-  running:       { label: 'Running',       cls: 'badge-green', dot: 'dot-green' },
-  idle:          { label: 'Idle',          cls: 'badge-gray',  dot: 'dot-gray' },
-  maintenance:   { label: 'Maintenance',   cls: 'badge-amber', dot: 'dot-amber' },
-  breakdown:     { label: 'Breakdown',     cls: 'badge-red',   dot: 'dot-red' },
-  pending:       { label: 'Pending',       cls: 'badge-gray',  dot: 'dot-gray' },
-  yarn_check:    { label: 'Yarn Check',    cls: 'badge-sky',   dot: 'dot-gray' },
-  spinning:      { label: 'Spinning',      cls: 'badge-sky',   dot: 'dot-gray' },
-  weaving:       { label: 'Weaving',       cls: 'badge-sky',   dot: 'dot-gray' },
-  dyeing:        { label: 'Dyeing',        cls: 'badge-sky',   dot: 'dot-gray' },
-  quality_check: { label: 'QC Check',      cls: 'badge-amber', dot: 'dot-amber' },
-  ready_to_ship: { label: 'Ready to Ship', cls: 'badge-green', dot: 'dot-green' },
-  dispatched:    { label: 'Dispatched',    cls: 'badge-gray',  dot: 'dot-gray' },
-  passed:        { label: 'Passed',        cls: 'badge-green', dot: 'dot-green' },
-  rework:        { label: 'Rework',        cls: 'badge-amber', dot: 'dot-amber' },
-  rejected:      { label: 'Rejected',      cls: 'badge-red',   dot: 'dot-red' },
-  prepared:      { label: 'Prepared',      cls: 'badge-sky',   dot: 'dot-gray' },
-  loaded:        { label: 'Loaded',        cls: 'badge-amber', dot: 'dot-amber' },
-  delivered:     { label: 'Delivered',     cls: 'badge-green', dot: 'dot-green' },
-  queued:        { label: 'Queued',        cls: 'badge-gray',  dot: 'dot-gray' },
-  in_progress:   { label: 'In Progress',   cls: 'badge-sky',   dot: 'dot-gray' },
-  paused:        { label: 'Paused',        cls: 'badge-amber', dot: 'dot-amber' },
-  completed:     { label: 'Completed',     cls: 'badge-green', dot: 'dot-green' },
+type ThemeStatusType = 'ok' | 'idle' | 'bad' | 'warn';
+
+const statusTypeMap: Record<string, { label: string; type: ThemeStatusType }> = {
+  // Ok statuses
+  running:       { label: 'Running',       type: 'ok' },
+  passed:        { label: 'Passed',        type: 'ok' },
+  pass:          { label: 'Pass',          type: 'ok' },
+  ready:         { label: 'Ready',         type: 'ok' },
+  ready_to_ship: { label: 'Ready to Ship', type: 'ok' },
+  delivered:     { label: 'Delivered',     type: 'ok' },
+  completed:     { label: 'Completed',     type: 'ok' },
+
+  // Idle statuses
+  idle:          { label: 'Idle',          type: 'idle' },
+  draft:         { label: 'Draft',         type: 'idle' },
+  pending:       { label: 'Pending',       type: 'idle' },
+  queued:        { label: 'Queued',        type: 'idle' },
+  dispatched:    { label: 'Dispatched',    type: 'idle' },
+
+  // Bad statuses
+  breakdown:     { label: 'Breakdown',     type: 'bad' },
+  reject:        { label: 'Reject',        type: 'bad' },
+  rejected:      { label: 'Rejected',      type: 'bad' },
+  critical:      { label: 'Critical',      type: 'bad' },
+
+  // Warn statuses
+  maintenance:   { label: 'Maintenance',   type: 'warn' },
+  rework:        { label: 'Rework',        type: 'warn' },
+  loaded:        { label: 'Loaded',        type: 'warn' },
+  paused:        { label: 'Paused',        type: 'warn' },
+  in_progress:   { label: 'In Progress',   type: 'warn' },
+  yarn_check:    { label: 'Yarn Check',    type: 'warn' },
+  spinning:      { label: 'Spinning',      type: 'warn' },
+  weaving:       { label: 'Weaving',       type: 'warn' },
+  dyeing:        { label: 'Dyeing',        type: 'warn' },
+  quality_check: { label: 'QC Check',      type: 'warn' },
+  warning:       { label: 'Warning',       type: 'warn' },
+  prepared:      { label: 'Prepared',      type: 'warn' },
 };
 
 interface Props {
@@ -33,11 +48,30 @@ interface Props {
 }
 
 export default function StatusBadge({ status, showDot = true }: Props) {
-  const cfg = statusConfig[status] ?? { label: status, cls: 'badge-gray', dot: 'dot-gray' };
+  const normKey = (status || '').toString().toLowerCase();
+  const cfg = statusTypeMap[normKey] ?? {
+    label: (status || '').toString().replace(/_/g, ' '),
+    type: 'idle' as ThemeStatusType
+  };
+
+  const badgeClass = {
+    ok: 'badge-status-ok',
+    idle: 'badge-status-idle',
+    bad: 'badge-status-bad',
+    warn: 'badge-status-warn',
+  }[cfg.type];
+
+  const dotClass = {
+    ok: 'dot-ok',
+    idle: 'dot-idle',
+    bad: 'dot-bad',
+    warn: 'dot-warn',
+  }[cfg.type];
+
   return (
-    <span className={cfg.cls}>
-      {showDot && <span className={cfg.dot}></span>}
-      {cfg.label}
+    <span className={badgeClass}>
+      {showDot && <span className={`${dotClass} ${cfg.type === 'ok' ? 'animate-pulse' : ''}`} />}
+      <span>{cfg.label}</span>
     </span>
   );
 }

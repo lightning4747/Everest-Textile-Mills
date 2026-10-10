@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Factory, AlertTriangle, TrendingUp, Activity, Clock } from 'lucide-react';
+import { Factory, AlertTriangle, TrendingUp, Activity, Clock, ArrowRight } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from 'recharts';
@@ -11,10 +11,10 @@ import { machines, salesOrders, yarnStock, fabricRolls, monthlyData } from '../.
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="bg-white border border-slate-200 rounded-lg p-3 text-xs shadow-lg">
-        <p className="text-slate-500 mb-1 font-medium">{label}</p>
+      <div className="card p-3 text-xs shadow-md border border-[var(--border)]">
+        <p className="text-[var(--text-soft)] mb-1.5 font-medium font-mono">{label}</p>
         {payload.map((p: any) => (
-          <p key={p.name} style={{ color: p.color }}>
+          <p key={p.name} className="font-mono font-medium" style={{ color: p.stroke || p.color }}>
             {p.name}: ₹{(p.value / 1000).toFixed(0)}K
           </p>
         ))}
@@ -41,132 +41,158 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* KPI Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Active Orders"      value={activeOrders}                    sub={`${readyToShip} ready to ship`}             accent="amber"                          icon={<TrendingUp size={16} />} trend={{ value: '+3 this week', up: true }} />
-        <StatCard label="Machines Running"   value={`${runningMachines}/${machines.length}`} sub={`${idleMachines} idle · ${downMachines} down`} accent={downMachines > 0 ? 'red' : 'green'} icon={<Factory size={16} />} />
-        <StatCard label="Output Today"       value={`${totalOutputToday.toLocaleString()} m`} sub="metres of fabric"                            accent="sky"                            icon={<Activity size={16} />} trend={{ value: '+8% vs yesterday', up: true }} />
-        <StatCard label="Low Stock Alerts"   value={lowStock}                        sub="yarn types need reorder"                    accent={lowStock > 0 ? 'red' : 'green'}  icon={<AlertTriangle size={16} />} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Active Orders"
+          value={activeOrders}
+          sub={`${readyToShip} ready for dispatch`}
+          accent="warn"
+          icon={<TrendingUp size={18} />}
+          trend={{ value: '+3 this week', up: true }}
+        />
+        <StatCard
+          label="Machines Running"
+          value={`${runningMachines}/${machines.length}`}
+          sub={`${idleMachines} idle · ${downMachines} down`}
+          accent={downMachines > 0 ? 'bad' : 'ok'}
+          icon={<Factory size={18} />}
+        />
+        <StatCard
+          label="Output Today"
+          value={`${totalOutputToday.toLocaleString()} m`}
+          sub="metres of finished fabric"
+          accent="default"
+          icon={<Activity size={18} />}
+          trend={{ value: '+8% vs yesterday', up: true }}
+        />
+        <StatCard
+          label="Low Stock Alerts"
+          value={lowStock}
+          sub="yarn counts below reorder"
+          accent={lowStock > 0 ? 'bad' : 'ok'}
+          icon={<AlertTriangle size={18} />}
+        />
       </div>
 
-      {/* Chart row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Chart & Quick Status Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="card p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-sm font-semibold text-slate-800">Revenue vs Cost</p>
-              <p className="text-xs text-slate-400">Last 6 months</p>
+              <h2 className="text-base font-display font-semibold text-[var(--text)]">Revenue vs Manufacturing Cost</h2>
+              <p className="text-xs text-[var(--text-soft)]">6-Month financial trend (₹ Lakhs)</p>
             </div>
-            <div className="flex items-center gap-4 text-xs text-slate-400">
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>Revenue</span>
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-300 inline-block"></span>Cost</span>
+            <div className="flex items-center gap-4 text-xs font-medium text-[var(--text-soft)]">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[var(--cyprus)] inline-block"></span>
+                Revenue
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[var(--cyprus-muted)] inline-block"></span>
+                Cost
+              </span>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={monthlyData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#F59E0B" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#94A3B8" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#94A3B8" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="month" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={monthlyData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: 'var(--cyprus-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: 'var(--cyprus-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#F59E0B" strokeWidth={2} fill="url(#revGrad)" dot={false} />
-              <Area type="monotone" dataKey="cost"    name="Cost"    stroke="#94A3B8" strokeWidth={2} fill="url(#costGrad)" dot={false} />
+              <Area type="monotone" dataKey="revenue" name="Revenue" stroke="var(--cyprus)" strokeWidth={2.5} fill="var(--cyprus)" fillOpacity={0.15} dot={false} />
+              <Area type="monotone" dataKey="cost" name="Cost" stroke="var(--cyprus-muted)" strokeWidth={1.75} fill="var(--cyprus-light)" fillOpacity={0.45} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Quick stats */}
-        <div className="space-y-3">
-          <div className="card p-4">
-            <p className="section-title mb-3">QC Summary</p>
-            <div className="space-y-2">
+        {/* Quick Summaries */}
+        <div className="space-y-4">
+          <div className="card p-5">
+            <h3 className="section-title mb-3">QC Batch Status</h3>
+            <div className="space-y-2.5">
               {[
-                { label: 'Passed',   count: fabricRolls.filter(r => r.qcResult === 'passed').length,   color: 'bg-emerald-500' },
-                { label: 'Pending',  count: pendingQC,                                                  color: 'bg-amber-400' },
-                { label: 'Rework',   count: fabricRolls.filter(r => r.qcResult === 'rework').length,   color: 'bg-orange-400' },
-                { label: 'Rejected', count: fabricRolls.filter(r => r.qcResult === 'rejected').length, color: 'bg-red-500' },
+                { label: 'Passed',   count: fabricRolls.filter(r => r.qcResult === 'passed').length,   dot: 'dot-ok' },
+                { label: 'Pending',  count: pendingQC,                                                  dot: 'dot-idle' },
+                { label: 'Rework',   count: fabricRolls.filter(r => r.qcResult === 'rework').length,   dot: 'dot-warn' },
+                { label: 'Rejected', count: fabricRolls.filter(r => r.qcResult === 'rejected').length, dot: 'dot-bad' },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${item.color}`}></span>
-                    <span className="text-xs text-slate-500">{item.label}</span>
+                    <span className={item.dot}></span>
+                    <span className="text-xs text-[var(--text)]">{item.label}</span>
                   </div>
-                  <span className="text-xs font-mono font-semibold text-slate-700">{item.count}</span>
+                  <span className="text-xs font-mono font-semibold text-[var(--text)]">{item.count}</span>
                 </div>
               ))}
             </div>
             <button onClick={() => navigate('/quality/checks')} className="btn-ghost w-full mt-3 justify-center text-xs">
-              View all checks →
+              View all inspection logs <ArrowRight size={12} className="ml-1" />
             </button>
           </div>
 
-          <div className="card p-4">
-            <p className="section-title mb-3">Machine Health</p>
-            <div className="space-y-2">
+          <div className="card p-5">
+            <h3 className="section-title mb-3">Shop Floor Machine Health</h3>
+            <div className="space-y-2.5">
               {[
-                { label: 'Running',     count: runningMachines,                                              color: 'bg-emerald-500' },
-                { label: 'Idle',        count: idleMachines,                                                 color: 'bg-slate-300' },
-                { label: 'Maintenance', count: machines.filter(m => m.status === 'maintenance').length,      color: 'bg-amber-400' },
-                { label: 'Breakdown',   count: machines.filter(m => m.status === 'breakdown').length,        color: 'bg-red-500' },
+                { label: 'Running',     count: runningMachines,                                         dot: 'dot-ok' },
+                { label: 'Idle',        count: idleMachines,                                            dot: 'dot-idle' },
+                { label: 'Maintenance', count: machines.filter(m => m.status === 'maintenance').length, dot: 'dot-warn' },
+                { label: 'Breakdown',   count: machines.filter(m => m.status === 'breakdown').length,   dot: 'dot-bad' },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${item.color}`}></span>
-                    <span className="text-xs text-slate-500">{item.label}</span>
+                    <span className={item.dot}></span>
+                    <span className="text-xs text-[var(--text)]">{item.label}</span>
                   </div>
-                  <span className="text-xs font-mono font-semibold text-slate-700">{item.count}</span>
+                  <span className="text-xs font-mono font-semibold text-[var(--text)]">{item.count}</span>
                 </div>
               ))}
             </div>
             <button onClick={() => navigate('/production/shopfloor')} className="btn-ghost w-full mt-3 justify-center text-xs">
-              Shop Floor →
+              Open Shop Floor Board <ArrowRight size={12} className="ml-1" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Recent Orders */}
-      <div className="card">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+      {/* Live Order Pipeline */}
+      <div className="card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
           <div className="flex items-center gap-2">
-            <Clock size={14} className="text-amber-500" />
-            <p className="text-sm font-semibold text-slate-800">Live Order Pipeline</p>
+            <Clock size={16} className="text-[var(--warn)]" />
+            <h2 className="text-sm font-display font-semibold text-[var(--text)]">Live Production & Order Pipeline</h2>
           </div>
           <button onClick={() => navigate('/sales/orders')} className="btn-ghost text-xs">
-            All orders →
+            All orders <ArrowRight size={12} className="ml-1" />
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-slate-100">
-                {['Order ID', 'Buyer', 'Fabric', 'Qty (m)', 'Delivery', 'Progress', 'Status'].map(h => (
-                  <th key={h} className="px-5 py-3 text-left section-title">{h}</th>
+              <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
+                {['Order ID', 'Buyer', 'Fabric & Colour', 'Qty (m)', 'Delivery', 'Progress', 'Status'].map(h => (
+                  <th key={h} className="px-5 py-3 section-title">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-[var(--border)]">
               {recentOrders.map(order => {
                 const pct = Math.round((order.completedMetres / order.quantityMetres) * 100);
                 return (
-                  <tr key={order.id} className="border-b border-slate-50 table-row-hover cursor-pointer" onClick={() => navigate('/sales/status')}>
-                    <td className="px-5 py-3 text-xs font-mono text-amber-600 font-semibold">{order.id}</td>
-                    <td className="px-5 py-3 text-xs text-slate-800 font-medium">{order.buyer}</td>
-                    <td className="px-5 py-3 text-xs text-slate-500">{order.fabricType} · {order.colour}</td>
-                    <td className="px-5 py-3 text-xs font-mono text-slate-700">{order.quantityMetres.toLocaleString()}</td>
-                    <td className="px-5 py-3 text-xs text-slate-500">{order.deliveryDate}</td>
-                    <td className="px-5 py-3 w-36">
-                      <ProgressBar value={pct} color={pct > 80 ? 'green' : 'amber'} showLabel />
+                  <tr
+                    key={order.id}
+                    className="table-row-hover cursor-pointer"
+                    onClick={() => navigate('/sales/status')}
+                  >
+                    <td className="px-5 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)]">{order.id}</td>
+                    <td className="px-5 py-3.5 text-xs font-semibold text-[var(--text)]">{order.buyer}</td>
+                    <td className="px-5 py-3.5 text-xs text-[var(--text-soft)]">{order.fabricType} · {order.colour}</td>
+                    <td className="px-5 py-3.5 text-xs font-mono text-[var(--text)]">{order.quantityMetres.toLocaleString()}</td>
+                    <td className="px-5 py-3.5 text-xs font-mono text-[var(--text-soft)]">{order.deliveryDate}</td>
+                    <td className="px-5 py-3.5 w-40">
+                      <ProgressBar value={pct} color={pct >= 100 ? 'ok' : pct > 50 ? 'warn' : 'default'} showLabel />
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3.5">
                       <StatusBadge status={order.status} />
                     </td>
                   </tr>
@@ -177,20 +203,22 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Alerts strip */}
+      {/* Reorder Warnings */}
       {lowStock > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-center justify-between">
+        <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))] flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <AlertTriangle size={16} className="text-amber-500 flex-shrink-0" />
+            <AlertTriangle size={18} className="text-[var(--warn)] flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-amber-800">{lowStock} yarn type{lowStock > 1 ? 's' : ''} below reorder level</p>
-              <p className="text-xs text-amber-600/70">
+              <p className="text-sm font-semibold text-[var(--text)]">
+                {lowStock} yarn count{lowStock > 1 ? 's' : ''} at or below reorder threshold
+              </p>
+              <p className="text-xs text-[var(--text-soft)] font-mono mt-0.5">
                 {yarnStock.filter(y => y.quantityKg <= y.reorderLevel).map(y => `${y.colour} ${y.type}`).join(' · ')}
               </p>
             </div>
           </div>
           <button onClick={() => navigate('/yarn/alerts')} className="btn-secondary text-xs flex-shrink-0">
-            View Alerts
+            View Alerts Queue
           </button>
         </div>
       )}

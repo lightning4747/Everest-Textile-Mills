@@ -1,4 +1,4 @@
-import { AlertTriangle, ShoppingCart, Phone } from 'lucide-react';
+import { AlertTriangle, ShoppingCart, Phone, CheckCircle2 } from 'lucide-react';
 import { yarnStock } from '../../data/mockData';
 
 const suppliers: Record<string, string> = {
@@ -14,49 +14,48 @@ export default function LowStockAlerts() {
   const critical  = lowItems.filter(y => y.quantityKg <= y.reorderLevel * 0.4);
   const warning   = lowItems.filter(y => y.quantityKg > y.reorderLevel * 0.4);
 
+  // Empty State - Requirement: olive-grey icon, one friendly line
   if (lowItems.length === 0) {
     return (
-      <div className="card p-16 flex flex-col items-center justify-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
-          <AlertTriangle size={20} className="text-emerald-600" />
-        </div>
-        <p className="text-sm font-medium text-emerald-700">All stock levels are healthy</p>
-        <p className="text-xs text-slate-400">No reorder alerts at this time</p>
+      <div className="card p-16 flex flex-col items-center justify-center text-center gap-3">
+        <CheckCircle2 size={40} className="text-[var(--olive-grey)]" />
+        <p className="text-sm font-semibold text-[var(--text)]">All yarn inventory and stock counts are healthy.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="card p-4 border-red-200 bg-red-50">
-          <p className="stat-label text-red-500 mb-1">Critical</p>
-          <p className="text-2xl font-bold font-mono text-red-600">{critical.length}</p>
-          <p className="text-xs text-slate-500 mt-0.5">below 40% of reorder level</p>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="card p-5 border-l-4 border-l-[var(--bad)] bg-[color-mix(in_srgb,var(--bad)_8%,var(--surface))]">
+          <p className="stat-label text-[var(--bad)] mb-1">Critical Stock</p>
+          <p className="font-display text-4xl font-semibold text-[var(--bad)]">{critical.length}</p>
+          <p className="text-xs text-[var(--text-soft)] mt-1">Below 40% of standard safety buffer</p>
         </div>
-        <div className="card p-4 border-amber-200 bg-amber-50">
-          <p className="stat-label text-amber-500 mb-1">Warning</p>
-          <p className="text-2xl font-bold font-mono text-amber-600">{warning.length}</p>
-          <p className="text-xs text-slate-500 mt-0.5">at or below reorder level</p>
+        <div className="card p-5 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))]">
+          <p className="stat-label text-[var(--warn)] mb-1">Warning Threshold</p>
+          <p className="font-display text-4xl font-semibold text-[var(--warn)]">{warning.length}</p>
+          <p className="text-xs text-[var(--text-soft)] mt-1">At or near reorder trigger point</p>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {critical.length > 0 && (
-          <>
-            <p className="section-title text-red-500">Critical — Order Immediately</p>
+          <div className="space-y-3">
+            <h3 className="section-title text-[var(--bad)]">Critical — Immediate Procurement Requisition</h3>
             {critical.map(yarn => (
               <AlertCard key={yarn.id} yarn={yarn} severity="critical" supplier={suppliers[yarn.type]} />
             ))}
-          </>
+          </div>
         )}
+
         {warning.length > 0 && (
-          <>
-            <p className="section-title text-amber-500 mt-2">Warning — Plan Reorder</p>
+          <div className="space-y-3 pt-2">
+            <h3 className="section-title text-[var(--warn)]">Warning — Plan Next Batch PO</h3>
             {warning.map(yarn => (
               <AlertCard key={yarn.id} yarn={yarn} severity="warning" supplier={suppliers[yarn.type]} />
             ))}
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -68,33 +67,35 @@ function AlertCard({ yarn, severity, supplier }: {
   severity: 'critical' | 'warning';
   supplier: string;
 }) {
-  const deficit     = yarn.reorderLevel - yarn.quantityKg;
-  const isCritical  = severity === 'critical';
+  const deficit    = yarn.reorderLevel - yarn.quantityKg;
+  const isCritical = severity === 'critical';
 
   return (
-    <div className={`card p-4 ${isCritical ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${isCritical ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
-            <AlertTriangle size={16} />
+    <div className={`kanban-card p-5 ${isCritical ? 'border-l-[var(--bad)] bg-[color-mix(in_srgb,var(--bad)_5%,var(--surface))]' : 'border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_5%,var(--surface))]'}`}>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start gap-3.5">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isCritical ? 'bg-[color-mix(in_srgb,var(--bad)_15%,var(--surface))] text-[var(--bad)]' : 'bg-[color-mix(in_srgb,var(--warn)_15%,var(--surface))] text-[var(--warn)]'}`}>
+            <AlertTriangle size={18} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-800">{yarn.colour} {yarn.type}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{yarn.id} · {yarn.location}</p>
-            <div className="flex items-center gap-4 mt-2 text-xs">
-              <span className="text-slate-500">Current: <span className={`font-mono font-bold ${isCritical ? 'text-red-600' : 'text-amber-600'}`}>{yarn.quantityKg.toLocaleString()} kg</span></span>
-              <span className="text-slate-500">Reorder at: <span className="font-mono text-slate-700">{yarn.reorderLevel.toLocaleString()} kg</span></span>
-              <span className="text-slate-500">Deficit: <span className="font-mono text-slate-700">{Math.max(0, deficit).toLocaleString()} kg</span></span>
+            <h4 className="text-base font-display font-semibold text-[var(--text)]">{yarn.colour} {yarn.type}</h4>
+            <p className="text-xs font-mono text-[var(--text-soft)] mt-0.5">{yarn.id} · Storage: {yarn.location}</p>
+            <div className="flex items-center gap-4 mt-2.5 text-xs flex-wrap">
+              <span className="text-[var(--text-soft)]">Current On Hand: <strong className={`font-mono font-bold ${isCritical ? 'text-[var(--bad)]' : 'text-[var(--warn)]'}`}>{yarn.quantityKg.toLocaleString()} kg</strong></span>
+              <span className="text-[var(--text-soft)]">Safety Trigger: <strong className="font-mono text-[var(--text)]">{yarn.reorderLevel.toLocaleString()} kg</strong></span>
+              <span className="text-[var(--text-soft)]">Shortfall: <strong className="font-mono text-[var(--bad)]">{Math.max(0, deficit).toLocaleString()} kg</strong></span>
             </div>
           </div>
         </div>
-        <button className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${isCritical ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200'}`}>
-          <ShoppingCart size={12} /> Raise PO
+
+        <button className="btn-primary text-xs flex-shrink-0">
+          <ShoppingCart size={13} /> Raise Purchase Order
         </button>
       </div>
-      <div className="mt-3 pt-3 border-t border-slate-200 flex items-center gap-2 text-xs text-slate-400">
-        <Phone size={11} />
-        <span>Supplier: {supplier}</span>
+
+      <div className="mt-3.5 pt-3 border-t border-[var(--border)] flex items-center gap-2 text-xs text-[var(--text-soft)]">
+        <Phone size={12} className="text-[var(--olive-grey)]" />
+        <span className="font-mono">{supplier}</span>
       </div>
     </div>
   );

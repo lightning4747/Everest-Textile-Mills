@@ -8,10 +8,10 @@ const TARGET = 500;
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="bg-white border border-slate-200 rounded-lg p-3 text-xs shadow-lg">
-        <p className="text-slate-700 font-medium mb-1">{label}</p>
-        <p className="text-amber-600">Output: {payload[0]?.value} m</p>
-        <p className="text-slate-400">Target: {TARGET} m</p>
+      <div className="card p-3 text-xs shadow-md border border-[var(--border)]">
+        <p className="text-[var(--text)] font-semibold mb-1 font-mono">{label}</p>
+        <p className="text-[var(--olive-dark)] font-mono">Shift Output: {payload[0]?.value} m</p>
+        <p className="text-[var(--text-soft)] font-mono">Shift Target: {TARGET} m</p>
       </div>
     );
   }
@@ -26,71 +26,87 @@ export default function MachinePerformance() {
   const chartData = machines.map(m => ({ name: m.id, output: m.outputToday }));
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-4 gap-4">
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Output Today', value: `${totalOutput.toLocaleString()} m` },
-          { label: 'Machines Running',   value: `${running.length}/${machines.length}` },
-          { label: 'Fleet Efficiency',   value: `${avgEff}%` },
-          { label: 'Daily Target',       value: `${(machines.length * TARGET).toLocaleString()} m` },
+          { label: 'Total Output Today', value: `${totalOutput.toLocaleString()} m`, accent: 'text-[var(--text)]' },
+          { label: 'Machines Running',   value: `${running.length}/${machines.length}`, accent: 'text-[var(--ok)]' },
+          { label: 'Fleet Efficiency',   value: `${avgEff}%`,                           accent: avgEff >= 70 ? 'text-[var(--ok)]' : 'text-[var(--warn)]' },
+          { label: 'Daily Fleet Target', value: `${(machines.length * TARGET).toLocaleString()} m`, accent: 'text-[var(--text-soft)]' },
         ].map(s => (
-          <div key={s.label} className="card p-4">
-            <p className="stat-label mb-1">{s.label}</p>
-            <p className="stat-value">{s.value}</p>
+          <div key={s.label} className="card p-5">
+            <p className="stat-label mb-1.5">{s.label}</p>
+            <p className={`font-display text-3xl md:text-4xl font-semibold ${s.accent}`}>{s.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-semibold text-slate-800">Output vs Target (Today)</p>
-          <div className="flex items-center gap-3 text-xs text-slate-400">
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>Output</span>
-            <span className="flex items-center gap-1.5"><span className="w-6 border-t-2 border-dashed border-red-400 inline-block"></span>Target 500m</span>
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div>
+            <h2 className="text-base font-display font-semibold text-[var(--text)]">Unit Output vs Shift Target</h2>
+            <p className="text-xs text-[var(--text-soft)]">Metres produced in current operational shift</p>
+          </div>
+          <div className="flex items-center gap-4 text-xs font-medium text-[var(--text-soft)]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--cyprus)] inline-block"></span>
+              Current Output
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 border-t-2 border-dashed border-[var(--cyprus-muted)] inline-block"></span>
+              Standard Target (500m)
+            </span>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={chartData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-            <XAxis dataKey="name" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 600]} />
+        <ResponsiveContainer width="100%" height={230}>
+          <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="name" tick={{ fill: 'var(--cyprus-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: 'var(--cyprus-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} domain={[0, 600]} />
             <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine y={TARGET} stroke="#EF4444" strokeDasharray="4 4" strokeOpacity={0.6} />
-            <Bar dataKey="output" fill="#F59E0B" radius={[4,4,0,0]} />
+            <ReferenceLine y={TARGET} stroke="var(--bad)" strokeDasharray="4 4" strokeWidth={1.5} />
+            <Bar dataKey="output" fill="var(--cyprus)" radius={[3,3,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       <div className="card overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <p className="text-sm font-semibold text-slate-800">Machine Details</p>
+        <div className="px-5 py-4 border-b border-[var(--border)]">
+          <h2 className="text-sm font-display font-semibold text-[var(--text)]">Machine Telemetry & Efficiency Log</h2>
         </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50">
-              {['Machine','Type','Status','Current Order','Output Today','Target','Efficiency','Operator'].map(h=>(
-                <th key={h} className="px-4 py-3 text-left section-title whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {machines.map(m => {
-              const eff = Math.round((m.outputToday / TARGET) * 100);
-              return (
-                <tr key={m.id} className="border-b border-slate-50 table-row-hover">
-                  <td className="px-4 py-3"><p className="text-xs font-mono text-amber-600 font-semibold">{m.id}</p><p className="text-[10px] text-slate-400">{m.name}</p></td>
-                  <td className="px-4 py-3 text-xs text-slate-500 capitalize">{m.type}</td>
-                  <td className="px-4 py-3"><StatusBadge status={m.status} /></td>
-                  <td className="px-4 py-3 text-xs font-mono text-sky-600">{m.currentOrder ?? '—'}</td>
-                  <td className="px-4 py-3 text-xs font-mono text-slate-700">{m.outputToday} m</td>
-                  <td className="px-4 py-3 text-xs font-mono text-slate-400">{TARGET} m</td>
-                  <td className="px-4 py-3 w-28"><ProgressBar value={eff} color={eff >= 80 ? 'green' : eff >= 50 ? 'amber' : 'red'} showLabel /></td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{m.operator ?? '—'}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
+                {['Machine ID','Type','Status','Current Order','Shift Output','Target','Efficiency %','Operator'].map(h=>(
+                  <th key={h} className="px-4 py-3 section-title whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border)]">
+              {machines.map(m => {
+                const eff = Math.round((m.outputToday / TARGET) * 100);
+                return (
+                  <tr key={m.id} className="table-row-hover">
+                    <td className="px-4 py-3.5">
+                      <p className="text-xs font-mono font-bold text-[var(--olive-dark)]">{m.id}</p>
+                      <p className="text-[10px] text-[var(--text-soft)]">{m.name}</p>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text)] capitalize">{m.type}</td>
+                    <td className="px-4 py-3.5"><StatusBadge status={m.status} /></td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--olive-dark)]">{m.currentOrder ?? '—'}</td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)]">{m.outputToday} m</td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">{TARGET} m</td>
+                    <td className="px-4 py-3.5 w-32">
+                      <ProgressBar value={eff} color={eff >= 80 ? 'ok' : eff >= 50 ? 'warn' : 'bad'} showLabel />
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text)]">{m.operator ?? '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

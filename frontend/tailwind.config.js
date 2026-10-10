@@ -7,49 +7,42 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Design system colors
-        bg: {
-          base: '#0F1117',
-          surface: '#1A1F2E',
-          elevated: '#222840',
-          border: '#2A3142',
+        cyprus: {
+          DEFAULT: '#004643',
+          dark: '#003330',
+          light: '#E0EFEA',
+          muted: '#53706D',
         },
-        amber: {
-          DEFAULT: '#F59E0B',
-          light: '#FCD34D',
-          dim: '#92400E',
+        cloud: {
+          DEFAULT: '#FAFAFA',
+          panel: '#F0F6F4',
+          border: '#DCE7E4',
         },
-        emerald: {
-          DEFAULT: '#10B981',
-          dim: '#064E3B',
-        },
-        rose: {
-          DEFAULT: '#EF4444',
-          dim: '#7F1D1D',
-        },
-        sky: {
-          DEFAULT: '#38BDF8',
-          dim: '#0C4A6E',
+        ok: 'var(--ok)',
+        warn: 'var(--warn)',
+        bad: 'var(--bad)',
+        idle: 'var(--idle)',
+        bg: 'var(--bg)',
+        surface: {
+          DEFAULT: 'var(--surface)',
+          2: 'var(--surface-2)',
         },
         text: {
-          primary: '#F1F5F9',
-          secondary: '#94A3B8',
-          muted: '#475569',
-        }
+          DEFAULT: 'var(--text)',
+          soft: 'var(--text-soft)',
+        },
+        border: 'var(--border)',
       },
       fontFamily: {
+        display: ['Fraunces', 'Georgia', 'serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
       },
-      animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'slide-in': 'slideIn 0.2s ease-out',
+      borderRadius: {
+        theme: 'var(--radius)',
       },
-      keyframes: {
-        slideIn: {
-          '0%': { opacity: '0', transform: 'translateX(-8px)' },
-          '100%': { opacity: '1', transform: 'translateX(0)' },
-        }
+      boxShadow: {
+        theme: 'var(--shadow)',
       }
     },
   },

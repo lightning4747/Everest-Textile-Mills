@@ -3,64 +3,81 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import { fabricRolls, salesOrders, machines } from '../../data/mockData';
 
 export default function FabricRolls() {
+  const totalMetres = fabricRolls.reduce((s, r) => s + r.metres, 0);
+  const inspectedRolls = fabricRolls.filter(r => r.qcResult !== 'pending');
+  const passRate = inspectedRolls.length > 0
+    ? Math.round((fabricRolls.filter(r => r.qcResult === 'passed').length / inspectedRolls.length) * 100)
+    : 0;
+  const rejectRate = inspectedRolls.length > 0
+    ? Math.round((fabricRolls.filter(r => r.qcResult === 'rejected').length / inspectedRolls.length) * 100)
+    : 0;
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Rolls',    value: fabricRolls.length,                                                                                                                                          color: '' },
-          { label: 'Total Metres',   value: `${fabricRolls.reduce((s, r) => s + r.metres, 0)} m`,                                                                                                        color: '' },
-          { label: 'Pass Rate',      value: `${Math.round((fabricRolls.filter(r => r.qcResult === 'passed').length / fabricRolls.filter(r => r.qcResult !== 'pending').length) * 100)}%`,                color: 'text-emerald-600' },
-          { label: 'Rejection Rate', value: `${Math.round((fabricRolls.filter(r => r.qcResult === 'rejected').length / fabricRolls.filter(r => r.qcResult !== 'pending').length) * 100)}%`,              color: 'text-red-600' },
+          { label: 'Total Rolls',    value: fabricRolls.length,            accent: 'text-[var(--text)]' },
+          { label: 'Total Metres',   value: `${totalMetres} m`,            accent: 'text-[var(--text)]' },
+          { label: 'QC Pass Rate',   value: `${passRate}%`,                accent: 'text-[var(--ok)]' },
+          { label: 'Rejection Rate', value: `${rejectRate}%`,              accent: 'text-[var(--bad)]' },
         ].map(s => (
-          <div key={s.label} className="card p-4">
-            <p className="stat-label mb-1">{s.label}</p>
-            <p className={`text-2xl font-bold font-mono text-slate-800 ${s.color}`}>{s.value}</p>
+          <div key={s.label} className="card p-5">
+            <p className="stat-label mb-1.5">{s.label}</p>
+            <p className={`font-display text-3xl md:text-4xl font-semibold ${s.accent}`}>{s.value}</p>
           </div>
         ))}
       </div>
 
+      {/* Traceability List */}
       <div className="card overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-          <Package size={14} className="text-amber-500" />
-          <p className="text-sm font-semibold text-slate-800">Roll Traceability</p>
-          <span className="text-xs text-slate-400 ml-1">— order → machine → QC</span>
+        <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Package size={16} className="text-[var(--olive-dark)]" />
+            <h2 className="text-sm font-display font-semibold text-[var(--text)]">Roll Lineage & Traceability Chain</h2>
+          </div>
+          <span className="text-xs font-mono text-[var(--text-soft)]">Order Ref → Machine → Grading Lab</span>
         </div>
 
-        <div className="divide-y divide-slate-50">
+        <div className="divide-y divide-[var(--border)]">
           {fabricRolls.map(roll => {
             const order   = salesOrders.find(o => o.id === roll.orderId);
             const machine = machines.find(m => m.id === roll.machineId);
             return (
-              <div key={roll.id} className="px-5 py-4 hover:bg-slate-50 transition-colors">
-                <div className="flex items-start justify-between gap-4">
+              <div key={roll.id} className="p-5 table-row-hover">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <Package size={12} className="text-amber-500" />
-                      <span className="text-xs font-mono font-bold text-amber-600">{roll.id}</span>
+                    <div className="flex items-center gap-2 bg-[var(--sand)]/50 px-2.5 py-1 rounded-lg border border-[var(--border)]">
+                      <Package size={14} className="text-[var(--olive-dark)]" />
+                      <span className="text-xs font-mono font-bold text-[var(--olive-dark)]">{roll.id}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+
+                    <div className="flex items-center gap-2 text-xs flex-wrap">
                       {[
-                        { label: 'Order',   value: roll.orderId,              color: 'text-sky-600' },
-                        { label: 'Buyer',   value: order?.buyer ?? '—',       color: 'text-slate-700' },
-                        { label: 'Machine', value: roll.machineId,            color: 'text-purple-600' },
-                        { label: 'Type',    value: machine?.type ?? '—',      color: 'text-slate-600' },
-                        { label: 'Metres',  value: `${roll.metres} m`,        color: 'text-emerald-600' },
+                        { label: 'Order',   value: roll.orderId,              isMono: true },
+                        { label: 'Buyer',   value: order?.buyer ?? '—',       isMono: false },
+                        { label: 'Machine', value: roll.machineId,            isMono: true },
+                        { label: 'Process', value: machine?.type ?? '—',      isMono: false },
+                        { label: 'Length',  value: `${roll.metres} m`,        isMono: true },
                       ].map((item, i, arr) => (
                         <div key={item.label} className="flex items-center gap-2">
-                          <div className="bg-slate-50 border border-slate-200 rounded px-2 py-1">
-                            <span className="text-[10px] text-slate-400 block">{item.label}</span>
-                            <span className={`font-mono text-xs ${item.color}`}>{item.value}</span>
+                          <div className="bg-[var(--surface)] border border-[var(--border)] rounded px-2.5 py-1">
+                            <span className="text-[9px] uppercase tracking-wider text-[var(--text-soft)] block font-semibold">{item.label}</span>
+                            <span className={`text-xs text-[var(--text)] font-medium ${item.isMono ? 'font-mono' : ''}`}>{item.value}</span>
                           </div>
-                          {i < arr.length - 1 && <ArrowRight size={11} className="text-slate-300" />}
+                          {i < arr.length - 1 && <ArrowRight size={12} className="text-[var(--olive-grey)]" />}
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+
+                  <div className="flex items-center gap-4 flex-shrink-0">
                     <div className="text-right">
-                      <p className="text-[10px] text-slate-400">{roll.producedDate}</p>
-                      {roll.checkedBy && <p className="text-[10px] text-slate-400">{roll.checkedBy}</p>}
-                      {roll.defects?.length && <p className="text-[10px] text-red-500 mt-0.5">{roll.defects.join(', ')}</p>}
+                      <p className="text-[11px] font-mono text-[var(--text-soft)]">{roll.producedDate}</p>
+                      {roll.checkedBy && <p className="text-[10px] text-[var(--text)]">Inspector: {roll.checkedBy}</p>}
+                      {roll.defects?.length ? (
+                        <p className="text-[10px] text-[var(--bad)] font-semibold mt-0.5">{roll.defects.join(', ')}</p>
+                      ) : null}
                     </div>
                     <StatusBadge status={roll.qcResult} />
                   </div>
