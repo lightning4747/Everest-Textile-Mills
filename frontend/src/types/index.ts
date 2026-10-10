@@ -115,3 +115,26 @@ export interface OrderCost {
   revenue: number;
   profit: number;
 }
+
+// ─── Yarn Inspection ──────────────────────────────────────────────────────
+export type YarnInspectionVerdict = 'accepted' | 'rejected' | 'pending';
+
+export interface YarnInspectionRecord {
+  id: string;
+  receiptId: string;          // links to YarnReceipt
+  date: string;
+  supplier: string;
+  yarnType: YarnType;
+  colour: string;
+  batchLot: string;
+  quantityKg: number;
+  sampledKg: number;          // kg pulled for inspection
+  damagePct: number;          // 0–100, calculated from test
+  tensileStrength: number;    // N/tex
+  moisture: number;           // % moisture content
+  countNe: number;            // yarn count in Ne
+  inspector: string;
+  verdict: YarnInspectionVerdict;
+  rejectionReason?: string;
+  inspectedAt: string;
+}

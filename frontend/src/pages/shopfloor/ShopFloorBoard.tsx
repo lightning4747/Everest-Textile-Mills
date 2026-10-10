@@ -14,10 +14,10 @@ const statusBorderColor: Record<MachineStatus, string> = {
 };
 
 const statusIconClass: Record<MachineStatus, string> = {
-  running:     'bg-[color-mix(in_srgb,var(--ok)_15%,var(--surface))] text-[var(--ok)]',
+  running:     'bg-[var(--panel-bg)] text-[var(--ok)]',
   idle:        'bg-[var(--sand)] text-[var(--olive-dark)]',
-  maintenance: 'bg-[color-mix(in_srgb,var(--warn)_15%,var(--surface))] text-[var(--warn)]',
-  breakdown:   'bg-[color-mix(in_srgb,var(--bad)_15%,var(--surface))] text-[var(--bad)]',
+  maintenance: 'bg-[var(--panel-bg)] text-[var(--warn)]',
+  breakdown:   'bg-[var(--panel-bg)] text-[var(--bad)]',
 };
 
 const StatusIcon = ({ status }: { status: MachineStatus }) => {
@@ -101,7 +101,7 @@ export default function ShopFloorBoard() {
         {filtered.map(machine => (
           <div
             key={machine.id}
-            className={`kanban-card p-5 flex flex-col justify-between gap-4 transition-all duration-200 ${statusBorderColor[machine.status]}`}
+            className={`kanban-card p-4 flex flex-col justify-between gap-4 transition-all duration-200 ${statusBorderColor[machine.status]}`}
           >
             {/* Top header */}
             <div>

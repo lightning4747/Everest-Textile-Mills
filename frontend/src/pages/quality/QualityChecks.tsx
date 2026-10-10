@@ -1,8 +1,11 @@
-import { useState } from 'react';
-import { ShieldCheck, Plus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ShieldCheck, Plus, Search, SearchX } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { fabricRolls, salesOrders, machines } from '../../data/mockData';
 import type { QCResult } from '../../types';
+import { usePagination } from '../../hooks/usePagination';
+import { useDebounce } from '../../hooks/useDebounce';
+import Pagination from '../../components/ui/Pagination';
 
 const filters: { label: string; value: QCResult | 'all' }[] = [
   { label: 'All Inspections', value: 'all' },
@@ -13,8 +16,9 @@ const filters: { label: string; value: QCResult | 'all' }[] = [
 ];
 
 export default function QualityChecks() {
-  const [filter, setFilter] = useState<QCResult | 'all'>('all');
-  const filtered = filter === 'all' ? fabricRolls : fabricRolls.filter(r => r.qcResult === filter);
+  const [filter, setFilter]       = useState<QCResult | 'all'>('all');
+  const [rollSearch, setRollSearch] = useState('');
+  const debouncedRollSearch       = useDebounce(rollSearch, 300);
 
   const counts = {
     all:      fabricRolls.length,
@@ -22,6 +26,21 @@ export default function QualityChecks() {
     rework:   fabricRolls.filter(r => r.qcResult === 'rework').length,
     rejected: fabricRolls.filter(r => r.qcResult === 'rejected').length,
     pending:  fabricRolls.filter(r => r.qcResult === 'pending').length,
+  };
+
+  const filtered = useMemo(() => {
+    const base = filter === 'all' ? fabricRolls : fabricRolls.filter(r => r.qcResult === filter);
+    return base.filter(r =>
+      r.id.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
+      r.orderId.toLowerCase().includes(debouncedRollSearch.toLowerCase())
+    );
+  }, [filter, debouncedRollSearch]);
+
+  const { paginatedData, ...paginationProps } = usePagination(filtered, 20);
+
+  const handleReset = () => {
+    setFilter('all');
+    setRollSearch('');
   };
 
   return (
@@ -45,9 +64,21 @@ export default function QualityChecks() {
             );
           })}
         </div>
-        <button className="btn-primary text-xs">
-          <Plus size={14} /> Log Quality Inspection
-        </button>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+            <input
+              value={rollSearch}
+              onChange={e => setRollSearch(e.target.value)}
+              placeholder="Search roll ID or order ref…"
+              className="input-field h-10 pl-9 text-xs font-mono max-w-xs"
+            />
+          </div>
+          <button className="btn-primary text-xs h-10">
+            <Plus size={14} /> Log Quality Inspection
+          </button>
+        </div>
       </div>
 
       <div className="card overflow-hidden">
@@ -55,32 +86,39 @@ export default function QualityChecks() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
-                {['Roll ID','Order Ref','Buyer','Machine Unit','Batch (m)','Produced','Defect Log','Inspector','Timestamp','Verdict'].map(h=>(
-                  <th key={h} className="px-4 py-3 section-title whitespace-nowrap">{h}</th>
-                ))}
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Roll ID</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Order Ref</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Buyer</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Machine Unit</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Batch (m)</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Produced</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Defect Log</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Inspector</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Timestamp</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-center">Verdict</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {filtered.map(roll => {
+              {paginatedData.map(roll => {
                 const order   = salesOrders.find(o => o.id === roll.orderId);
                 const machine = machines.find(m => m.id === roll.machineId);
                 return (
                   <tr key={roll.id} className="table-row-hover">
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3.5 text-left">
                       <div className="flex items-center gap-1.5">
                         <ShieldCheck size={14} className="text-[var(--olive-grey)]" />
                         <span className="text-xs font-mono font-bold text-[var(--olive-dark)]">{roll.id}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)]">{roll.orderId}</td>
-                    <td className="px-4 py-3.5 text-xs font-medium text-[var(--text)]">{order?.buyer ?? '—'}</td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{roll.orderId}</td>
+                    <td className="px-4 py-3.5 text-xs font-medium text-[var(--text)] text-left">{order?.buyer ?? '—'}</td>
+                    <td className="px-4 py-3.5 text-left">
                       <p className="text-xs font-mono text-[var(--text)]">{machine?.id ?? roll.machineId}</p>
                       <p className="text-[10px] text-[var(--text-soft)]">{machine?.name}</p>
                     </td>
-                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)]">{roll.metres} m</td>
-                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">{roll.producedDate}</td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)] text-right tabular-nums">{roll.metres} m</td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right">{roll.producedDate}</td>
+                    <td className="px-4 py-3.5 text-left">
                       {roll.defects?.length ? (
                         <div className="flex flex-wrap gap-1">
                           {roll.defects.map(d => (
@@ -93,9 +131,9 @@ export default function QualityChecks() {
                         <span className="text-xs font-mono text-[var(--olive-grey)]">None</span>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-[var(--text)]">{roll.checkedBy ?? '—'}</td>
-                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">{roll.checkedAt ?? '—'}</td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3.5 text-xs text-[var(--text)] text-left">{roll.checkedBy ?? '—'}</td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right">{roll.checkedAt ?? '—'}</td>
+                    <td className="px-4 py-3.5 text-center">
                       <StatusBadge status={roll.qcResult} />
                     </td>
                   </tr>
@@ -104,6 +142,16 @@ export default function QualityChecks() {
             </tbody>
           </table>
         </div>
+
+        {filtered.length === 0 ? (
+          <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
+            <SearchX size={36} className="text-[var(--olive-grey)]" />
+            <p className="text-sm font-semibold text-[var(--text)]">No inspection records match the current filters</p>
+            <button className="btn-secondary text-xs" onClick={handleReset}>Reset Filters</button>
+          </div>
+        ) : (
+          <Pagination {...paginationProps} />
+        )}
       </div>
     </div>
   );

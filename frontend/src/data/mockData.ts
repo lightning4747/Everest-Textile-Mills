@@ -93,3 +93,55 @@ export const machineOutputData = machines.map(m => ({
   output: m.outputToday,
   target: 500,
 }));
+
+// ─── Yarn Inspection ──────────────────────────────────────────────────────
+import type { YarnInspectionRecord } from '../types';
+
+export const yarnInspections: YarnInspectionRecord[] = [
+  {
+    id: 'YI-001', receiptId: 'YR-2026-088', date: '2026-10-10',
+    supplier: 'Shree Yarns Pvt. Ltd.', yarnType: 'Cotton', colour: 'White',
+    batchLot: 'SY-B-4421-A', quantityKg: 1200, sampledKg: 24,
+    damagePct: 8, tensileStrength: 18.4, moisture: 7.2, countNe: 30,
+    inspector: 'Ramesh K.', verdict: 'accepted', inspectedAt: '2026-10-10 10:30',
+  },
+  {
+    id: 'YI-002', receiptId: 'YR-2026-087', date: '2026-10-09',
+    supplier: 'National Fibres', yarnType: 'Polyester', colour: 'Black',
+    batchLot: 'NF-9032-B', quantityKg: 800, sampledKg: 16,
+    damagePct: 35, tensileStrength: 14.1, moisture: 4.8, countNe: 40,
+    inspector: 'Vijay QC', verdict: 'rejected',
+    rejectionReason: 'Damage exceeds 30% threshold — fibre degradation detected',
+    inspectedAt: '2026-10-09 14:15',
+  },
+  {
+    id: 'YI-003', receiptId: 'YR-2026-086', date: '2026-10-08',
+    supplier: 'Bombay Textiles', yarnType: 'Wool', colour: 'Grey',
+    batchLot: 'BT-7701-C', quantityKg: 500, sampledKg: 10,
+    damagePct: 12, tensileStrength: 22.0, moisture: 9.1, countNe: 20,
+    inspector: 'Ramesh K.', verdict: 'accepted', inspectedAt: '2026-10-08 11:00',
+  },
+  {
+    id: 'YI-004', receiptId: 'YR-2026-085', date: '2026-10-07',
+    supplier: 'Shree Yarns Pvt. Ltd.', yarnType: 'Cotton', colour: 'Navy Blue',
+    batchLot: 'SY-B-4398-A', quantityKg: 600, sampledKg: 12,
+    damagePct: 38, tensileStrength: 13.6, moisture: 8.9, countNe: 32,
+    inspector: 'Vijay QC', verdict: 'rejected',
+    rejectionReason: 'Moisture content high + damage at 38% — above 30% threshold',
+    inspectedAt: '2026-10-07 09:45',
+  },
+  {
+    id: 'YI-005', receiptId: 'YR-2026-084', date: '2026-10-05',
+    supplier: 'Silk Route Traders', yarnType: 'Silk', colour: 'Ivory',
+    batchLot: 'SR-2210-D', quantityKg: 150, sampledKg: 3,
+    damagePct: 5, tensileStrength: 28.7, moisture: 6.4, countNe: 120,
+    inspector: 'Ramesh K.', verdict: 'accepted', inspectedAt: '2026-10-05 16:00',
+  },
+  {
+    id: 'YI-006', receiptId: 'YR-2026-088', date: '2026-10-10',
+    supplier: 'Shree Yarns Pvt. Ltd.', yarnType: 'Cotton', colour: 'White',
+    batchLot: 'SY-B-4421-B', quantityKg: 600, sampledKg: 12,
+    damagePct: 22, tensileStrength: 16.9, moisture: 7.8, countNe: 30,
+    inspector: 'Vijay QC', verdict: 'pending', inspectedAt: '2026-10-10 15:00',
+  },
+];

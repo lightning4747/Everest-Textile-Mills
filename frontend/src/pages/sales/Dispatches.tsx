@@ -2,25 +2,29 @@ import { useState } from 'react';
 import { Truck, Plus, FileText, Package } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { dispatches, salesOrders } from '../../data/mockData';
+import { usePagination } from '../../hooks/usePagination';
+import Pagination from '../../components/ui/Pagination';
 
 export default function Dispatches() {
   const [showForm, setShowForm] = useState(false);
   const readyOrders = salesOrders.filter(o => o.status === 'ready_to_ship');
 
+  const { paginatedData, ...paginationProps } = usePagination(dispatches, 20);
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card p-5">
+        <div className="card p-4">
           <p className="stat-label mb-1">Total Dispatches</p>
           <p className="font-display text-4xl font-semibold text-[var(--text)]">{dispatches.length}</p>
         </div>
-        <div className="card p-5">
+        <div className="card p-4">
           <p className="stat-label mb-1">Delivered to Buyer</p>
           <p className="font-display text-4xl font-semibold text-[var(--ok)]">
             {dispatches.filter(d => d.status === 'delivered').length}
           </p>
         </div>
-        <div className="card p-5 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))]">
+        <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))]">
           <p className="stat-label text-[var(--warn)] mb-1">Ready for Gate Pass</p>
           <p className="font-display text-4xl font-semibold text-[var(--warn)]">{readyOrders.length}</p>
           <p className="text-xs text-[var(--text-soft)] mt-1">orders staged</p>
@@ -29,13 +33,13 @@ export default function Dispatches() {
 
       <div className="flex items-center justify-between">
         <p className="text-[var(--text-soft)] text-sm font-medium">{dispatches.length} logistics challans recorded</p>
-        <button className="btn-primary text-xs" onClick={() => setShowForm(!showForm)}>
+        <button className="btn-primary text-xs h-10" onClick={() => setShowForm(!showForm)}>
           <Plus size={14} /> New Dispatch Manifest
         </button>
       </div>
 
       {showForm && (
-        <div className="card p-6 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
+        <div className="card p-5 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
           <h3 className="text-sm font-display font-semibold text-[var(--text)] mb-4">Generate Freight Dispatch & E-Way Gate Pass</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
@@ -73,43 +77,50 @@ export default function Dispatches() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
-                {['Challan ID','Order Ref','Buyer','Roll Count','Total Metres','Dispatch Date','Invoice #','Vehicle #','Status'].map(h=>(
-                  <th key={h} className="px-4 py-3 section-title whitespace-nowrap">{h}</th>
-                ))}
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left font-mono">Challan ID</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left font-mono">Order Ref</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Buyer</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Roll Count</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Total Metres</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono">Dispatch Date</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left font-mono">Invoice #</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left font-mono">Vehicle #</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {dispatches.map(d => (
+              {paginatedData.map(d => (
                 <tr key={d.id} className="table-row-hover">
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 text-left">
                     <div className="flex items-center gap-1.5">
                       <Truck size={14} className="text-[var(--olive-grey)]" />
                       <span className="text-xs font-mono font-bold text-[var(--olive-dark)]">{d.id}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)]">{d.orderId}</td>
-                  <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)]">{d.buyer}</td>
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--text)]">
+                  <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{d.orderId}</td>
+                  <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{d.buyer}</td>
+                  <td className="px-4 py-3.5 text-right tabular-nums">
+                    <div className="flex items-center justify-end gap-1.5 text-xs font-mono text-[var(--text)]">
                       <Package size={12} className="text-[var(--olive-grey)]" />
                       <span>{d.rollIds.length}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)]">{d.totalMetres.toLocaleString()} m</td>
-                  <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">{d.dispatchDate}</td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">{d.totalMetres.toLocaleString()} m</td>
+                  <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right">{d.dispatchDate}</td>
+                  <td className="px-4 py-3.5 text-left">
                     <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-soft)]">
                       <FileText size={12} />
                       <span>{d.invoiceNo}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-xs font-mono text-[var(--text)]">{d.truckNo}</td>
-                  <td className="px-4 py-3.5"><StatusBadge status={d.status} /></td>
+                  <td className="px-4 py-3.5 text-xs font-mono text-[var(--text)] text-left">{d.truckNo}</td>
+                  <td className="px-4 py-3.5 text-center"><StatusBadge status={d.status} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <Pagination {...paginationProps} />
       </div>
     </div>
   );

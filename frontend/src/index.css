@@ -392,3 +392,17 @@
     letter-spacing: 0.05em;
   }
 }
+
+@media print {
+  /* Hide navigation chrome */
+  nav, aside, header, .no-print { display: none !important; }
+  /* Full width content */
+  main { margin: 0 !important; padding: 0 !important; }
+  /* Hide toolbar buttons in print */
+  .print-hide { display: none !important; }
+  /* Keep cards visible */
+  .card { box-shadow: none !important; border: 1px solid #ccc !important; }
+  /* Page breaks */
+  .card { break-inside: avoid; }
+  body { background: white !important; }
+}

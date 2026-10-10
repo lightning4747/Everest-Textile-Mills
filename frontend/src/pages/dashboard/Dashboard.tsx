@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Factory, AlertTriangle, TrendingUp, Activity, Clock, ArrowRight, Cpu, Sparkles } from 'lucide-react';
 import {
@@ -10,12 +10,12 @@ import ProgressBar from '../../components/ui/ProgressBar';
 import { machines, salesOrders, yarnStock, fabricRolls, monthlyData } from '../../data/mockData';
 import { fetchRevenueForecast, ForecastPoint } from '../../services/forecastApi';
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; stroke?: string; color?: string }>; label?: string }) => {
   if (active && payload?.length) {
     return (
       <div className="card p-3 text-xs shadow-md border border-[var(--border)] bg-[var(--surface)]">
         <p className="text-[var(--text-soft)] mb-1.5 font-medium font-mono">{label}</p>
-        {payload.map((p: any) => (
+        {payload.map((p) => (
           <p key={p.name} className="font-mono font-medium" style={{ color: p.stroke || p.color }}>
             {p.name}: ₹{(p.value / 1000).toFixed(0)}K
           </p>
@@ -40,16 +40,36 @@ export default function Dashboard() {
       .finally(() => setLoadingForecast(false));
   }, []);
 
-  const runningMachines = machines.filter(m => m.status === 'running').length;
-  const idleMachines    = machines.filter(m => m.status === 'idle').length;
-  const downMachines    = machines.filter(m => m.status === 'breakdown' || m.status === 'maintenance').length;
-  const lowStock        = yarnStock.filter(y => y.quantityKg <= y.reorderLevel).length;
-  const activeOrders    = salesOrders.filter(o => !['dispatched'].includes(o.status)).length;
-  const readyToShip     = salesOrders.filter(o => o.status === 'ready_to_ship').length;
-  const pendingQC       = fabricRolls.filter(r => r.qcResult === 'pending').length;
-  const totalOutputToday = machines.reduce((s, m) => s + m.outputToday, 0);
+  const stats = useMemo(() => ({
+    runningMachines: machines.filter(m => m.status === 'running').length,
+    idleMachines: machines.filter(m => m.status === 'idle').length,
+    downMachines: machines.filter(m => m.status === 'breakdown' || m.status === 'maintenance').length,
+    lowStock: yarnStock.filter(y => y.quantityKg <= y.reorderLevel).length,
+    activeOrders: salesOrders.filter(o => !['dispatched'].includes(o.status)).length,
+    readyToShip: salesOrders.filter(o => o.status === 'ready_to_ship').length,
+    pendingQC: fabricRolls.filter(r => r.qcResult === 'pending').length,
+    totalOutputToday: machines.reduce((s, m) => s + m.outputToday, 0),
+    recentOrders: salesOrders.slice(0, 5),
+    qcCounts: {
+      passed: fabricRolls.filter(r => r.qcResult === 'passed').length,
+      pending: fabricRolls.filter(r => r.qcResult === 'pending').length,
+      rework: fabricRolls.filter(r => r.qcResult === 'rework').length,
+      rejected: fabricRolls.filter(r => r.qcResult === 'rejected').length,
+    },
+    machineHealth: {
+      running: machines.filter(m => m.status === 'running').length,
+      idle: machines.filter(m => m.status === 'idle').length,
+      maintenance: machines.filter(m => m.status === 'maintenance').length,
+      breakdown: machines.filter(m => m.status === 'breakdown').length,
+    },
+    lowStockItems: yarnStock.filter(y => y.quantityKg <= y.reorderLevel),
+  }), []);
 
-  const recentOrders = salesOrders.slice(0, 5);
+  const handleOrderRowClick = useCallback(() => navigate('/sales/status'), [navigate]);
+  const handleAllOrdersClick = useCallback(() => navigate('/sales/orders'), [navigate]);
+  const handleQCLogsClick = useCallback(() => navigate('/quality/checks'), [navigate]);
+  const handleShopFloorClick = useCallback(() => navigate('/production/shopfloor'), [navigate]);
+  const handleYarnAlertsClick = useCallback(() => navigate('/yarn/alerts'), [navigate]);
 
   // Combined chart data: Historical + ONNX predictions
   const combinedChartData = [
@@ -82,22 +102,22 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Active Orders"
-          value={activeOrders}
-          sub={`${readyToShip} ready for dispatch`}
+          value={stats.activeOrders}
+          sub={`${stats.readyToShip} ready for dispatch`}
           accent="warn"
           icon={<TrendingUp size={18} />}
           trend={{ value: '+3 this week', up: true }}
         />
         <StatCard
           label="Machines Running"
-          value={`${runningMachines}/${machines.length}`}
-          sub={`${idleMachines} idle · ${downMachines} down`}
-          accent={downMachines > 0 ? 'bad' : 'ok'}
+          value={`${stats.runningMachines}/${machines.length}`}
+          sub={`${stats.idleMachines} idle · ${stats.downMachines} down`}
+          accent={stats.downMachines > 0 ? 'bad' : 'ok'}
           icon={<Factory size={18} />}
         />
         <StatCard
           label="Output Today"
-          value={`${totalOutputToday.toLocaleString()} m`}
+          value={`${stats.totalOutputToday.toLocaleString()} m`}
           sub="metres of finished fabric"
           accent="default"
           icon={<Activity size={18} />}
@@ -105,9 +125,9 @@ export default function Dashboard() {
         />
         <StatCard
           label="Low Stock Alerts"
-          value={lowStock}
+          value={stats.lowStock}
           sub="yarn counts below reorder"
-          accent={lowStock > 0 ? 'bad' : 'ok'}
+          accent={stats.lowStock > 0 ? 'bad' : 'ok'}
           icon={<AlertTriangle size={18} />}
         />
       </div>
@@ -180,14 +200,14 @@ export default function Dashboard() {
 
         {/* Quick Summaries */}
         <div className="space-y-4">
-          <div className="card p-5">
+          <div className="card p-4">
             <h3 className="section-title mb-3">QC Batch Status</h3>
             <div className="space-y-2.5">
               {[
-                { label: 'Passed',   count: fabricRolls.filter(r => r.qcResult === 'passed').length,   dot: 'dot-ok' },
-                { label: 'Pending',  count: pendingQC,                                                  dot: 'dot-idle' },
-                { label: 'Rework',   count: fabricRolls.filter(r => r.qcResult === 'rework').length,   dot: 'dot-warn' },
-                { label: 'Rejected', count: fabricRolls.filter(r => r.qcResult === 'rejected').length, dot: 'dot-bad' },
+                { label: 'Passed',   count: stats.qcCounts.passed,   dot: 'dot-ok' },
+                { label: 'Pending',  count: stats.pendingQC,          dot: 'dot-idle' },
+                { label: 'Rework',   count: stats.qcCounts.rework,   dot: 'dot-warn' },
+                { label: 'Rejected', count: stats.qcCounts.rejected, dot: 'dot-bad' },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -198,19 +218,19 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <button onClick={() => navigate('/quality/checks')} className="btn-ghost w-full mt-3 justify-center text-xs">
+            <button onClick={handleQCLogsClick} className="btn-ghost w-full mt-3 justify-center text-xs">
               View all inspection logs <ArrowRight size={12} className="ml-1" />
             </button>
           </div>
 
-          <div className="card p-5">
+          <div className="card p-4">
             <h3 className="section-title mb-3">Shop Floor Machine Health</h3>
             <div className="space-y-2.5">
               {[
-                { label: 'Running',     count: runningMachines,                                         dot: 'dot-ok' },
-                { label: 'Idle',        count: idleMachines,                                            dot: 'dot-idle' },
-                { label: 'Maintenance', count: machines.filter(m => m.status === 'maintenance').length, dot: 'dot-warn' },
-                { label: 'Breakdown',   count: machines.filter(m => m.status === 'breakdown').length,   dot: 'dot-bad' },
+                { label: 'Running',     count: stats.machineHealth.running,     dot: 'dot-ok' },
+                { label: 'Idle',        count: stats.machineHealth.idle,        dot: 'dot-idle' },
+                { label: 'Maintenance', count: stats.machineHealth.maintenance, dot: 'dot-warn' },
+                { label: 'Breakdown',   count: stats.machineHealth.breakdown,   dot: 'dot-bad' },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -221,7 +241,7 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <button onClick={() => navigate('/production/shopfloor')} className="btn-ghost w-full mt-3 justify-center text-xs">
+            <button onClick={handleShopFloorClick} className="btn-ghost w-full mt-3 justify-center text-xs">
               Open Shop Floor Board <ArrowRight size={12} className="ml-1" />
             </button>
           </div>
@@ -230,12 +250,12 @@ export default function Dashboard() {
 
       {/* Live Order Pipeline */}
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-2">
             <Clock size={16} className="text-[var(--warn)]" />
             <h2 className="text-sm font-display font-semibold text-[var(--text)]">Live Production & Order Pipeline</h2>
           </div>
-          <button onClick={() => navigate('/sales/orders')} className="btn-ghost text-xs">
+          <button onClick={handleAllOrdersClick} className="btn-ghost text-xs">
             All orders <ArrowRight size={12} className="ml-1" />
           </button>
         </div>
@@ -249,13 +269,13 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {recentOrders.map(order => {
+              {stats.recentOrders.map(order => {
                 const pct = Math.round((order.completedMetres / order.quantityMetres) * 100);
                 return (
                   <tr
                     key={order.id}
                     className="table-row-hover cursor-pointer"
-                    onClick={() => navigate('/sales/status')}
+                    onClick={handleOrderRowClick}
                   >
                     <td className="px-5 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)]">{order.id}</td>
                     <td className="px-5 py-3.5 text-xs font-semibold text-[var(--text)]">{order.buyer}</td>
@@ -277,20 +297,20 @@ export default function Dashboard() {
       </div>
 
       {/* Reorder Warnings */}
-      {lowStock > 0 && (
+      {stats.lowStock > 0 && (
         <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))] flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <AlertTriangle size={18} className="text-[var(--warn)] flex-shrink-0" />
             <div>
               <p className="text-sm font-semibold text-[var(--text)]">
-                {lowStock} yarn count{lowStock > 1 ? 's' : ''} at or below reorder threshold
+                {stats.lowStock} yarn count{stats.lowStock > 1 ? 's' : ''} at or below reorder threshold
               </p>
               <p className="text-xs text-[var(--text-soft)] font-mono mt-0.5">
-                {yarnStock.filter(y => y.quantityKg <= y.reorderLevel).map(y => `${y.colour} ${y.type}`).join(' · ')}
+                {stats.lowStockItems.map(y => `${y.colour} ${y.type}`).join(' · ')}
               </p>
             </div>
           </div>
-          <button onClick={() => navigate('/yarn/alerts')} className="btn-secondary text-xs flex-shrink-0">
+          <button onClick={handleYarnAlertsClick} className="btn-secondary text-xs flex-shrink-0">
             View Alerts Queue
           </button>
         </div>
