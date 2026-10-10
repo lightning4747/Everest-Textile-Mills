@@ -172,6 +172,26 @@ export async function updateYarnLowStockGauge(): Promise<number> {
   return lowCount;
 }
 
+import { machineOutputLog } from '../db/schema.js';
+import { productionOutputMetresToday } from '../metrics.js';
+
+/**
+ * Update Prometheus production_output_metres_today gauge
+ */
+export async function updateProductionOutputGauge(): Promise<number> {
+  const today = new Date().toISOString().split('T')[0];
+  const [sumResult] = await db
+    .select({
+      total: sql<number>`coalesce(sum(${machineOutputLog.metres}), 0)::int`,
+    })
+    .from(machineOutputLog)
+    .where(eq(machineOutputLog.date, today));
+
+  const totalToday = sumResult?.total ?? 0;
+  productionOutputMetresToday.set(totalToday);
+  return totalToday;
+}
+
 /**
  * Handoff: Yarn (Person A) -> Dashboard / Alerts Notification
  */
