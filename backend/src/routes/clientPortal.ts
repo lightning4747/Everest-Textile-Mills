@@ -78,3 +78,5 @@ clientPortalRouter.get('/orders/:id', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch order details' });
   }
 });
+
+export default clientPortalRouter;

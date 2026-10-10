@@ -76,3 +76,5 @@ productsRouter.patch('/:id', authenticate, authorize('admin', 'manager'), async 
     res.status(500).json({ error: 'Failed to update product' });
   }
 });
+
+export default productsRouter;
