@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../context/AuthContext';
 import { ShieldCheck, LogIn, AlertCircle, KeyRound, User } from 'lucide-react';
-import LuminousFilaments from '../../components/ui/LuminousFilaments';
 import { CloudShader } from '@/components/ui/cloud-shader';
 
 const DEMO_ACCOUNTS: { role: UserRole; name: string; email: string; desc: string }[] = [
@@ -62,85 +61,67 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* 2. Right side: CloudShader & Luminous Filaments background with centered login form card */}
-      <div className="relative w-full lg:w-1/2 h-full flex flex-col justify-center items-center px-4 py-6 sm:px-8 overflow-y-auto bg-[#0a0e14]">
-        {/* Aceternity UI: CloudShader animated sky & clouds background */}
+      {/* 2. Right side: CloudShader background with centered login form card */}
+      <div className="relative w-full lg:w-1/2 h-full flex flex-col justify-between items-center px-4 py-6 sm:px-8 overflow-y-auto bg-[#0a0e14]">
+        {/* CloudShader animated sky & cloud background */}
         <CloudShader
-          skyTopColor="#004643"
-          skyBottomColor="#0a0e14"
-          cloudColor="#1C7C54"
-          count={5}
+          skyTopColor="#0a192f"
+          skyBottomColor="#1e3a8a"
+          cloudColor="#f8fafc"
+          count={6}
           speed={0.8}
-          className="absolute inset-0 w-full h-full pointer-events-none z-0 opacity-75"
-        />
-
-        {/* React Bits Pro: Luminous Filaments glowing overlay */}
-        <LuminousFilaments
-          colors={['#00E5FF', '#10B981']}
-          backgroundColor="transparent"
-          mode="glow"
-          fibers={96}
-          lineWidth={2.2}
-          glow={1.4}
-          intensity={2.2}
-          speed={0.8}
-          flare={1.6}
-          twist={0.4}
-          sway={1.0}
-          originX={0.5}
-          originY={0.5}
-          interactive={true}
-          hoverPulses={true}
-          clickSurge={true}
           className="absolute inset-0 w-full h-full pointer-events-none z-0"
         />
 
+        {/* Top spacer */}
+        <div className="w-full h-2 relative z-10" />
+
         {/* 3. Form card */}
-        <div className="relative z-10 w-full max-w-[420px] p-5 sm:p-6 bg-white/95 backdrop-blur-xl border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.6)] rounded-[24px] space-y-3.5 my-auto">
+        <div className="relative z-10 w-full max-w-[420px] p-6 sm:p-7 bg-white/95 backdrop-blur-xl border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.5)] rounded-[24px] space-y-4 my-auto">
           {/* Above form: logo, short heading ("Welcome back"), subtext */}
           <div className="text-center pb-1">
             <img
               src="/assets/logo.png"
               alt="Everest Textile Mills"
-              className="h-9 w-auto mx-auto mb-2 object-contain"
+              className="h-10 w-auto mx-auto mb-2 object-contain"
             />
             <h2 className="text-xl font-display font-bold text-[var(--cyprus)] leading-tight">Welcome back</h2>
-            <p className="text-xs text-[var(--text-soft)] mt-0.5">Sign in to Everest Mills Terminal</p>
+            <p className="text-xs text-[var(--text-soft)] mt-1">Sign in to Everest Mills Terminal</p>
           </div>
 
           {error && (
-            <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 flex items-center gap-2">
-              <AlertCircle size={15} className="flex-shrink-0" />
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 flex items-center gap-2">
+              <AlertCircle size={16} className="flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-3">
+          <form onSubmit={handleLogin} className="space-y-3.5">
             <div>
-              <label className="section-title block mb-1 text-xs font-medium">Email Address</label>
+              <label className="section-title block mb-1 text-xs font-semibold text-[var(--text)]">Email Address</label>
               <div className="relative">
-                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+                <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
-                  className="input-field pl-9 text-xs font-mono w-full h-9.5 rounded-lg"
+                  className="input-field pl-9.5 text-xs font-mono w-full h-10 rounded-lg"
                   placeholder="name@everest.local"
                 />
               </div>
             </div>
 
             <div>
-              <label className="section-title block mb-1 text-xs font-medium">Password</label>
+              <label className="section-title block mb-1 text-xs font-semibold text-[var(--text)]">Password</label>
               <div className="relative">
-                <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+                <KeyRound size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
                 <input
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  className="input-field pl-9 text-xs font-mono w-full h-9.5 rounded-lg"
+                  className="input-field pl-9.5 text-xs font-mono w-full h-10 rounded-lg"
                   placeholder="••••••••••••"
                 />
               </div>
@@ -149,24 +130,24 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full justify-center h-10 text-xs font-semibold rounded-lg shadow-md transition-all active:scale-[0.99]"
+              className="btn-primary w-full justify-center h-10.5 text-xs font-semibold rounded-lg shadow-md transition-all active:scale-[0.99] mt-1"
             >
-              <LogIn size={14} />
+              <LogIn size={15} />
               {loading ? 'Authenticating...' : 'Sign In to Mill Terminal'}
             </button>
           </form>
 
-          <div className="pt-2.5 border-t border-[var(--border)]">
-            <p className="text-[10px] font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-1.5">
+          <div className="pt-3 border-t border-[var(--border)]">
+            <p className="text-[10.5px] font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-2">
               One-Click Demo Profiles (password: changeme123)
             </p>
-            <div className="grid grid-cols-1 gap-1 max-h-[160px] overflow-y-auto pr-0.5 custom-scrollbar">
+            <div className="grid grid-cols-1 gap-1.5 max-h-[160px] overflow-y-auto pr-0.5 custom-scrollbar">
               {DEMO_ACCOUNTS.map(acc => (
                 <button
                   key={acc.email}
                   type="button"
                   onClick={() => selectDemoAccount(acc.email)}
-                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-left transition-colors ${
+                  className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-left transition-colors ${
                     email === acc.email
                       ? 'border-[var(--cyprus)] bg-[var(--surface-2)] text-[var(--text)]'
                       : 'border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)]'
@@ -186,11 +167,10 @@ export default function LoginPage() {
         </div>
 
         {/* Small footer at bottom of right side */}
-        <footer className="relative z-10 pt-3 pb-1 text-center text-[11px] text-white/70">
+        <footer className="relative z-10 pt-3 pb-1 text-center text-xs font-medium text-white/90 drop-shadow-sm">
           © {new Date().getFullYear()} Everest Textile Mills. All rights reserved.
         </footer>
       </div>
     </div>
   );
 }
-
