@@ -191,7 +191,7 @@ async function seed() {
   await db.insert(fabricRolls).values([
     { id: 'FR-5501', orderId: 'ORD-1033', machineId: 'DY-01', metres: '120', producedDate: '2026-10-09', qcResult: 'passed',   checkedBy: 'Vijay QC',  checkedAt: new Date('2026-10-10T09:15:00') },
     { id: 'FR-5502', orderId: 'ORD-1033', machineId: 'DY-01', metres: '115', producedDate: '2026-10-09', qcResult: 'passed',   checkedBy: 'Vijay QC',  checkedAt: new Date('2026-10-10T09:30:00') },
-    { id: 'FR-5503', orderId: 'ORD-1033', machineId: 'DY-01', metres: '118', producedDate: '2026-10-09', qcResult: 'rework',   checkedBy: 'Vijay QC',  checkedAt: new Date('2026-10-10T09:45:00'), defects: ['Colour mismatch'] },
+    { id: 'FR-5503', orderId: 'ORD-1033', machineId: 'DY-01', metres: '118', producedDate: '2026-10-09', qcResult: 'pending' },
     { id: 'FR-5504', orderId: 'ORD-1033', machineId: 'DY-01', metres: '122', producedDate: '2026-10-10', qcResult: 'pending' },
     { id: 'FR-5505', orderId: 'ORD-1038', machineId: 'WV-01', metres: '200', producedDate: '2026-10-08', qcResult: 'passed',   checkedBy: 'Meena QC',  checkedAt: new Date('2026-10-09T14:00:00') },
     { id: 'FR-5506', orderId: 'ORD-1038', machineId: 'WV-01', metres: '195', producedDate: '2026-10-08', qcResult: 'rejected', checkedBy: 'Meena QC',  checkedAt: new Date('2026-10-09T14:20:00'), defects: ['Holes', 'Uneven weaving'] },

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, RefreshCw, FlaskConical } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, ShieldAlert, RefreshCw, FlaskConical } from 'lucide-react';
 import type { QCResult } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
@@ -40,7 +40,7 @@ export default function PendingInspection() {
     try {
       await api.patch(`/fabric-rolls/${rollId}/qc`, {
         qcResult: result,
-        grade: result === 'passed' ? 'A' : result === 'rework' ? 'B' : 'C',
+        grade: result === 'passed' ? 'A' : 'C',
         remarks: `Verdict marked as ${result} via Quality Inspection`,
       });
       refetch();
@@ -81,8 +81,8 @@ export default function PendingInspection() {
         <FlaskConical size={15} className="text-[var(--warn)] flex-shrink-0" />
         <p className="text-xs text-[var(--text-soft)]">
           Inspection criteria: Yarn irregularity &lt; 5%, Warp/weft defect density &lt; 2 per metre,
-          Dye consistency ΔE &lt; 1.5. Rolls failing any criterion are flagged for rework or rejection.
-          <strong className="text-[var(--text)]"> Threshold: pass ≥ 60%, rework 40–59%, reject &lt; 40% quality score.</strong>
+          Dye consistency ΔE &lt; 1.5. Rolls failing any criterion are flagged for rejection.
+          <strong className="text-[var(--text)]"> Threshold: pass ≥ 60%, reject &lt; 60% quality score.</strong>
         </p>
       </div>
 
@@ -155,7 +155,7 @@ export default function PendingInspection() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-soft)] mb-2.5">
                       Inspection Verdict:
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <button
                         onClick={() => handleAction(roll.id, 'passed')}
                         disabled={isUpdating}
@@ -163,14 +163,6 @@ export default function PendingInspection() {
                       >
                         <CheckCircle2 size={20} />
                         <span>Pass Roll (Ready)</span>
-                      </button>
-                      <button
-                        onClick={() => handleAction(roll.id, 'rework')}
-                        disabled={isUpdating}
-                        className="btn-quality-rework disabled:opacity-50"
-                      >
-                        <RotateCcw size={20} />
-                        <span>Mark Rework (Scouring/Re-dye)</span>
                       </button>
                       <button
                         onClick={() => handleAction(roll.id, 'rejected')}

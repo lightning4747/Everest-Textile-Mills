@@ -1262,7 +1262,6 @@
       "schema": "public",
       "values": [
         "passed",
-        "rework",
         "rejected",
         "pending"
       ]

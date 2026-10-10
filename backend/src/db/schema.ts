@@ -17,7 +17,7 @@ export const productionStatusEnum = pgEnum('production_status', [
   'queued', 'in_progress', 'paused', 'completed',
 ]);
 
-export const qcResultEnum      = pgEnum('qc_result',      ['passed', 'rework', 'rejected', 'pending']);
+export const qcResultEnum      = pgEnum('qc_result',      ['passed', 'rejected', 'pending']);
 export const dispatchStatusEnum = pgEnum('dispatch_status', ['prepared', 'loaded', 'delivered']);
 export const userRoleEnum      = pgEnum('user_role', ['admin', 'manager', 'operator', 'qc_inspector', 'viewer']);
 

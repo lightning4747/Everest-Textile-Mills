@@ -4,7 +4,7 @@ CREATE TYPE "public"."machine_status" AS ENUM('running', 'idle', 'maintenance', 
 CREATE TYPE "public"."machine_type" AS ENUM('spinning', 'weaving', 'dyeing');--> statement-breakpoint
 CREATE TYPE "public"."order_status" AS ENUM('pending', 'yarn_check', 'spinning', 'weaving', 'dyeing', 'quality_check', 'ready_to_ship', 'dispatched');--> statement-breakpoint
 CREATE TYPE "public"."production_status" AS ENUM('queued', 'in_progress', 'paused', 'completed');--> statement-breakpoint
-CREATE TYPE "public"."qc_result" AS ENUM('passed', 'rework', 'rejected', 'pending');--> statement-breakpoint
+CREATE TYPE "public"."qc_result" AS ENUM('passed', 'rejected', 'pending');--> statement-breakpoint
 CREATE TYPE "public"."user_role" AS ENUM('admin', 'manager', 'operator', 'qc_inspector', 'viewer');--> statement-breakpoint
 CREATE TYPE "public"."yarn_type" AS ENUM('Cotton', 'Polyester', 'Wool', 'Silk', 'Blended');--> statement-breakpoint
 CREATE TABLE "app_config" (

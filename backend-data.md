@@ -51,7 +51,7 @@ Referenced from [`backend/src/middleware/auth.ts`](file:///home/bow/projects/Eve
 - `admin` — Unrestricted access across all endpoints.
 - `manager` — Financial reports, status updates, ordering, machine allocation.
 - `operator` — Machine status updates, machine output logging, yarn receipts.
-- `qc_inspector` — Fabric roll creation and QC pass/rework/reject decisions.
+- `qc_inspector` — Fabric roll creation and QC pass/reject decisions.
 - `viewer` — Read-only access to standard views.
 
 ### Token Flow
@@ -86,7 +86,7 @@ All dashboard endpoints require `authenticate`. Accessible to all roles.
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/dashboard/kpis` | None | None | `{ activeOrders: number, readyToShip: number, runningMachines: number, totalMachines: number, idleMachines: number, downMachines: number, outputToday: number, lowStockCount: number, pendingQC: number }` | `200`, `401` |
 | `GET` | `/api/v1/dashboard/monthly-chart` | None | None | Array of `{ month: string ("May"), revenue: number, cost: number, output: number, wages: number }` (last 6 months) | `200`, `401` |
-| `GET` | `/api/v1/dashboard/qc-summary` | None | None | `{ passed: number, rework: number, rejected: number, pending: number }` | `200`, `401` |
+| `GET` | `/api/v1/dashboard/qc-summary` | None | None | `{ passed: number, rejected: number, pending: number }` | `200`, `401` |
 | `GET` | `/api/v1/dashboard/machine-health` | None | None | `{ running: number, idle: number, maintenance: number, breakdown: number }` | `200`, `401` |
 | `GET` | `/api/v1/dashboard/recent-orders` | None | None | Array (top 5) of `{ id, buyer, fabric, colour, targetMetres: number, completedMetres: number, progressPct: number, status, deliveryDate }` | `200`, `401` |
 | `GET` | `/api/v1/dashboard/low-stock` | None | None | Array of `{ id, type, colour, quantityKg: number, reorderLevel: number, bin: string, location: string, supplier: string \| null }` | `200`, `401` |
@@ -155,11 +155,11 @@ All fabric roll endpoints require `authenticate`.
 | Method | Path | Auth / Role | Query Params | Request Body | Response Shape (`data`) | Status Codes |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/fabric-rolls/pending` | Authenticated | None | None | Array of pending rolls joined with buyer and machine | `200`, `401` |
-| `GET` | `/api/v1/fabric-rolls/stats` | Authenticated | None | None | `{ totalRolls, totalMetres, passedCount, rejectedCount, reworkCount, pendingCount, passRate, rejectionRate }` | `200`, `401` |
+| `GET` | `/api/v1/fabric-rolls/stats` | Authenticated | None | None | `{ totalRolls, totalMetres, passedCount, rejectedCount, pendingCount, passRate, rejectionRate }` | `200`, `401` |
 | `GET` | `/api/v1/fabric-rolls` | Authenticated | `?order_id=`, `?qc_result=`, `?machine_id=`, `?page=1`, `?limit=50` | None | Array of `{ id, orderId, buyer, machineId, machineName, machineType, metres: number, producedDate, qcResult, defects: string[], checkedBy, checkedAt, createdAt }` with `meta` | `200`, `401` |
 | `GET` | `/api/v1/fabric-rolls/:id` | Authenticated | None | None | Single FabricRoll detail record | `200`, `401`, `404` |
 | `POST` | `/api/v1/fabric-rolls` | `admin`, `manager`, `operator`, `qc_inspector` | None | `{ orderId: string, machineId: string, metres: number, producedDate?: string }` | Created FabricRoll (generates `FR-NNNN` sequence ID) | `201`, `400`, `401`, `403`, `404` |
-| `PATCH` | `/api/v1/fabric-rolls/:id/qc` | `admin`, `manager`, `qc_inspector` | None | `{ qc_result: 'passed'\|'rework'\|'rejected', checked_by: string, defects?: string[] }` | Updated FabricRoll (advances `completedMetres` on SalesOrder if passed) | `200`, `400`, `401`, `403`, `404` |
+| `PATCH` | `/api/v1/fabric-rolls/:id/qc` | `admin`, `manager`, `qc_inspector` | None | `{ qc_result: 'passed'\|'rejected', checked_by: string, defects?: string[] }` | Updated FabricRoll (advances `completedMetres` on SalesOrder if passed) | `200`, `400`, `401`, `403`, `404` |
 
 ---
 
@@ -228,7 +228,7 @@ Referenced from [`backend/src/db/schema.ts`](file:///home/bow/projects/Everest-T
 | `yarn_receipts` | `id` (varchar 30) | `date` (date), `supplierId` (UUID FK), `supplierName` (varchar), `yarnType`, `colour`, `quantityKg` (numeric), `yarnStockId` (FK), `forOrderId` (FK), `receivedBy`, `invoiceNo` | |
 | `sales_orders` | `id` (varchar 20) | `buyer` (varchar), `fabricType` (varchar), `colour` (varchar), `quantityMetres` (numeric), `unitPrice` (numeric), `deliveryDate` (date), `createdDate` (date), `status`, `machineId` (FK), `completedMetres` (numeric) | `order_status`: pending, yarn_check, spinning, weaving, dyeing, quality_check, ready_to_ship, dispatched |
 | `production_orders`| `id` (UUID) | `salesOrderId` (FK, unique), `machineId` (FK), `startDate` (date), `expectedEndDate` (date), `status`, `outputMetres` (numeric), `targetMetres` (numeric) | `production_status`: queued, in_progress, paused, completed |
-| `fabric_rolls` | `id` (varchar 20) | `orderId` (FK), `machineId` (FK), `metres` (numeric), `producedDate` (date), `qcResult`, `defects` (jsonb string array), `checkedBy`, `checkedAt` | `qc_result`: passed, rework, rejected, pending |
+| `fabric_rolls` | `id` (varchar 20) | `orderId` (FK), `machineId` (FK), `metres` (numeric), `producedDate` (date), `qcResult`, `defects` (jsonb string array), `checkedBy`, `checkedAt` | `qc_result`: passed, rejected, pending |
 | `dispatches` | `id` (varchar 20) | `orderId` (FK), `buyer` (varchar), `totalMetres` (numeric), `dispatchDate` (date), `invoiceNo`, `truckNo`, `status` | `dispatch_status`: prepared, loaded, delivered |
 | `dispatch_rolls` | Composite | `dispatchId` (FK), `rollId` (FK) | Unique on `(dispatchId, rollId)` |
 | `order_costs` | `orderId` (FK) | `buyer`, `yarnCost` (numeric), `labourCost` (numeric), `machineCost` (numeric), `revenue` (numeric) | Financial computations performed in queries |

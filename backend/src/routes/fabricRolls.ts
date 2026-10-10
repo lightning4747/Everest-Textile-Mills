@@ -18,7 +18,7 @@ import { qcDecisionsTotal } from '../metrics.js';
 const router = Router();
 router.use(authenticate);
 
-const QC_RESULTS = ['passed', 'rework', 'rejected', 'pending'] as const;
+const QC_RESULTS = ['passed', 'rejected', 'pending'] as const;
 type QCResult = (typeof QC_RESULTS)[number];
 
 // ── Validation Schemas ────────────────────────────────────────────────────────
@@ -42,15 +42,15 @@ const createFabricRollSchema = z.object({
 
 const qcDecisionSchema = z
   .object({
-    qc_result: z.enum(['passed', 'rework', 'rejected']),
+    qc_result: z.enum(['passed', 'rejected']),
     checked_by: z.string().trim().min(1, 'Checked by is required'),
     defects: z.array(z.string().trim().min(1)).optional(),
   })
   .superRefine((data, ctx) => {
-    if (['rework', 'rejected'].includes(data.qc_result) && (!data.defects || data.defects.length === 0)) {
+    if (data.qc_result === 'rejected' && (!data.defects || data.defects.length === 0)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Defects must be specified when result is rework or rejected',
+        message: 'Defects must be specified when result is rejected',
         path: ['defects'],
       });
     }
@@ -121,7 +121,6 @@ router.get('/stats', async (_req, res, next) => {
 
     const passedCount = rolls.filter((r) => r.qcResult === 'passed').length;
     const rejectedCount = rolls.filter((r) => r.qcResult === 'rejected').length;
-    const reworkCount = rolls.filter((r) => r.qcResult === 'rework').length;
     const pendingCount = rolls.filter((r) => r.qcResult === 'pending').length;
 
     const inspectedCount = totalRolls - pendingCount;
@@ -133,7 +132,6 @@ router.get('/stats', async (_req, res, next) => {
       totalMetres,
       passedCount,
       rejectedCount,
-      reworkCount,
       pendingCount,
       passRate,
       rejectionRate,
@@ -328,7 +326,7 @@ router.post(
 
 /**
  * PATCH /api/v1/fabric-rolls/:id/qc
- * Submit QC decision ('passed', 'rework', 'rejected') with concurrency guard:
+ * Submit QC decision ('passed', 'rejected') with concurrency guard:
  * WHERE qc_result = 'pending' to prevent double submission.
  */
 router.patch(

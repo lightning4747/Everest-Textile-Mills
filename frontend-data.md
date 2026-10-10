@@ -34,7 +34,7 @@ Below is the complete audit of every page and layout component across the fronte
 | **Shop Floor Board** | [`ShopFloorBoard.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/shopfloor/ShopFloorBoard.tsx) | `machines` | Filter tabs (`all`, `spinning`, `weaving`, `dyeing`), status toggle | `mockData.ts`, local filters | Grid renders empty if no machines match filter. |
 | **Quality Checks** | [`QualityChecks.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/quality/QualityChecks.tsx) | `fabricRolls`, `salesOrders`, `machines` | "Log Quality Inspection" button (unwired) | `mockData.ts`, `usePagination`, `useDebounce` | Handled: "No inspection records match the current filters" empty state. |
 | **Fabric Rolls** | [`FabricRolls.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/quality/FabricRolls.tsx) | `fabricRolls`, `salesOrders`, `machines` | Search filter | `mockData.ts`, `usePagination`, `useDebounce` | Handled: "No fabric rolls match the current filters" empty state. |
-| **Pending Inspection** | [`PendingInspection.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/quality/PendingInspection.tsx) | `fabricRolls`, `salesOrders`, `machines` | `handleAction(rollId, 'passed' \| 'rework' \| 'rejected')` | `mockData.ts` into local `rolls` `useState` | Handled: "All produced fabric rolls have been inspected and cleared." |
+| **Pending Inspection** | [`PendingInspection.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/quality/PendingInspection.tsx) | `fabricRolls`, `salesOrders`, `machines` | `handleAction(rollId, 'passed' \| 'rejected')` | `mockData.ts` into local `rolls` `useState` | Handled: "All produced fabric rolls have been inspected and cleared." |
 | **Sales Orders** | [`SalesOrders.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/sales/SalesOrders.tsx) | `salesOrders` | Order booking form inputs (unwired) | `mockData.ts`, `usePagination`, `useDebounce` | Handled: "No orders match the current filters" empty state. |
 | **Order Status** | [`OrderStatus.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/sales/OrderStatus.tsx) | `salesOrders`, `machines` | Search query | `mockData.ts`, `usePagination`, `useDebounce` | Handled: "No orders match query" empty state. |
 | **Finished Goods** | [`FinishedGoods.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/sales/FinishedGoods.tsx) | `salesOrders`, `fabricRolls` | None (View-only) | `mockData.ts`, `usePagination` | No explicit empty state. |
@@ -148,7 +148,7 @@ interface SalesOrder {
 
 ### 3.5 Fabric Roll
 ```typescript
-type QCResult = 'passed' | 'rework' | 'rejected' | 'pending';
+type QCResult = 'passed' | 'rejected' | 'pending';
 
 interface FabricRoll {
   id: string;               // e.g. "FR-5501"
@@ -156,7 +156,7 @@ interface FabricRoll {
   machineId: string;        // Producing loom (e.g. "DY-01")
   metres: number;           // Roll batch length in metres
   producedDate: string;     // "YYYY-MM-DD"
-  qcResult: QCResult;       // 'passed' | 'rework' | 'rejected' | 'pending'
+  qcResult: QCResult;       // 'passed' | 'rejected' | 'pending'
   defects?: string[];       // e.g. ["Colour mismatch", "Holes"]
   checkedBy?: string;       // Inspector name (e.g. "Vijay QC")
   checkedAt?: string;       // Formatted date-time string
@@ -217,7 +217,7 @@ If the UI triggers real HTTP requests, the following shapes are required by curr
   - Quality Checks / Rolls: search by roll ID or order ID.
 - **Categorical Filters:**
   - Machines / Shopfloor: `type` (`all | spinning | weaving | dyeing`), `status` (`all | running | idle | maintenance | breakdown`).
-  - Quality: `qcResult` (`all | passed | rework | rejected | pending`).
+  - Quality: `qcResult` (`all | passed | rejected | pending`).
   - Reports: `buyer` (`all | <BuyerName>`), `fromMonth` and `toMonth` indices.
 
 ### 4.2 Form Payloads Designed in UI
@@ -238,7 +238,7 @@ If the UI triggers real HTTP requests, the following shapes are required by curr
    - Rate (₹/metre): `number`
    - Target Delivery: `string` (YYYY-MM-DD)
 3. **Log QC Inspection Verdict ([`PendingInspection.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/quality/PendingInspection.tsx#L84-L106)):**
-   - Action buttons send: `rollId` + `result: 'passed' | 'rework' | 'rejected'`.
+   - Action buttons send: `rollId` + `result: 'passed' | 'rejected'`.
    - Local state currently injects `checkedBy: 'Supervisor'`, `checkedAt: 'Just now'`.
 4. **Generate Freight Dispatch ([`Dispatches.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/sales/Dispatches.tsx#L41-L73)):**
    - Select Ready Order: `orderId`
@@ -263,7 +263,7 @@ The frontend computes substantial business calculations in client-side `useMemo`
    - `readyToShip` (status === 'ready_to_ship')
    - `pendingQC` (rolls where qcResult === 'pending')
    - `totalOutputToday` (sum of `outputToday` across machines)
-   - `qcCounts` breakdown (`passed`, `pending`, `rework`, `rejected`)
+   - `qcCounts` breakdown (`passed`, `pending`, `rejected`)
    - `recentOrders` progress percentage: `Math.round((completedMetres / quantityMetres) * 100)`
 2. **Order Costing & Reports ([`OrderCosting.tsx`](file:///home/bow/projects/Everest-Textile-Mills/frontend/src/pages/reports/OrderCosting.tsx#L50-L63)):**
    - `totalRevenue = sum(revenue)`

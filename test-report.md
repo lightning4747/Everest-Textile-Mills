@@ -46,7 +46,7 @@ During the takeover and load testing phases, the following gaps and runtime defe
 | :--- | :--- | :--- | :--- |
 | **Dashboard KPIs** | Aggregated active orders, ready to ship, machine statuses, output today, low stock, pending QC | Stubs (`501`) | Aggregated real-time metrics with fallback to latest output dates |
 | **Dashboard Monthly Chart** | 6-month historical snapshots with short month labels | Stubs (`501`) | Chronologically sorted 6-month array with numeric-to-shortname month mapping |
-| **Dashboard QC Summary** | Breakdown by QC status (`passed`, `rework`, `rejected`, `pending`) | Stubs (`501`) | GROUP BY status aggregation with default 0s |
+| **Dashboard QC Summary** | Breakdown by QC status (`passed`, `rejected`, `pending`) | Stubs (`501`) | GROUP BY status aggregation with default 0s |
 | **Dashboard Machine Health** | Counts for `running`, `idle`, `maintenance`, `breakdown` | Stubs (`501`) | Machine inventory grouped by operational status |
 | **Dashboard Recent Orders** | 5 latest sales orders with calculated progress percentage | Stubs (`501`) | Ordered by creation date, progress rounded to nearest percentage |
 | **Dashboard Low Stock** | Yarn items at or below reorder level joined with supplier details | Stubs (`501`) | Filtered query joined with `suppliers` table |

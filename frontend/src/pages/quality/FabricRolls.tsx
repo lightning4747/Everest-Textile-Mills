@@ -27,7 +27,6 @@ interface FabricRollStats {
   totalMetres: number;
   passedCount: number;
   rejectedCount: number;
-  reworkCount: number;
   pendingCount: number;
   passRate: number;
   rejectionRate: number;

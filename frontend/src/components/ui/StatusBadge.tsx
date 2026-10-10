@@ -30,7 +30,6 @@ const statusTypeMap: Record<string, { label: string; type: ThemeStatusType }> = 
 
   // Warn statuses
   maintenance:   { label: 'Maintenance',   type: 'warn' },
-  rework:        { label: 'Rework',        type: 'warn' },
   loaded:        { label: 'Loaded',        type: 'warn' },
   paused:        { label: 'Paused',        type: 'warn' },
   in_progress:   { label: 'In Progress',   type: 'warn' },

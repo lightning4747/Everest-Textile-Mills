@@ -167,7 +167,6 @@ router.get('/qc-summary', async (_req, res, next) => {
 
     const summary = {
       passed: 0,
-      rework: 0,
       rejected: 0,
       pending: 0,
     };

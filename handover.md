@@ -137,7 +137,6 @@ All endpoints require authentication (`router.use(authenticate)`). Accessible by
 - **Query:**
   - Query `fabric_rolls`, aggregate counts by `qc_result`:
     - `passed`: `COUNT(*) WHERE qc_result = 'passed'`
-    - `rework`: `COUNT(*) WHERE qc_result = 'rework'`
     - `rejected`: `COUNT(*) WHERE qc_result = 'rejected'`
     - `pending`: `COUNT(*) WHERE qc_result = 'pending'`
 - **Response Shape:**
@@ -146,7 +145,6 @@ All endpoints require authentication (`router.use(authenticate)`). Accessible by
     "success": true,
     "data": {
       "passed": 5,
-      "rework": 1,
       "rejected": 1,
       "pending": 3
     }

@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import app from '../index.js';
 import { signToken } from '../middleware/auth.js';
 import { db, pool } from '../db/index.js';
-import { yarnStock, machineStatusLog, machines } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { yarnStock, yarnReceipts, machineStatusLog, machines } from '../db/schema.js';
+import { eq, and } from 'drizzle-orm';
 import {
   checkMachineAvailability,
   reserveYarnStock,
@@ -247,6 +247,10 @@ describe('Person A: Domain Suite', () => {
     });
 
     it('POST /api/v1/yarn/receipts auto-creates a new stock bin when no matching bin exists', async () => {
+      // Ensure test idempotency
+      await db.delete(yarnReceipts).where(eq(yarnReceipts.invoiceNo, 'TEST-NEW-BIN-01'));
+      await db.delete(yarnStock).where(and(eq(yarnStock.type, 'Silk'), eq(yarnStock.colour, 'Royal Blue')));
+
       const res = await fetch(`${baseUrl}/yarn/receipts`, {
         method: 'POST',
         headers: {
@@ -484,7 +488,6 @@ describe('Person A: Domain Suite', () => {
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(body.data).toHaveProperty('passed');
-      expect(body.data).toHaveProperty('rework');
       expect(body.data).toHaveProperty('rejected');
       expect(body.data).toHaveProperty('pending');
       expect(typeof body.data.passed).toBe('number');

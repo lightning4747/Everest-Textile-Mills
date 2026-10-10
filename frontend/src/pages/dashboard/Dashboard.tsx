@@ -33,7 +33,6 @@ interface MonthlyChartPoint {
 
 interface QCSummary {
   passed: number;
-  rework: number;
   rejected: number;
   pending: number;
 }
@@ -105,7 +104,7 @@ export default function Dashboard() {
   });
 
   const [monthlyTrend, setMonthlyTrend] = useState<MonthlyChartPoint[]>([]);
-  const [qcCounts, setQcCounts] = useState<QCSummary>({ passed: 0, rework: 0, rejected: 0, pending: 0 });
+  const [qcCounts, setQcCounts] = useState<QCSummary>({ passed: 0, rejected: 0, pending: 0 });
   const [machineHealth, setMachineHealth] = useState<MachineHealth>({ running: 0, idle: 0, maintenance: 0, breakdown: 0 });
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
@@ -301,7 +300,6 @@ export default function Dashboard() {
               {[
                 { label: 'Passed',   count: qcCounts.passed,   dot: 'dot-ok' },
                 { label: 'Pending',  count: kpis.pendingQC || qcCounts.pending, dot: 'dot-idle' },
-                { label: 'Rework',   count: qcCounts.rework,   dot: 'dot-warn' },
                 { label: 'Rejected', count: qcCounts.rejected, dot: 'dot-bad' },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between">

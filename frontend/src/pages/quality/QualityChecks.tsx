@@ -26,7 +26,6 @@ interface BackendFabricRoll {
 const filters: { label: string; value: QCResult | 'all' }[] = [
   { label: 'All Inspections', value: 'all' },
   { label: 'Passed',          value: 'passed' },
-  { label: 'Rework',          value: 'rework' },
   { label: 'Rejected',        value: 'rejected' },
   { label: 'Pending',         value: 'pending' },
 ];
@@ -64,7 +63,6 @@ export default function QualityChecks() {
   const counts = {
     all:      rolls.length,
     passed:   rolls.filter(r => r.qcResult === 'passed').length,
-    rework:   rolls.filter(r => r.qcResult === 'rework').length,
     rejected: rolls.filter(r => r.qcResult === 'rejected').length,
     pending:  rolls.filter(r => r.qcResult === 'pending').length,
   };
@@ -400,7 +398,6 @@ export default function QualityChecks() {
                     className="input-field text-xs font-mono w-full"
                   >
                     <option value="passed">Passed</option>
-                    <option value="rework">Rework</option>
                     <option value="rejected">Rejected</option>
                     <option value="pending">Pending</option>
                   </select>

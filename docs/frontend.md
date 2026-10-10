@@ -162,7 +162,7 @@ interface ProductionOrder {
 
 ```ts
 // types/index.ts:80-92
-type QCResult = 'passed' | 'rework' | 'rejected' | 'pending';
+type QCResult = 'passed' | 'rejected' | 'pending';
 
 interface FabricRoll {
   id: string;           // e.g. "FR-5501"
@@ -177,7 +177,7 @@ interface FabricRoll {
 }
 ```
 
-**Mock sample (10 rolls):** 3 pending, 5 passed, 1 rework, 1 rejected.
+**Mock sample (10 rolls):** 4 pending, 5 passed, 1 rejected.
 
 **Derived values:**
 - `passRate = passed / (total - pending) * 100`
@@ -345,7 +345,7 @@ totalOutputToday= sum(machines.outputToday)
 
 **Source:** `pages/quality/QualityChecks.tsx`
 
-- **Display:** Filterable table of `fabricRolls`. Filter tabs: All, Passed, Rework, Rejected, Pending (with counts).
+- **Display:** Filterable table of `fabricRolls`. Filter tabs: All, Passed, Rejected, Pending (with counts).
 - **Columns:** Roll ID, Order, Buyer (joined), Machine id + name (joined), Metres, Produced date, Defects (tag array), Checked By, Checked At, Result (StatusBadge).
 - **Actions:** "+ Log Check" button (stub).
 
@@ -367,7 +367,7 @@ totalOutputToday= sum(machines.outputToday)
 
 - **Display:** Banner with count + cards for each roll where `qcResult === 'pending'`.
 - **Per card:** Roll ID, Order, Buyer, Machine, Type, Metres, Produced date.
-- **Actions:** **Pass**, **Rework**, **Reject** buttons per roll. These are the only write-action buttons in the quality section. **Currently stubs (no API call).**
+- **Actions:** **Pass**, **Reject** buttons per roll. These are the only write-action buttons in the quality section. **Currently stubs (no API call).**
 - **This is the primary QC workflow entry point.**
 
 ---
@@ -483,7 +483,7 @@ MachineShift:    A | B | C
 YarnType:        Cotton | Polyester | Wool | Silk | Blended
 OrderStatus:     pending | yarn_check | spinning | weaving | dyeing
                  | quality_check | ready_to_ship | dispatched
-QCResult:        passed | rework | rejected | pending
+QCResult:        passed | rejected | pending
 ProductionStatus:queued | in_progress | paused | completed  (type only)
 DispatchStatus:  prepared | loaded | delivered
 ```

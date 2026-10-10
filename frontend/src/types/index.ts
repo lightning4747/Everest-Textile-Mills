@@ -77,7 +77,7 @@ export interface ProductionOrder {
 }
 
 // ─── Quality Control ──────────────────────────────────────────────────────
-export type QCResult = 'passed' | 'rework' | 'rejected' | 'pending';
+export type QCResult = 'passed' | 'rejected' | 'pending';
 
 export interface FabricRoll {
   id: string;

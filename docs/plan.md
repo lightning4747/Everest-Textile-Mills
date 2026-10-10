@@ -18,7 +18,7 @@ yarn_type:         Cotton | Polyester | Wool | Silk | Blended
 order_status:      pending | yarn_check | spinning | weaving | dyeing
                    | quality_check | ready_to_ship | dispatched
 production_status: queued | in_progress | paused | completed
-qc_result:         passed | rework | rejected | pending
+qc_result:         passed | rejected | pending
 dispatch_status:   prepared | loaded | delivered
 ```
 
@@ -313,7 +313,7 @@ Pagination: `?page=1&limit=50` on list endpoints.
 |---|---|---|---|---|
 | GET | `/dashboard/kpis` | All KPI strip values | — | See below |
 | GET | `/dashboard/monthly-chart` | 6-month revenue/cost/output | — | `MonthlyPoint[]` |
-| GET | `/dashboard/qc-summary` | QC counts by result | — | `{ passed,rework,rejected,pending }` |
+| GET | `/dashboard/qc-summary` | QC counts by result | — | `{ passed,rejected,pending }` |
 | GET | `/dashboard/machine-health` | Machine counts by status | — | `{ running,idle,maintenance,breakdown }` |
 | GET | `/dashboard/recent-orders` | First 5 sales orders by created_date desc | — | `SalesOrderRow[]` |
 | GET | `/dashboard/low-stock` | Yarn below reorder level | — | `YarnStockRow[]` |
@@ -462,16 +462,16 @@ Pagination: `?page=1&limit=50` on list endpoints.
 **`QCDecisionBody`** (Zod — the key write action from PendingInspection.tsx):
 ```ts
 {
-  qc_result: 'passed' | 'rework' | 'rejected',
+  qc_result: 'passed' | 'rejected',
   checked_by: string,
-  defects?: string[],   // required if rework or rejected
+  defects?: string[],   // required if rejected
 }
 ```
 
 **Business logic on QC decision:**
 - Sets `checked_at = now()`.
 - If `passed`: may trigger check — if all rolls for the order are passed, backend can optionally advance `sales_orders.status = 'ready_to_ship'` (rule: when `completedMetres` matches `quantityMetres` and all rolls passed). *Mark as assumption — confirm with user.*
-- `rejected` and `rework` rolls do NOT count toward `completed_metres`.
+- `rejected` rolls do NOT count toward `completed_metres`.
 
 ---
 
@@ -718,7 +718,7 @@ db_pool_connections_idle                      — gauge
 ```
 orders_created_total                          — counter
 orders_dispatched_total                       — counter
-fabric_rolls_qc_decision_total{result}        — counter (passed/rework/rejected)
+fabric_rolls_qc_decision_total{result}        — counter (passed/rejected)
 yarn_stock_low_count                          — gauge (checked on each stock fetch)
 machine_status_current{machine_id, status}    — gauge (1/0)
 production_output_metres_today                — gauge
@@ -733,7 +733,7 @@ Expose at `GET /metrics` (scrape every 15s).
 | **API Health** | Request rate, error rate, p50/p95/p99 latency by route |
 | **Database** | Query duration, pool utilization, slow queries |
 | **Business KPIs** | Active orders, machines running, low stock count, daily output (gauge + sparkline) |
-| **QC Overview** | Pass/reject/rework rate over time (bar chart) |
+| **QC Overview** | Pass/reject rate over time (bar chart) |
 | **Production** | Orders dispatched per day, order lifecycle duration |
 
 ### 5.3 Structured Logging (via `pino`)

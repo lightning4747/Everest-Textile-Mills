@@ -207,29 +207,6 @@
     transform: translateY(-1px);
   }
 
-  .btn-quality-rework {
-    width: 100%;
-    min-height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.625rem;
-    background-color: var(--warn);
-    color: #FFFFFF;
-    font-family: var(--font-ui);
-    font-weight: 600;
-    font-size: 0.95rem;
-    border-radius: 10px;
-    border: none;
-    cursor: pointer;
-    transition: transform 0.15s ease-out, filter 0.15s ease-out;
-  }
-
-  .btn-quality-rework:hover {
-    filter: brightness(1.08);
-    transform: translateY(-1px);
-  }
-
   .btn-quality-reject {
     width: 100%;
     min-height: 64px;
