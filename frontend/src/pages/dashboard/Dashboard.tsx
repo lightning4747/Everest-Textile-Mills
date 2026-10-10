@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Factory, AlertTriangle, TrendingUp, Activity, Clock, ArrowRight } from 'lucide-react';
+import { Factory, AlertTriangle, TrendingUp, Activity, Clock, ArrowRight, Cpu, Sparkles } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from 'recharts';
@@ -7,11 +8,12 @@ import StatCard from '../../components/ui/StatCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ProgressBar from '../../components/ui/ProgressBar';
 import { machines, salesOrders, yarnStock, fabricRolls, monthlyData } from '../../data/mockData';
+import { fetchRevenueForecast, ForecastPoint } from '../../services/forecastApi';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="card p-3 text-xs shadow-md border border-[var(--border)]">
+      <div className="card p-3 text-xs shadow-md border border-[var(--border)] bg-[var(--surface)]">
         <p className="text-[var(--text-soft)] mb-1.5 font-medium font-mono">{label}</p>
         {payload.map((p: any) => (
           <p key={p.name} className="font-mono font-medium" style={{ color: p.stroke || p.color }}>
@@ -27,6 +29,17 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function Dashboard() {
   const navigate = useNavigate();
 
+  const [forecast, setForecast] = useState<ForecastPoint[]>([]);
+  const [loadingForecast, setLoadingForecast] = useState<boolean>(true);
+  const [viewMode, setViewMode] = useState<'historical' | 'forecast' | 'combined'>('combined');
+
+  useEffect(() => {
+    fetchRevenueForecast(11, 1240000, 6)
+      .then(res => setForecast(res.forecast))
+      .catch(err => console.error('Failed to load ONNX forecast:', err))
+      .finally(() => setLoadingForecast(false));
+  }, []);
+
   const runningMachines = machines.filter(m => m.status === 'running').length;
   const idleMachines    = machines.filter(m => m.status === 'idle').length;
   const downMachines    = machines.filter(m => m.status === 'breakdown' || m.status === 'maintenance').length;
@@ -37,6 +50,31 @@ export default function Dashboard() {
   const totalOutputToday = machines.reduce((s, m) => s + m.outputToday, 0);
 
   const recentOrders = salesOrders.slice(0, 5);
+
+  // Combined chart data: Historical + ONNX predictions
+  const combinedChartData = [
+    ...monthlyData.map(d => ({
+      month: d.month,
+      historicalRevenue: d.revenue,
+      cost: d.cost,
+      predictedRevenue: undefined as number | undefined,
+    })),
+    // Link last historical month to first forecast point
+    ...(monthlyData.length > 0 && forecast.length > 0
+      ? [{
+          month: monthlyData[monthlyData.length - 1].month,
+          historicalRevenue: monthlyData[monthlyData.length - 1].revenue,
+          cost: monthlyData[monthlyData.length - 1].cost,
+          predictedRevenue: monthlyData[monthlyData.length - 1].revenue,
+        }]
+      : []),
+    ...forecast.map(f => ({
+      month: `${f.monthName} (AI)`,
+      historicalRevenue: undefined as number | undefined,
+      cost: undefined as number | undefined,
+      predictedRevenue: f.predictedRevenue,
+    })),
+  ];
 
   return (
     <div className="space-y-6">
@@ -76,33 +114,68 @@ export default function Dashboard() {
 
       {/* Chart & Quick Status Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="card p-5 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
+        <div className="card p-5 lg:col-span-2 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
             <div>
-              <h2 className="text-base font-display font-semibold text-[var(--text)]">Revenue vs Manufacturing Cost</h2>
-              <p className="text-xs text-[var(--text-soft)]">6-Month financial trend (₹ Lakhs)</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-display font-semibold text-[var(--text)]">Financial Performance & Forecast</h2>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                  <Cpu size={12} /> ONNX Engine
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-soft)]">6-Month historical vs ONNX XGBoost revenue forecast</p>
             </div>
-            <div className="flex items-center gap-4 text-xs font-medium text-[var(--text-soft)]">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[var(--cyprus)] inline-block"></span>
-                Revenue
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[var(--cyprus-muted)] inline-block"></span>
-                Cost
-              </span>
+            
+            <div className="flex items-center gap-2 text-xs">
+              {(['combined', 'historical', 'forecast'] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`px-2.5 py-1 rounded text-xs capitalize transition-colors font-medium ${
+                    viewMode === mode
+                      ? 'bg-[var(--cyprus)] text-white'
+                      : 'text-[var(--text-soft)] hover:bg-[var(--surface-2)]'
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={monthlyData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={viewMode === 'forecast' ? forecast.map(f => ({ month: f.monthName, revenue: f.predictedRevenue })) : combinedChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis dataKey="month" tick={{ fill: 'var(--cyprus-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--cyprus-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="revenue" name="Revenue" stroke="var(--cyprus)" strokeWidth={2.5} fill="var(--cyprus)" fillOpacity={0.15} dot={false} />
-              <Area type="monotone" dataKey="cost" name="Cost" stroke="var(--cyprus-muted)" strokeWidth={1.75} fill="var(--cyprus-light)" fillOpacity={0.45} dot={false} />
+              
+              {viewMode !== 'forecast' && (
+                <Area type="monotone" dataKey="historicalRevenue" name="Historical Revenue" stroke="var(--cyprus)" strokeWidth={2.5} fill="var(--cyprus)" fillOpacity={0.15} dot={false} />
+              )}
+              {viewMode === 'combined' && (
+                <Area type="monotone" dataKey="cost" name="Manufacturing Cost" stroke="var(--cyprus-muted)" strokeWidth={1.75} fill="var(--cyprus-light)" fillOpacity={0.35} dot={false} />
+              )}
+              {viewMode !== 'historical' && (
+                <Area type="monotone" dataKey={viewMode === 'forecast' ? 'revenue' : 'predictedRevenue'} name="ONNX Forecast" stroke="#10b981" strokeWidth={2.5} strokeDasharray="4 4" fill="#10b981" fillOpacity={0.2} dot={{ r: 3, fill: '#10b981' }} />
+              )}
             </AreaChart>
           </ResponsiveContainer>
+
+          {/* ONNX Model Info Banner */}
+          <div className="p-3 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-[var(--text-soft)]">
+              <Sparkles size={16} className="text-emerald-500 flex-shrink-0" />
+              <span>
+                Model: <strong className="text-[var(--text)] font-mono">revenue_model.onnx</strong> · Runtime: <strong className="text-[var(--text)] font-mono">onnxruntime-node</strong>
+              </span>
+            </div>
+            {forecast.length > 0 && (
+              <div className="font-mono text-[var(--text-soft)]">
+                Next 6M Forecast Avg: <strong className="text-emerald-600 font-bold">₹{(forecast.reduce((a, b) => a + b.predictedRevenue, 0) / forecast.length / 1000).toFixed(1)}K/mo</strong>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Quick Summaries */}
