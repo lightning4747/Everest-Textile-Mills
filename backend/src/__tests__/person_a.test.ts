@@ -353,4 +353,118 @@ describe('Person A: Domain Suite', () => {
       expect(body.data.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  // ─── 5. Dashboard Endpoints ───────────────────────────────────────────────
+  describe('Dashboard Endpoints', () => {
+    it('GET /api/v1/dashboard/kpis returns consolidated KPI statistics', async () => {
+      const res = await fetch(`${baseUrl}/dashboard/kpis`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toHaveProperty('activeOrders');
+      expect(body.data).toHaveProperty('readyToShip');
+      expect(body.data).toHaveProperty('runningMachines');
+      expect(body.data).toHaveProperty('totalMachines');
+      expect(body.data).toHaveProperty('idleMachines');
+      expect(body.data).toHaveProperty('downMachines');
+      expect(body.data).toHaveProperty('outputToday');
+      expect(body.data).toHaveProperty('lowStockCount');
+      expect(body.data).toHaveProperty('pendingQC');
+
+      expect(typeof body.data.activeOrders).toBe('number');
+      expect(typeof body.data.outputToday).toBe('number');
+      expect(typeof body.data.lowStockCount).toBe('number');
+      expect(typeof body.data.pendingQC).toBe('number');
+    });
+
+    it('GET /api/v1/dashboard/monthly-chart returns monthly trend data', async () => {
+      const res = await fetch(`${baseUrl}/dashboard/monthly-chart`, {
+        headers: { Authorization: `Bearer ${operatorToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBeGreaterThan(0);
+      expect(body.data[0]).toHaveProperty('month');
+      expect(body.data[0]).toHaveProperty('revenue');
+      expect(body.data[0]).toHaveProperty('cost');
+      expect(body.data[0]).toHaveProperty('output');
+      expect(body.data[0]).toHaveProperty('wages');
+    });
+
+    it('GET /api/v1/dashboard/qc-summary returns fabric roll counts by QC result', async () => {
+      const res = await fetch(`${baseUrl}/dashboard/qc-summary`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toHaveProperty('passed');
+      expect(body.data).toHaveProperty('rework');
+      expect(body.data).toHaveProperty('rejected');
+      expect(body.data).toHaveProperty('pending');
+      expect(typeof body.data.passed).toBe('number');
+    });
+
+    it('GET /api/v1/dashboard/machine-health returns counts grouped by machine status', async () => {
+      const res = await fetch(`${baseUrl}/dashboard/machine-health`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toHaveProperty('running');
+      expect(body.data).toHaveProperty('idle');
+      expect(body.data).toHaveProperty('maintenance');
+      expect(body.data).toHaveProperty('breakdown');
+      expect(typeof body.data.running).toBe('number');
+    });
+
+    it('GET /api/v1/dashboard/recent-orders returns 5 most recent sales orders with progressPct', async () => {
+      const res = await fetch(`${baseUrl}/dashboard/recent-orders`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBeLessThanOrEqual(5);
+      if (body.data.length > 0) {
+        expect(body.data[0]).toHaveProperty('id');
+        expect(body.data[0]).toHaveProperty('buyer');
+        expect(body.data[0]).toHaveProperty('fabric');
+        expect(body.data[0]).toHaveProperty('colour');
+        expect(body.data[0]).toHaveProperty('targetMetres');
+        expect(body.data[0]).toHaveProperty('completedMetres');
+        expect(body.data[0]).toHaveProperty('progressPct');
+        expect(body.data[0]).toHaveProperty('status');
+      }
+    });
+
+    it('GET /api/v1/dashboard/low-stock returns yarn stock below or equal to reorder level', async () => {
+      const res = await fetch(`${baseUrl}/dashboard/low-stock`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      for (const item of body.data) {
+        expect(item.quantityKg).toBeLessThanOrEqual(item.reorderLevel);
+        expect(item).toHaveProperty('id');
+        expect(item).toHaveProperty('type');
+        expect(item).toHaveProperty('colour');
+        expect(item).toHaveProperty('bin');
+      }
+    });
+
+    it('Dashboard endpoints reject unauthenticated requests', async () => {
+      const res = await fetch(`${baseUrl}/dashboard/kpis`);
+      expect(res.status).toBe(401);
+    });
+  });
 });
+
