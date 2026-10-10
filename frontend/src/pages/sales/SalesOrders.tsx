@@ -36,7 +36,26 @@ export default function SalesOrders() {
 
   const { paginatedData, ...paginationProps } = usePagination(filtered, 20);
 
-  const totalRevenue = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+  const getOrderValue = (o: any): number => {
+    const directAmount = Number(o.totalAmount);
+    if (!isNaN(directAmount) && directAmount > 0) {
+      return directAmount;
+    }
+    const items = o.items || [];
+    if (items.length > 0) {
+      const itemsTotal = items.reduce(
+        (sum: number, it: any) => sum + (Number(it.quantityMetres || 0) * Number(it.unitPrice || 0)),
+        0
+      );
+      if (itemsTotal > 0) return itemsTotal;
+    }
+    const q = Number(o.quantityMetres || 0);
+    const u = Number(o.unitPrice || 0);
+    return q * u;
+  };
+
+  const totalRevenue = orders.reduce((s, o) => s + getOrderValue(o), 0);
+  const totalRevenueLakhs = isNaN(totalRevenue) ? 0 : totalRevenue / 100000;
   const activeOrdersCount = orders.filter(o => !['dispatched'].includes(o.status)).length;
   const readyOrdersCount = orders.filter(o => o.status === 'ready_to_ship').length;
 
@@ -56,7 +75,7 @@ export default function SalesOrders() {
           { label: 'Total Orders',       value: orders.length,                               accent: 'text-[var(--text)]' },
           { label: 'Active in Mill',     value: activeOrdersCount,                           accent: 'text-[var(--warn)]' },
           { label: 'Ready for Dispatch', value: readyOrdersCount,                            accent: 'text-[var(--ok)]' },
-          { label: 'Estimated Bookings', value: `₹${(totalRevenue / 100000).toFixed(1)}L`,  accent: 'text-[var(--olive-dark)]' },
+          { label: 'Estimated Bookings', value: `₹${totalRevenueLakhs.toFixed(1)}L`,          accent: 'text-[var(--olive-dark)]' },
         ].map(s => (
           <div key={s.label} className="card p-4">
             <p className="stat-label mb-1">{s.label}</p>
@@ -143,10 +162,14 @@ export default function SalesOrders() {
                   {paginatedData.map(order => {
                     const isExpanded = expandedOrderIds.has(order.id);
                     const items = order.items || [];
-                    const totalQty = items.reduce((s, i) => s + (i.quantityMetres || 0), 0) || 1;
-                    const totalCompleted = items.reduce((s, i) => s + (i.completedMetres || 0), 0);
-                    const pct = Math.round((totalCompleted / totalQty) * 100);
-                    const value = order.totalAmount || 0;
+                    const itemsQty = items.reduce((s, i) => s + (Number(i.quantityMetres) || 0), 0);
+                    const headerQty = Number(order.quantityMetres) || 0;
+                    const totalQty = itemsQty > 0 ? itemsQty : headerQty;
+                    const itemsCompleted = items.reduce((s, i) => s + (Number(i.completedMetres) || 0), 0);
+                    const headerCompleted = Number(order.completedMetres) || 0;
+                    const totalCompleted = items.length > 0 ? itemsCompleted : headerCompleted;
+                    const pct = totalQty > 0 ? Math.round((totalCompleted / totalQty) * 100) : 0;
+                    const value = getOrderValue(order);
                     
                     const firstItem = items[0];
                     const fabricType = firstItem?.product?.fabricType || firstItem?.fabricType || 'Mixed';

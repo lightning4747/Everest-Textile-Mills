@@ -88,7 +88,12 @@ export interface SalesOrder {
   createdDate: string;
   status: OrderStatus;
   totalAmount: number;
-  items: SalesOrderItem[];
+  items?: SalesOrderItem[];
+  fabricType?: string;
+  colour?: string;
+  quantityMetres?: number | string;
+  unitPrice?: number | string;
+  completedMetres?: number | string;
 }
 
 // ─── Production ────────────────────────────────────────────────────────────

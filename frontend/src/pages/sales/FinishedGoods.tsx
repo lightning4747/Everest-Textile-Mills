@@ -111,8 +111,8 @@ export default function FinishedGoods() {
                   <tr key={order.id} className="table-row-hover">
                     <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{order.id}</td>
                     <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{order.buyer}</td>
-                    <td className="px-4 py-3.5 text-xs text-[var(--text)] text-left">{order.items?.length > 1 ? 'Multiple Items' : (firstItem?.product?.fabricType || firstItem?.fabricType || '')}</td>
-                    <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{order.items?.length > 1 ? 'Mixed' : (firstItem?.colour || '')}</td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text)] text-left">{(order.items?.length ?? 0) > 1 ? 'Multiple Items' : (firstItem?.product?.fabricType || firstItem?.fabricType || order.fabricType || '')}</td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{(order.items?.length ?? 0) > 1 ? 'Mixed' : (firstItem?.colour || order.colour || '')}</td>
                     <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">
                       {totalCompleted.toLocaleString()} m
                     </td>
