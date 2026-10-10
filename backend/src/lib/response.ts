@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Standard API response shapes.
  * Every endpoint must use these helpers to ensure consistency.

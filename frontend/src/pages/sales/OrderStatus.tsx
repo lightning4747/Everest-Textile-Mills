@@ -1,43 +1,45 @@
 import { useState } from 'react';
-import { Search, CheckCircle, Circle, Clock, SearchX, RefreshCw } from 'lucide-react';
-import type { OrderStatus as OS, SalesOrder } from '../../types';
-import { usePagination } from '../../hooks/usePagination';
+import { Search, CheckCircle, Clock, Circle, SearchX, RefreshCw } from 'lucide-react';
+import type { SalesOrder } from '../../types';
 import { useDebounce } from '../../hooks/useDebounce';
+import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../services/apiClient';
 
-const stages: { key: OS; label: string }[] = [
-  { key: 'pending',        label: 'Order Placed' },
-  { key: 'yarn_check',    label: 'Yarn Check' },
-  { key: 'spinning',      label: 'Spinning' },
-  { key: 'weaving',       label: 'Weaving' },
-  { key: 'dyeing',        label: 'Dyeing' },
-  { key: 'quality_check', label: 'QC Lab' },
-  { key: 'ready_to_ship', label: 'Ready' },
-  { key: 'dispatched',    label: 'Dispatched' },
+const stages = [
+  { key: 'pending',        label: 'Accepted' },
+  { key: 'awaiting_yarn',  label: 'Yarn Alloc' },
+  { key: 'spinning',       label: 'Spinning' },
+  { key: 'weaving',        label: 'Weaving' },
+  { key: 'dyeing',         label: 'Dyeing' },
+  { key: 'quality_check',  label: 'QC Insp' },
+  { key: 'ready_to_ship',  label: 'Ready' },
+  { key: 'dispatched',     label: 'Dispatched' }
 ];
 
-function getStageIndex(status: OS) {
-  return stages.findIndex(s => s.key === status);
+function getStageIndex(status: string) {
+  const i = stages.findIndex(s => s.key === status);
+  if (i === -1 && status === 'yarn_check') return 1; 
+  return i === -1 ? 0 : i;
 }
 
 export default function OrderStatus() {
   const [query, setQuery] = useState('');
-  const debouncedQuery    = useDebounce(query, 300);
+  const debouncedQuery = useDebounce(query, 300);
 
   const { data: rawOrders, loading, error, refetch } = useApi<SalesOrder[]>(
     () => api.get<SalesOrder[]>('/sales-orders?limit=200'),
     [],
-    { autoPollMs: 15000 }
+    { autoPollMs: 10000 }
   );
 
   const salesOrders = rawOrders || [];
 
-  const results = debouncedQuery.trim()
-    ? salesOrders.filter(o =>
-        (o.id && o.id.toLowerCase().includes(debouncedQuery.toLowerCase())) ||
-        (o.buyer && o.buyer.toLowerCase().includes(debouncedQuery.toLowerCase()))
+  const results = debouncedQuery.length >= 2
+    ? salesOrders.filter(o => 
+        o.id.toLowerCase().includes(debouncedQuery.toLowerCase()) || 
+        o.buyer.toLowerCase().includes(debouncedQuery.toLowerCase())
       )
     : salesOrders;
 
@@ -97,8 +99,9 @@ export default function OrderStatus() {
           <div className="space-y-5">
             {paginatedData.map(order => {
               const currentIdx = getStageIndex(order.status);
-              const completed = Number(order.completedMetres) || 0;
-              const total = Number(order.quantityMetres) || 1;
+              const items = order.items || [];
+              const completed = items.reduce((sum, item) => sum + (item.completedMetres || 0), 0);
+              const total = items.reduce((sum, item) => sum + (item.quantityMetres || 0), 0) || 1;
               const pct        = Math.round((completed / total) * 100);
 
               const statusBorderColor = order.status === 'ready_to_ship' || order.status === 'dispatched'
@@ -106,6 +109,10 @@ export default function OrderStatus() {
                 : order.status === 'pending'
                 ? 'border-l-[var(--idle)]'
                 : 'border-l-[var(--warn)]';
+                
+              const firstItem = items[0];
+              const fabricType = firstItem?.product?.fabricType || firstItem?.fabricType || 'Mixed';
+              const colour = firstItem?.colour || 'Mixed';
 
               return (
                 <div key={order.id} className={`kanban-card overflow-hidden ${statusBorderColor}`}>
@@ -118,27 +125,18 @@ export default function OrderStatus() {
                       <div className="h-8 w-px bg-[var(--border)] hidden sm:block" />
                       <div>
                         <span className="text-[10px] uppercase font-semibold text-[var(--text-soft)] block">Fabric</span>
-                        <p className="text-xs text-[var(--text)]">{order.fabricType} · {order.colour}</p>
+                        <p className="text-xs text-[var(--text)]">{items.length > 1 ? 'Multiple Items' : `${fabricType} · ${colour}`}</p>
                       </div>
                       <div className="h-8 w-px bg-[var(--border)] hidden sm:block" />
                       <div>
                         <span className="text-[10px] uppercase font-semibold text-[var(--text-soft)] block">Target</span>
-                        <p className="text-xs font-mono font-bold text-[var(--text)]">{order.quantityMetres.toLocaleString()} m</p>
+                        <p className="text-xs font-mono font-bold text-[var(--text)]">{total.toLocaleString()} m</p>
                       </div>
                       <div className="h-8 w-px bg-[var(--border)] hidden sm:block" />
                       <div>
                         <span className="text-[10px] uppercase font-semibold text-[var(--text-soft)] block">Delivery Due</span>
                         <p className="text-xs font-mono text-[var(--text-soft)]">{order.deliveryDate}</p>
                       </div>
-                      {order.machineId && (
-                        <>
-                          <div className="h-8 w-px bg-[var(--border)] hidden sm:block" />
-                          <div>
-                            <span className="text-[10px] uppercase font-semibold text-[var(--text-soft)] block">Machine Assigned</span>
-                            <p className="text-xs font-mono text-[var(--olive-dark)] font-semibold">{order.machineId}</p>
-                          </div>
-                        </>
-                      )}
                     </div>
 
                     <div className="text-right">
@@ -194,4 +192,3 @@ export default function OrderStatus() {
     </div>
   );
 }
-
