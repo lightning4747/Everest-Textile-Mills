@@ -56,9 +56,17 @@ app.use('/api/v1', api);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+import { updateYarnLowStockGauge, updateProductionOutputGauge } from './services/stubs.js';
+
 // ── Start Server ────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(config.PORT, () => {
+  app.listen(config.PORT, async () => {
+    try {
+      await updateYarnLowStockGauge();
+      await updateProductionOutputGauge();
+    } catch {
+      // ignore startup gauge sync errors if db is warming up
+    }
     console.log(`🚀 Everest Textile Mills ERP Backend running on port ${config.PORT}`);
     console.log(`🩺 Health check available at http://localhost:${config.PORT}/health`);
     console.log(`📊 Prometheus metrics available at http://localhost:${config.PORT}/metrics`);

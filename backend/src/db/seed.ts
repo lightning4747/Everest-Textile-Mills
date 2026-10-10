@@ -12,6 +12,7 @@ import {
   dispatches, dispatchRolls, orderCosts, monthlySnapshots, users,
 } from './schema.js';
 import bcrypt from 'bcrypt';
+import { updateYarnLowStockGauge, updateProductionOutputGauge } from '../services/stubs.js';
 
 async function seed() {
   console.log('🌱 Starting seed...');
@@ -125,11 +126,11 @@ async function seed() {
 
   // ── Yarn Receipts ─────────────────────────────────────────────────────────
   await db.insert(yarnReceipts).values([
-    { id: 'YR-2026-088', date: '2026-10-10', supplierName: 'Shree Yarns Pvt. Ltd.', yarnType: 'Cotton',    colour: 'White',     quantityKg: '1200', yarnStockId: 'YS-001', forOrderId: 'ORD-1045', receivedBy: 'Ganesh P.',  invoiceNo: 'SY-INV-4421' },
-    { id: 'YR-2026-087', date: '2026-10-09', supplierName: 'National Fibres',        yarnType: 'Polyester', colour: 'Black',     quantityKg: '800',  yarnStockId: 'YS-003', forOrderId: 'ORD-1044', receivedBy: 'Ganesh P.',  invoiceNo: 'NF-9032' },
-    { id: 'YR-2026-086', date: '2026-10-08', supplierName: 'Bombay Textiles',        yarnType: 'Wool',      colour: 'Grey',      quantityKg: '500',  yarnStockId: 'YS-005', forOrderId: 'ORD-1040', receivedBy: 'Ramesh K.',  invoiceNo: 'BT-7701' },
-    { id: 'YR-2026-085', date: '2026-10-07', supplierName: 'Shree Yarns Pvt. Ltd.', yarnType: 'Cotton',    colour: 'Navy Blue', quantityKg: '600',  yarnStockId: 'YS-002', forOrderId: 'ORD-1038', receivedBy: 'Ganesh P.',  invoiceNo: 'SY-INV-4398' },
-    { id: 'YR-2026-084', date: '2026-10-05', supplierName: 'Silk Route Traders',    yarnType: 'Silk',      colour: 'Ivory',     quantityKg: '150',  yarnStockId: 'YS-006', forOrderId: 'ORD-1033', receivedBy: 'Ramesh K.',  invoiceNo: 'SR-2210' },
+    { id: 'YR-2026-088', date: '2026-10-10', supplierId: shreeSupplierId?.id, supplierName: 'Shree Yarns Pvt. Ltd.', yarnType: 'Cotton',    colour: 'White',     quantityKg: '1200', yarnStockId: 'YS-001', forOrderId: 'ORD-1045', receivedBy: 'Ganesh P.',  invoiceNo: 'SY-INV-4421' },
+    { id: 'YR-2026-087', date: '2026-10-09', supplierId: nationalFibresId?.id, supplierName: 'National Fibres',        yarnType: 'Polyester', colour: 'Black',     quantityKg: '800',  yarnStockId: 'YS-003', forOrderId: null, receivedBy: 'Ganesh P.',  invoiceNo: 'NF-9032' },
+    { id: 'YR-2026-086', date: '2026-10-08', supplierId: bombayTextilesId?.id, supplierName: 'Bombay Textiles',        yarnType: 'Wool',      colour: 'Grey',      quantityKg: '500',  yarnStockId: 'YS-005', forOrderId: 'ORD-1040', receivedBy: 'Ramesh K.',  invoiceNo: 'BT-7701' },
+    { id: 'YR-2026-085', date: '2026-10-07', supplierId: shreeSupplierId?.id, supplierName: 'Shree Yarns Pvt. Ltd.', yarnType: 'Cotton',    colour: 'Navy Blue', quantityKg: '600',  yarnStockId: 'YS-002', forOrderId: 'ORD-1038', receivedBy: 'Ganesh P.',  invoiceNo: 'SY-INV-4398' },
+    { id: 'YR-2026-084', date: '2026-10-05', supplierId: silkRouteTradersId?.id, supplierName: 'Silk Route Traders',    yarnType: 'Silk',      colour: 'Ivory',     quantityKg: '150',  yarnStockId: 'YS-006', forOrderId: 'ORD-1033', receivedBy: 'Ramesh K.',  invoiceNo: 'SR-2210' },
   ]).onConflictDoNothing();
 
   // ── Production Orders (one per active sales order) ────────────────────────
@@ -190,6 +191,10 @@ async function seed() {
     { year: 2026, month: 9,  revenue: '1050000', cost: '680000', outputMetres: '23500', wages: '385000' },
     { year: 2026, month: 10, revenue: '1240000', cost: '760000', outputMetres: '27800', wages: '385000' },
   ]).onConflictDoNothing();
+
+  // ── Observability Gauges ──────────────────────────────────────────────────
+  await updateYarnLowStockGauge();
+  await updateProductionOutputGauge();
 
   console.log('✅ Seed complete.');
   await pool.end();

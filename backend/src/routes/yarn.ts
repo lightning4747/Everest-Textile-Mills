@@ -1,44 +1,375 @@
-/**
- * Yarn routes — stub.
- * Person A owns this module.
- * Implements: GET /stock, GET /stock/alerts, PATCH /stock/:id,
- *             GET /receipts, POST /receipts, GET /suppliers, POST /suppliers
- */
 import { Router } from 'express';
+import { z } from 'zod';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { ok } from '../lib/response.js';
+import { validate } from '../middleware/validate.js';
+import { ok, created, notFound, badRequest } from '../lib/response.js';
+import { db } from '../db/index.js';
+import { yarnStock, yarnReceipts, yarnTypeSuppliers, suppliers } from '../db/schema.js';
+import { eq, sql, and } from 'drizzle-orm';
+import { updateYarnLowStockGauge } from '../services/stubs.js';
 
 const router = Router();
 router.use(authenticate);
 
-/** GET /api/v1/yarn/stock */
-router.get('/stock', (_req, res) => {
-  // TODO (Person A): list all yarn stock with calculated low-stock alerts
-  ok(res, { _stub: true, message: 'Yarn stock list — not yet implemented' });
+const patchStockSchema = z.object({
+  quantity_kg: z.number().nonnegative().optional(),
+  quantityKg: z.number().nonnegative().optional(),
+  reorder_level: z.number().nonnegative().optional(),
+  reorderLevel: z.number().nonnegative().optional(),
+  location: z.string().min(1).max(80).optional(),
 });
 
-/** GET /api/v1/yarn/stock/alerts */
-router.get('/stock/alerts', (_req, res) => {
-  // TODO (Person A): return only low/critical items with supplier info
-  ok(res, { _stub: true, message: 'Yarn low stock alerts — not yet implemented' });
+/** GET /api/v1/yarn/stock — List all yarn stock with calculated low-stock alerts */
+router.get('/stock', async (req, res, next) => {
+  try {
+    const { type, low_stock } = req.query;
+    const conditions = [];
+
+    if (type && typeof type === 'string') {
+      conditions.push(eq(yarnStock.type, type as any));
+    }
+    if (low_stock === 'true') {
+      conditions.push(sql`cast(${yarnStock.quantityKg} as numeric) <= cast(${yarnStock.reorderLevel} as numeric)`);
+    }
+
+    const rows = conditions.length > 0
+      ? await db.select().from(yarnStock).where(and(...conditions)).orderBy(yarnStock.id)
+      : await db.select().from(yarnStock).orderBy(yarnStock.id);
+
+    const data = rows.map((r) => {
+      const quantityKg = Number(r.quantityKg);
+      const reorderLevel = Number(r.reorderLevel);
+      return {
+        id: r.id,
+        type: r.type,
+        colour: r.colour,
+        quantityKg,
+        reorderLevel,
+        location: r.location,
+        lastUpdated: r.lastUpdated.toISOString().split('T')[0],
+        isLowStock: quantityKg <= reorderLevel,
+      };
+    });
+
+    ok(res, data);
+  } catch (err) {
+    next(err);
+  }
 });
 
-/** PATCH /api/v1/yarn/stock/:id */
-router.patch('/stock/:id', authorize('admin', 'manager'), (_req, res) => {
-  // TODO (Person A): update yarn stock quantity/location/reorderLevel
-  ok(res, { _stub: true, message: 'Update yarn stock — not yet implemented' });
+/** GET /api/v1/yarn/stock/alerts — Low stock items linked with supplier contact info */
+router.get('/stock/alerts', async (_req, res, next) => {
+  try {
+    const rows = await db
+      .select()
+      .from(yarnStock)
+      .where(sql`cast(${yarnStock.quantityKg} as numeric) <= cast(${yarnStock.reorderLevel} as numeric)`)
+      .orderBy(yarnStock.id);
+
+    const mappings = await db
+      .select({
+        yarnType: yarnTypeSuppliers.yarnType,
+        supplierId: suppliers.id,
+        name: suppliers.name,
+        phone: suppliers.phone,
+        email: suppliers.email,
+      })
+      .from(yarnTypeSuppliers)
+      .innerJoin(suppliers, eq(yarnTypeSuppliers.supplierId, suppliers.id));
+
+    const supplierMap = new Map<string, typeof mappings>();
+    for (const m of mappings) {
+      const list = supplierMap.get(m.yarnType) ?? [];
+      list.push(m);
+      supplierMap.set(m.yarnType, list);
+    }
+
+    const data = rows.map((r) => {
+      const quantityKg = Number(r.quantityKg);
+      const reorderLevel = Number(r.reorderLevel);
+      const deficit = Math.max(0, reorderLevel - quantityKg);
+      const severity = quantityKg <= reorderLevel * 0.4 ? 'critical' : 'warning';
+      const typeSuppliers = supplierMap.get(r.type) ?? [];
+      const primarySupplier = typeSuppliers[0];
+      const supplierText = primarySupplier
+        ? `${primarySupplier.name}${primarySupplier.phone ? ` · ${primarySupplier.phone}` : ''}`
+        : 'No supplier listed';
+
+      return {
+        id: r.id,
+        type: r.type,
+        colour: r.colour,
+        quantityKg,
+        reorderLevel,
+        location: r.location,
+        lastUpdated: r.lastUpdated.toISOString().split('T')[0],
+        deficit,
+        severity,
+        supplier: supplierText,
+        suppliers: typeSuppliers.map((s) => ({
+          id: s.supplierId,
+          name: s.name,
+          phone: s.phone,
+          email: s.email,
+        })),
+      };
+    });
+
+    ok(res, data);
+  } catch (err) {
+    next(err);
+  }
 });
 
-/** GET /api/v1/yarn/receipts */
-router.get('/receipts', (_req, res) => {
-  // TODO (Person A): list yarn receipts
-  ok(res, { _stub: true, message: 'Yarn receipts list — not yet implemented' });
+/** PATCH /api/v1/yarn/stock/:id — Adjust yarn stock bin location, quantity, or reorder level */
+router.patch('/stock/:id', authorize('admin', 'manager'), validate(patchStockSchema), async (req, res, next) => {
+  try {
+    const id = req.params.id as string;
+    const body = req.body as z.infer<typeof patchStockSchema>;
+
+    const [existing] = await db.select().from(yarnStock).where(eq(yarnStock.id, id)).limit(1);
+    if (!existing) {
+      notFound(res, `Yarn stock with ID '${id}' not found`);
+      return;
+    }
+
+    const qty = body.quantity_kg ?? body.quantityKg;
+    const reorder = body.reorder_level ?? body.reorderLevel;
+
+    const updateFields: Partial<typeof yarnStock.$inferInsert> = {
+      lastUpdated: new Date(),
+    };
+    if (qty !== undefined) updateFields.quantityKg = qty.toFixed(2);
+    if (reorder !== undefined) updateFields.reorderLevel = reorder.toFixed(2);
+    if (body.location !== undefined) updateFields.location = body.location;
+
+    const [updated] = await db
+      .update(yarnStock)
+      .set(updateFields)
+      .where(eq(yarnStock.id, id))
+      .returning();
+
+    await updateYarnLowStockGauge();
+
+    const quantityKg = Number(updated.quantityKg);
+    const reorderLevel = Number(updated.reorderLevel);
+
+    ok(res, {
+      id: updated.id,
+      type: updated.type,
+      colour: updated.colour,
+      quantityKg,
+      reorderLevel,
+      location: updated.location,
+      lastUpdated: updated.lastUpdated.toISOString().split('T')[0],
+      isLowStock: quantityKg <= reorderLevel,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
-/** POST /api/v1/yarn/receipts */
-router.post('/receipts', authorize('admin', 'manager', 'operator'), (_req, res) => {
-  // TODO (Person A): record receipt and update yarn_stock quantity in a transaction
-  ok(res, { _stub: true, message: 'Record yarn receipt — not yet implemented' }, 201);
+const createReceiptSchema = z.object({
+  id: z.string().optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').default(() => new Date().toISOString().split('T')[0]),
+  supplier: z.string().optional(),
+  supplier_name: z.string().optional(),
+  supplierName: z.string().optional(),
+  supplier_id: z.string().uuid().optional().nullable(),
+  supplierId: z.string().uuid().optional().nullable(),
+  yarn_type: z.enum(['Cotton', 'Polyester', 'Wool', 'Silk', 'Blended']).optional(),
+  yarnType: z.enum(['Cotton', 'Polyester', 'Wool', 'Silk', 'Blended']).optional(),
+  colour: z.string().min(1).max(80),
+  quantity_kg: z.number().positive().optional(),
+  quantityKg: z.number().positive().optional(),
+  yarn_stock_id: z.string().optional().nullable(),
+  yarnStockId: z.string().optional().nullable(),
+  for_order_id: z.string().optional().nullable(),
+  forOrderId: z.string().optional().nullable(),
+  received_by: z.string().optional(),
+  receivedBy: z.string().optional(),
+  invoice_no: z.string().optional(),
+  invoiceNo: z.string().optional(),
+});
+
+/** GET /api/v1/yarn/receipts — List historical yarn delivery records */
+router.get('/receipts', async (req, res, next) => {
+  try {
+    const { from, to, supplier } = req.query;
+    const conditions = [];
+
+    if (from && typeof from === 'string') {
+      conditions.push(sql`${yarnReceipts.date} >= ${from}`);
+    }
+    if (to && typeof to === 'string') {
+      conditions.push(sql`${yarnReceipts.date} <= ${to}`);
+    }
+    if (supplier && typeof supplier === 'string') {
+      conditions.push(sql`${yarnReceipts.supplierName} ILIKE ${'%' + supplier + '%'}`);
+    }
+
+    const rows = conditions.length > 0
+      ? await db.select().from(yarnReceipts).where(and(...conditions)).orderBy(sql`${yarnReceipts.date} DESC`, sql`${yarnReceipts.createdAt} DESC`)
+      : await db.select().from(yarnReceipts).orderBy(sql`${yarnReceipts.date} DESC`, sql`${yarnReceipts.createdAt} DESC`);
+
+    const data = rows.map((r) => ({
+      id: r.id,
+      date: r.date,
+      supplier: r.supplierName,
+      supplierName: r.supplierName,
+      supplierId: r.supplierId,
+      yarnType: r.yarnType,
+      colour: r.colour,
+      quantityKg: Number(r.quantityKg),
+      yarnStockId: r.yarnStockId,
+      forOrderId: r.forOrderId ?? '',
+      receivedBy: r.receivedBy,
+      invoiceNo: r.invoiceNo,
+      createdAt: r.createdAt.toISOString(),
+    }));
+
+    ok(res, data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** POST /api/v1/yarn/receipts — Record yarn delivery with atomic inventory update (admin, manager, operator) */
+router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(createReceiptSchema), async (req, res, next) => {
+  try {
+    const body = req.body as z.infer<typeof createReceiptSchema>;
+    const supplierName = body.supplierName ?? body.supplier_name ?? body.supplier;
+    const yarnType = body.yarnType ?? body.yarn_type;
+    const quantityKg = body.quantityKg ?? body.quantity_kg;
+
+    if (!supplierName) {
+      badRequest(res, 'Supplier name is required');
+      return;
+    }
+    if (!yarnType) {
+      badRequest(res, 'Yarn type is required');
+      return;
+    }
+    if (!quantityKg || quantityKg <= 0) {
+      badRequest(res, 'Valid positive quantity in kg is required');
+      return;
+    }
+
+    const date = body.date;
+    const receivedBy = body.receivedBy ?? body.received_by ?? req.user?.name ?? 'Store Operator';
+    const invoiceNo = body.invoiceNo ?? body.invoice_no ?? `INV-${Date.now().toString().slice(-6)}`;
+    const forOrderId = body.forOrderId ?? body.for_order_id ?? null;
+
+    const newReceipt = await db.transaction(async (tx) => {
+      // 1. Generate receipt ID if not provided
+      let receiptId = body.id;
+      if (!receiptId) {
+        const year = new Date(date).getFullYear();
+        const prefix = `YR-${year}-`;
+        const [latest] = await tx
+          .select({ id: yarnReceipts.id })
+          .from(yarnReceipts)
+          .where(sql`${yarnReceipts.id} LIKE ${prefix + '%'}`)
+          .orderBy(sql`${yarnReceipts.id} DESC`)
+          .limit(1);
+
+        let nextNum = 1;
+        if (latest) {
+          const match = latest.id.match(/YR-\d{4}-(\d+)/);
+          if (match) {
+            nextNum = parseInt(match[1], 10) + 1;
+          }
+        }
+        receiptId = `${prefix}${String(nextNum).padStart(3, '0')}`;
+      }
+
+      // 2. Resolve supplier ID if not provided
+      let supplierId = body.supplierId ?? body.supplier_id ?? null;
+      if (!supplierId && supplierName) {
+        const [matchedSupplier] = await tx
+          .select({ id: suppliers.id })
+          .from(suppliers)
+          .where(eq(suppliers.name, supplierName))
+          .limit(1);
+        if (matchedSupplier) {
+          supplierId = matchedSupplier.id;
+        }
+      }
+
+      // 3. Resolve yarn stock ID if not provided
+      let targetStockId = body.yarnStockId ?? body.yarn_stock_id ?? null;
+      if (!targetStockId) {
+        const [matchedStock] = await tx
+          .select({ id: yarnStock.id })
+          .from(yarnStock)
+          .where(and(eq(yarnStock.type, yarnType), eq(yarnStock.colour, body.colour)))
+          .limit(1);
+        if (matchedStock) {
+          targetStockId = matchedStock.id;
+        }
+      }
+
+      // 4. Update yarn_stock if stock bin resolved
+      if (targetStockId) {
+        const [stock] = await tx
+          .select()
+          .from(yarnStock)
+          .where(eq(yarnStock.id, targetStockId))
+          .limit(1);
+
+        if (stock) {
+          const newQty = Number(stock.quantityKg) + quantityKg;
+          await tx
+            .update(yarnStock)
+            .set({
+              quantityKg: newQty.toFixed(2),
+              lastUpdated: new Date(),
+            })
+            .where(eq(yarnStock.id, targetStockId));
+        }
+      }
+
+      // 5. Insert yarn_receipts record
+      const [inserted] = await tx
+        .insert(yarnReceipts)
+        .values({
+          id: receiptId,
+          date,
+          supplierId,
+          supplierName,
+          yarnType,
+          colour: body.colour,
+          quantityKg: quantityKg.toFixed(2),
+          yarnStockId: targetStockId,
+          forOrderId,
+          receivedBy,
+          invoiceNo,
+        })
+        .returning();
+
+      return inserted;
+    });
+
+    await updateYarnLowStockGauge();
+
+    created(res, {
+      id: newReceipt.id,
+      date: newReceipt.date,
+      supplier: newReceipt.supplierName,
+      supplierName: newReceipt.supplierName,
+      supplierId: newReceipt.supplierId,
+      yarnType: newReceipt.yarnType,
+      colour: newReceipt.colour,
+      quantityKg: Number(newReceipt.quantityKg),
+      yarnStockId: newReceipt.yarnStockId,
+      forOrderId: newReceipt.forOrderId ?? '',
+      receivedBy: newReceipt.receivedBy,
+      invoiceNo: newReceipt.invoiceNo,
+      createdAt: newReceipt.createdAt.toISOString(),
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;
