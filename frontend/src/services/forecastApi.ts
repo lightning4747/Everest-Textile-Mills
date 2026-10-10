@@ -1,3 +1,5 @@
+import { api } from './apiClient';
+
 export interface ForecastPoint {
   monthNum: number;
   monthName: string;
@@ -11,31 +13,18 @@ export interface ForecastResponse {
   horizon: number;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
 export async function fetchRevenueForecast(
   startMonthNum = 11,
   lastRevenue = 1240000,
   horizon = 6
 ): Promise<ForecastResponse> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/forecast`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ startMonthNum, lastRevenue, horizon }),
+    const res = await api.post<ForecastResponse>('/forecast', {
+      startMonthNum,
+      lastRevenue,
+      horizon,
     });
-
-    if (!res.ok) {
-      throw new Error(`Forecast API returned status ${res.status}`);
-    }
-
-    const json = await res.json();
-    if (json.success && json.data) {
-      return json.data;
-    }
-    throw new Error(json.error || 'Failed to parse forecast response');
+    return res.data;
   } catch (err) {
     console.warn('Backend forecast endpoint unavailable, returning fallback forecast data:', err);
     // Fallback static projection if backend server is unreachable

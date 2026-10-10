@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Search, CheckCircle, Circle, Clock, SearchX } from 'lucide-react';
-import { salesOrders, machines } from '../../data/mockData';
-import type { OrderStatus as OS } from '../../types';
+import { Search, CheckCircle, Circle, Clock, SearchX, RefreshCw } from 'lucide-react';
+import type { OrderStatus as OS, SalesOrder } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
 import { useDebounce } from '../../hooks/useDebounce';
 import Pagination from '../../components/ui/Pagination';
+import { useApi } from '../../hooks/useApi';
+import { api } from '../../services/apiClient';
 
 const stages: { key: OS; label: string }[] = [
   { key: 'pending',        label: 'Order Placed' },
@@ -25,10 +26,18 @@ export default function OrderStatus() {
   const [query, setQuery] = useState('');
   const debouncedQuery    = useDebounce(query, 300);
 
+  const { data: rawOrders, loading, error, refetch } = useApi<SalesOrder[]>(
+    () => api.get<SalesOrder[]>('/sales-orders?limit=200'),
+    [],
+    { autoPollMs: 15000 }
+  );
+
+  const salesOrders = rawOrders || [];
+
   const results = debouncedQuery.trim()
     ? salesOrders.filter(o =>
-        o.id.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
-        o.buyer.toLowerCase().includes(debouncedQuery.toLowerCase())
+        (o.id && o.id.toLowerCase().includes(debouncedQuery.toLowerCase())) ||
+        (o.buyer && o.buyer.toLowerCase().includes(debouncedQuery.toLowerCase()))
       )
     : salesOrders;
 
@@ -38,10 +47,22 @@ export default function OrderStatus() {
     <div className="space-y-6">
       {/* Search Header */}
       <div className="card p-4">
-        <h2 className="text-base font-display font-semibold text-[var(--text)] mb-1">Live Order Status Pipeline</h2>
-        <p className="text-xs text-[var(--text-soft)] mb-4">
-          Trace production status from yarn allocation to dispatch dock without floor visits.
-        </p>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-base font-display font-semibold text-[var(--text)] mb-1">Live Order Status Pipeline</h2>
+            <p className="text-xs text-[var(--text-soft)]">
+              Trace production status from yarn allocation to dispatch dock without floor visits.
+            </p>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="p-2.5 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors"
+            title="Refresh"
+            aria-label="Refresh pipeline"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
         <div className="relative max-w-lg">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
           <input
@@ -54,8 +75,18 @@ export default function OrderStatus() {
         </div>
       </div>
 
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
+          {error}
+        </div>
+      )}
+
       {/* Order Cards with Kanban Status 4px Left Border */}
-      {results.length === 0 ? (
+      {loading && salesOrders.length === 0 ? (
+        <div className="p-12 text-center text-xs text-[var(--text-soft)] font-mono animate-pulse">
+          Loading pipeline orders…
+        </div>
+      ) : results.length === 0 ? (
         <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
           <SearchX size={36} className="text-[var(--olive-grey)]" />
           <p className="text-sm font-semibold text-[var(--text)]">No orders match &ldquo;{query}&rdquo;</p>
@@ -66,8 +97,9 @@ export default function OrderStatus() {
           <div className="space-y-5">
             {paginatedData.map(order => {
               const currentIdx = getStageIndex(order.status);
-              const machine    = machines.find(m => m.id === order.machineId);
-              const pct        = Math.round((order.completedMetres / order.quantityMetres) * 100);
+              const completed = Number(order.completedMetres) || 0;
+              const total = Number(order.quantityMetres) || 1;
+              const pct        = Math.round((completed / total) * 100);
 
               const statusBorderColor = order.status === 'ready_to_ship' || order.status === 'dispatched'
                 ? 'border-l-[var(--ok)]'
@@ -98,12 +130,12 @@ export default function OrderStatus() {
                         <span className="text-[10px] uppercase font-semibold text-[var(--text-soft)] block">Delivery Due</span>
                         <p className="text-xs font-mono text-[var(--text-soft)]">{order.deliveryDate}</p>
                       </div>
-                      {machine && (
+                      {order.machineId && (
                         <>
                           <div className="h-8 w-px bg-[var(--border)] hidden sm:block" />
                           <div>
                             <span className="text-[10px] uppercase font-semibold text-[var(--text-soft)] block">Machine Assigned</span>
-                            <p className="text-xs font-mono text-[var(--olive-dark)] font-semibold">{machine.id} ({machine.name})</p>
+                            <p className="text-xs font-mono text-[var(--olive-dark)] font-semibold">{order.machineId}</p>
                           </div>
                         </>
                       )}
@@ -138,8 +170,8 @@ export default function OrderStatus() {
                               </div>
                               <span className={`text-[10px] font-medium leading-tight ${
                                 isDone    ? 'text-[var(--ok)] font-semibold' :
-                                isCurrent ? 'text-[var(--warn)] font-bold' :
-                                            'text-[var(--text-soft)]'
+                                 isCurrent ? 'text-[var(--warn)] font-bold' :
+                                             'text-[var(--text-soft)]'
                               }`}>
                                 {stage.label}
                               </span>
@@ -162,3 +194,4 @@ export default function OrderStatus() {
     </div>
   );
 }
+

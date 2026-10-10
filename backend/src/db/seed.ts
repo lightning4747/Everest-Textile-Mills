@@ -36,14 +36,40 @@ async function seed() {
     { key: 'monthly_wages_inr', value: '385000' },
   ]).onConflictDoNothing();
 
-  // ── Default admin user ────────────────────────────────────────────────────
+  // ── Default users for all roles ──────────────────────────────────────────
   const passwordHash = await bcrypt.hash('changeme123', 12);
-  await db.insert(users).values({
-    name: 'Admin',
-    email: 'admin@everest.local',
-    passwordHash,
-    role: 'admin',
-  }).onConflictDoNothing();
+  await db.insert(users).values([
+    {
+      name: 'Admin',
+      email: 'admin@everest.local',
+      passwordHash,
+      role: 'admin',
+    },
+    {
+      name: 'Plant Manager',
+      email: 'manager@everest.local',
+      passwordHash,
+      role: 'manager',
+    },
+    {
+      name: 'Floor Operator',
+      email: 'operator@everest.local',
+      passwordHash,
+      role: 'operator',
+    },
+    {
+      name: 'QC Inspector',
+      email: 'qc@everest.local',
+      passwordHash,
+      role: 'qc_inspector',
+    },
+    {
+      name: 'Guest Viewer',
+      email: 'viewer@everest.local',
+      passwordHash,
+      role: 'viewer',
+    },
+  ]).onConflictDoNothing();
 
   // ── Machines ──────────────────────────────────────────────────────────────
   await db.insert(machines).values([

@@ -1,7 +1,20 @@
-import { Bell, Search, User, AlertTriangle, X, ChevronRight, CheckCheck } from 'lucide-react';
+import { Bell, Search, User, AlertTriangle, X, ChevronRight, CheckCheck, LogOut } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { yarnStock } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/apiClient';
+
+interface StockAlertItem {
+  id: string;
+  type: string;
+  colour: string;
+  quantityKg: number;
+  reorderLevel: number;
+  location: string;
+  deficit: number;
+  severity: 'critical' | 'warning';
+  supplier: string;
+}
 
 const pageTitles: Record<string, string> = {
   '/dashboard':             'Dashboard & Operations',
@@ -28,14 +41,31 @@ export default function TopBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const title = pageTitles[location.pathname] ?? 'Everest Textile Mills';
+  const { user, logout, isAuthenticated } = useAuth();
 
   const [notifOpen, setNotifOpen]   = useState(false);
   const [readIds,   setReadIds]     = useState<Set<string>>(new Set());
+  const [lowItems,  setLowItems]    = useState<StockAlertItem[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
   const bellRef  = useRef<HTMLButtonElement>(null);
 
-  // All low-stock yarn items
-  const lowItems   = yarnStock.filter(y => y.quantityKg <= y.reorderLevel);
+  // Fetch low-stock yarn items from API
+  const fetchAlerts = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await api.get<StockAlertItem[]>('/yarn/stock/alerts');
+      setLowItems(res.data || []);
+    } catch {
+      // Fallback or unauthenticated
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 30000);
+    return () => clearInterval(interval);
+  }, [fetchAlerts]);
+
   const unreadCount = lowItems.filter(y => !readIds.has(y.id)).length;
 
   // Toggle panel on bell click; if already open navigate to /yarn/alerts and close
@@ -168,8 +198,8 @@ export default function TopBar() {
               ) : (
                 <div className="max-h-72 overflow-y-auto divide-y divide-[var(--border)]">
                   {lowItems.map(yarn => {
-                    const isCritical = yarn.quantityKg <= yarn.reorderLevel * 0.4;
-                    const deficit    = Math.max(0, yarn.reorderLevel - yarn.quantityKg);
+                    const isCritical = yarn.severity === 'critical';
+                    const deficit    = yarn.deficit;
                     const isRead     = readIds.has(yarn.id);
                     return (
                       <div
@@ -232,14 +262,24 @@ export default function TopBar() {
 
         <div className="h-6 w-px bg-[var(--border)]" />
 
-        <div className="flex items-center gap-2.5 px-2 py-1 rounded-lg">
+        {/* User profile & quick logout */}
+        <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[var(--panel-bg)] transition-colors">
           <div className="w-7 h-7 rounded-full bg-[var(--panel-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--olive-dark)]">
             <User size={13} />
           </div>
           <div className="hidden md:block text-left">
-            <p className="text-xs font-semibold text-[var(--text)] leading-none">Shift Supervisor</p>
-            <p className="text-[10px] font-mono text-[var(--text-soft)] leading-tight">Mill Floor A</p>
+            <p className="text-xs font-semibold text-[var(--text)] leading-none">{user?.name ?? 'Shift Supervisor'}</p>
+            <p className="text-[10px] font-mono text-[var(--text-soft)] leading-tight capitalize">{user?.role ? `${user.role.replace('_', ' ')} · Mill Floor` : 'Mill Floor A'}</p>
           </div>
+          {isAuthenticated && (
+            <button
+              onClick={logout}
+              title="Sign Out"
+              className="ml-1 p-1 text-[var(--text-soft)] hover:text-[var(--bad)] transition-colors rounded"
+            >
+              <LogOut size={13} />
+            </button>
+          )}
         </div>
       </div>
     </header>

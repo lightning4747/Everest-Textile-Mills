@@ -1,11 +1,25 @@
 import { useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, Download, Printer, Search } from 'lucide-react';
+import { TrendingUp, TrendingDown, Download, Printer, Search, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { orderCosts, salesOrders } from '../../data/mockData';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
 import { exportCsv } from '../../utils/exportCsv';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useApi } from '../../hooks/useApi';
+import { api } from '../../services/apiClient';
+
+interface OrderCostItem {
+  orderId: string;
+  buyer: string;
+  yarnCost: number;
+  labourCost: number;
+  machineCost: number;
+  totalCost: number;
+  revenue: number;
+  profit: number;
+  marginPct: number;
+  updatedAt?: string;
+}
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
   if (active && payload?.length) {
@@ -25,32 +39,33 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 
 const ALL = 'all';
 
-// Enrich with buyer name for filtering
-const enriched = orderCosts.map(o => ({
-  ...o,
-  buyer: salesOrders.find(s => s.id === o.orderId)?.buyer ?? o.buyer,
-}));
-
-const buyers = [...new Set(enriched.map(o => o.buyer))];
-
 export default function OrderCosting() {
   const [search, setSearch]     = useState('');
   const [buyerFilter, setBuyer] = useState(ALL);
   const debouncedSearch         = useDebounce(search, 300);
 
+  const { data: rawCosts, loading, error, refetch } = useApi<OrderCostItem[]>(
+    () => api.get<OrderCostItem[]>('/reports/order-costs'),
+    [],
+    { autoPollMs: 15000 }
+  );
+
+  const orderCostsList = rawCosts || [];
+  const buyers = [...new Set(orderCostsList.map(o => o.buyer).filter(Boolean))];
+
   const filtered = useMemo(() =>
-    enriched.filter(o => {
+    orderCostsList.filter(o => {
       const q = debouncedSearch.toLowerCase();
-      const matchSearch = !q || o.orderId.toLowerCase().includes(q) || o.buyer.toLowerCase().includes(q);
+      const matchSearch = !q || o.orderId.toLowerCase().includes(q) || (o.buyer && o.buyer.toLowerCase().includes(q));
       const matchBuyer  = buyerFilter === ALL || o.buyer === buyerFilter;
       return matchSearch && matchBuyer;
     }),
-  [debouncedSearch, buyerFilter]);
+  [orderCostsList, debouncedSearch, buyerFilter]);
 
   const { totalRevenue, totalCost, totalProfit, margin, chartData } = useMemo(() => {
-    const totalRevenue = filtered.reduce((s, o) => s + o.revenue, 0);
-    const totalCost    = filtered.reduce((s, o) => s + o.totalCost, 0);
-    const totalProfit  = filtered.reduce((s, o) => s + o.profit, 0);
+    const totalRevenue = filtered.reduce((s, o) => s + (o.revenue || 0), 0);
+    const totalCost    = filtered.reduce((s, o) => s + (o.totalCost || 0), 0);
+    const totalProfit  = filtered.reduce((s, o) => s + (o.profit || 0), 0);
     const margin       = totalRevenue ? Math.round((totalProfit / totalRevenue) * 100) : 0;
     const chartData    = filtered.map(o => ({
       name: o.orderId,
@@ -71,7 +86,7 @@ export default function OrderCosting() {
         o.orderId, o.buyer,
         o.yarnCost, o.labourCost, o.machineCost,
         o.totalCost, o.revenue, o.profit,
-        Math.round((o.profit / o.revenue) * 100),
+        o.marginPct || Math.round((o.profit / (o.revenue || 1)) * 100),
       ]),
     );
   }
@@ -83,6 +98,14 @@ export default function OrderCosting() {
       <div className="flex items-center justify-between flex-wrap gap-3 print-hide">
         <h2 className="font-display text-lg font-semibold text-[var(--text)]">Order Costing &amp; Margins Report</h2>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => refetch()}
+            className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors h-9 flex items-center gap-1.5 text-xs"
+            title="Refresh"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
           <button className="btn-secondary h-9 text-xs" onClick={handleExport}>
             <Download size={14} /> Export CSV ({filtered.length})
           </button>
@@ -91,6 +114,12 @@ export default function OrderCosting() {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
+          {error}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap print-hide">
@@ -150,10 +179,14 @@ export default function OrderCosting() {
       {/* Table */}
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
-          <h2 className="text-sm font-display font-semibold text-[var(--text)]">Cost Allocation & Margins Ledger</h2>
+          <h2 className="text-sm font-display font-semibold text-[var(--text)]">Cost Allocation &amp; Margins Ledger</h2>
           <span className="text-xs font-mono text-[var(--text-soft)]">{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>
         </div>
-        {filtered.length === 0 ? (
+        {loading && orderCostsList.length === 0 ? (
+          <div className="px-5 py-12 text-center text-xs text-[var(--text-soft)] font-mono animate-pulse">
+            Loading order costs…
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="px-5 py-12 text-center">
             <p className="text-sm text-[var(--text-soft)]">No orders match the current filters.</p>
             <button className="btn-ghost mt-3 text-xs" onClick={() => { setSearch(''); setBuyer(ALL); }}>Reset Filters</button>
@@ -176,7 +209,7 @@ export default function OrderCosting() {
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
                 {paginatedData.map(o => {
-                  const m = Math.round((o.profit / o.revenue) * 100);
+                  const m = o.marginPct ? Math.round(o.marginPct) : Math.round((o.profit / (o.revenue || 1)) * 100);
                   return (
                     <tr key={o.orderId} className="table-row-hover">
                       <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{o.orderId}</td>
@@ -205,3 +238,4 @@ export default function OrderCosting() {
     </div>
   );
 }
+

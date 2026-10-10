@@ -1,31 +1,77 @@
-import { Package, CheckCircle } from 'lucide-react';
+import { Package, CheckCircle, RefreshCw } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
-import { salesOrders, fabricRolls } from '../../data/mockData';
+import type { SalesOrder } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
+import { useApi } from '../../hooks/useApi';
+import { api } from '../../services/apiClient';
+
+interface BackendFabricRoll {
+  id: string;
+  orderId: string;
+  metres: number;
+  qcResult: string;
+}
 
 export default function FinishedGoods() {
-  const readyOrders     = salesOrders.filter(o => ['quality_check','ready_to_ship','dispatched'].includes(o.status));
-  const totalFinished   = readyOrders.filter(o => o.status === 'ready_to_ship').reduce((s, o) => s + o.completedMetres, 0);
+  const { data: rawOrders, loading: ordersLoading, error: ordersError, refetch: refetchOrders } = useApi<SalesOrder[]>(
+    () => api.get<SalesOrder[]>('/sales-orders?limit=200'),
+    [],
+    { autoPollMs: 15000 }
+  );
+
+  const { data: rawRolls, loading: rollsLoading, error: rollsError, refetch: refetchRolls } = useApi<BackendFabricRoll[]>(
+    () => api.get<BackendFabricRoll[]>('/fabric-rolls?limit=200'),
+    [],
+    { autoPollMs: 15000 }
+  );
+
+  const salesOrders = rawOrders || [];
+  const fabricRolls = rawRolls || [];
+
+  const readyOrders     = salesOrders.filter(o => ['quality_check', 'ready_to_ship', 'dispatched'].includes(o.status));
+  const totalFinished   = readyOrders.filter(o => o.status === 'ready_to_ship').reduce((s, o) => s + (Number(o.completedMetres) || 0), 0);
   const passedRolls     = fabricRolls.filter(r => r.qcResult === 'passed');
-  const totalPassedMetres = passedRolls.reduce((s, r) => s + r.metres, 0);
+  const totalPassedMetres = passedRolls.reduce((s, r) => s + (Number(r.metres) || 0), 0);
 
   const { paginatedData, ...paginationProps } = usePagination(readyOrders, 20);
 
+  const handleRefresh = () => {
+    refetchOrders();
+    refetchRolls();
+  };
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <button
+          onClick={handleRefresh}
+          className="p-2.5 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors flex items-center gap-1.5 text-xs"
+          title="Refresh"
+        >
+          <RefreshCw size={14} className={ordersLoading || rollsLoading ? 'animate-spin' : ''} />
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      {(ordersError || rollsError) && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
+          {ordersError || rollsError}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card p-4">
           <p className="stat-label mb-1">Cleared Stock</p>
           <p className="font-display text-4xl font-semibold text-[var(--text)]">
             {totalFinished.toLocaleString()} <span className="text-sm font-sans font-normal text-[var(--text-soft)]">m</span>
           </p>
-          <p className="text-xs text-[var(--text-soft)] mt-1">Ready for packing & dispatch</p>
+          <p className="text-xs text-[var(--text-soft)] mt-1">Ready for packing &amp; dispatch</p>
         </div>
         <div className="card p-4">
           <p className="stat-label mb-1">QC Cleared Rolls</p>
           <p className="font-display text-4xl font-semibold text-[var(--ok)]">{passedRolls.length}</p>
-          <p className="text-xs text-[var(--text-soft)] font-mono mt-1">{totalPassedMetres} m inspected & tagged</p>
+          <p className="text-xs text-[var(--text-soft)] font-mono mt-1">{totalPassedMetres.toLocaleString()} m inspected &amp; tagged</p>
         </div>
         <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))]">
           <p className="stat-label text-[var(--warn)] mb-1">Awaiting Dispatch Dock</p>
@@ -39,7 +85,7 @@ export default function FinishedGoods() {
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--border)] flex items-center gap-2">
           <Package size={16} className="text-[var(--olive-dark)]" />
-          <h2 className="text-sm font-display font-semibold text-[var(--text)]">Finished Goods Vault & Staged Rolls</h2>
+          <h2 className="text-sm font-display font-semibold text-[var(--text)]">Finished Goods Vault &amp; Staged Rolls</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -64,7 +110,9 @@ export default function FinishedGoods() {
                     <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{order.buyer}</td>
                     <td className="px-4 py-3.5 text-xs text-[var(--text)] text-left">{order.fabricType}</td>
                     <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{order.colour}</td>
-                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">{order.completedMetres.toLocaleString()} m</td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">
+                      {(Number(order.completedMetres) || 0).toLocaleString()} m
+                    </td>
                     <td className="px-4 py-3.5 text-right tabular-nums">
                       <div className="flex items-center justify-end gap-1.5 text-xs font-mono text-[var(--text)]">
                         <CheckCircle size={13} className="text-[var(--ok)]" />
@@ -86,3 +134,4 @@ export default function FinishedGoods() {
     </div>
   );
 }
+
