@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Factory, ChevronRight, ChevronLeft,
   Layers, AlertTriangle, FileText, Truck, ClipboardCheck,
-  Boxes, TrendingUp, Receipt, Gauge, ShieldCheck, ShoppingCart, BarChart3, Package
+  Boxes, TrendingUp, Receipt, Gauge, ShieldCheck, ShoppingCart, BarChart3, Package, FlaskConical
 } from 'lucide-react';
 
 interface NavItem {
@@ -24,9 +24,9 @@ const navItems: NavItem[] = [
     path: '/yarn',
     icon: <Layers size={16} />,
     children: [
-      { label: 'Yarn Receipts',      path: '/yarn/receipts', icon: <Receipt size={14} /> },
-      { label: 'Raw Material Stock', path: '/yarn/stock',    icon: <Boxes size={14} /> },
-      { label: 'Low Stock Alerts',   path: '/yarn/alerts',   icon: <AlertTriangle size={14} /> },
+      { label: 'Yarn Receipts',      path: '/yarn/receipts',    icon: <Receipt size={14} /> },
+      { label: 'Raw Material Stock', path: '/yarn/stock',       icon: <Boxes size={14} /> },
+      { label: 'Yarn Inspection',    path: '/yarn/inspection',  icon: <FlaskConical size={14} /> },
     ],
   },
   {

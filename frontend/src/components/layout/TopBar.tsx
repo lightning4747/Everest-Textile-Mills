@@ -1,6 +1,6 @@
-import { Bell, Search, User, AlertTriangle, X, ChevronRight } from 'lucide-react';
+import { Bell, Search, User, AlertTriangle, X, ChevronRight, CheckCheck } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { yarnStock } from '../../data/mockData';
 
 const pageTitles: Record<string, string> = {
@@ -8,6 +8,7 @@ const pageTitles: Record<string, string> = {
   '/yarn/receipts':         'Yarn Receipts',
   '/yarn/stock':            'Raw Material Stock',
   '/yarn/alerts':           'Low Stock Alerts',
+  '/yarn/inspection':       'Yarn Incoming Inspection',
   '/production/machines':   'Machine Fleet',
   '/production/orders':     'Production Orders',
   '/production/shopfloor':  'Shop Floor Board',
@@ -28,16 +29,32 @@ export default function TopBar() {
   const navigate = useNavigate();
   const title = pageTitles[location.pathname] ?? 'Everest Textile Mills';
 
-  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifOpen, setNotifOpen]   = useState(false);
+  const [readIds,   setReadIds]     = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
   const bellRef  = useRef<HTMLButtonElement>(null);
 
-  // Compute low-stock alerts from mock data
+  // All low-stock yarn items
   const lowItems   = yarnStock.filter(y => y.quantityKg <= y.reorderLevel);
-  const critical   = lowItems.filter(y => y.quantityKg <= y.reorderLevel * 0.4);
-  const alertCount = lowItems.length;
+  const unreadCount = lowItems.filter(y => !readIds.has(y.id)).length;
 
-  // Close panel on outside click
+  // Toggle panel on bell click; if already open navigate to /yarn/alerts and close
+  const handleBellClick = useCallback(() => {
+    if (notifOpen) {
+      // Second click — navigate to the full alerts page and close panel
+      navigate('/yarn/alerts');
+      setNotifOpen(false);
+    } else {
+      setNotifOpen(true);
+    }
+  }, [notifOpen, navigate]);
+
+  // Mark all as read
+  const markAllRead = useCallback(() => {
+    setReadIds(new Set(lowItems.map(y => y.id)));
+  }, [lowItems]);
+
+  // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -80,16 +97,21 @@ export default function TopBar() {
         <div className="relative">
           <button
             ref={bellRef}
-            onClick={() => setNotifOpen(o => !o)}
-            className={`relative p-2 rounded-lg transition-colors ${notifOpen ? 'bg-[var(--sand)] text-[var(--text)]' : 'text-[var(--olive-grey)] hover:text-[var(--text)] hover:bg-[var(--sand)]'}`}
-            title={`${alertCount} stock alert${alertCount !== 1 ? 's' : ''}`}
+            onClick={handleBellClick}
+            className={`relative p-2 rounded-lg transition-colors ${
+              notifOpen
+                ? 'bg-[var(--panel-bg)] text-[var(--text)]'
+                : 'text-[var(--olive-grey)] hover:text-[var(--text)] hover:bg-[var(--panel-bg)]'
+            }`}
+            title={notifOpen ? 'Click again to view full alerts page' : `${unreadCount} unread stock alert${unreadCount !== 1 ? 's' : ''}`}
             aria-haspopup="true"
             aria-expanded={notifOpen}
           >
             <Bell size={16} />
-            {alertCount > 0 && (
+            {/* Unread badge */}
+            {unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--bad)] border-2 border-[var(--surface)] flex items-center justify-center">
-                <span className="text-[9px] font-mono font-bold text-white leading-none">{alertCount}</span>
+                <span className="text-[9px] font-mono font-bold text-white leading-none">{unreadCount}</span>
               </span>
             )}
           </button>
@@ -101,50 +123,89 @@ export default function TopBar() {
               className="absolute right-0 top-[calc(100%+8px)] w-80 rounded-xl shadow-xl border border-[var(--border)] bg-[var(--surface)] z-50 overflow-hidden"
             >
               {/* Panel Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--surface)]">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2">
                   <Bell size={14} className="text-[var(--text-soft)]" />
                   <span className="text-xs font-semibold text-[var(--text)]">Stock Alerts</span>
-                  {alertCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[color-mix(in_srgb,var(--bad)_12%,var(--surface))] text-[var(--bad)]">
-                      {alertCount}
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--panel-bg)] text-[var(--bad)]">
+                      {unreadCount} new
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => setNotifOpen(false)}
-                  className="p-1 rounded text-[var(--olive-grey)] hover:text-[var(--text)] hover:bg-[var(--sand)] transition-colors"
-                >
-                  <X size={13} />
-                </button>
+                <div className="flex items-center gap-1">
+                  {/* Mark all read */}
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllRead}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold text-[var(--ok)] hover:bg-[var(--panel-bg)] transition-colors"
+                      title="Mark all as read"
+                    >
+                      <CheckCheck size={12} /> Mark read
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setNotifOpen(false)}
+                    className="p-1 rounded text-[var(--olive-grey)] hover:text-[var(--text)] hover:bg-[var(--panel-bg)] transition-colors"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Hint */}
+              <div className="px-4 pt-2 pb-1">
+                <p className="text-[10px] font-mono text-[var(--text-soft)]">
+                  Click bell again to open full alerts page ↗
+                </p>
               </div>
 
               {/* Alert Items */}
-              {alertCount === 0 ? (
+              {lowItems.length === 0 ? (
                 <div className="px-4 py-8 text-center">
                   <p className="text-xs text-[var(--text-soft)]">All yarn stock levels are healthy.</p>
                 </div>
               ) : (
-                <div className="max-h-80 overflow-y-auto divide-y divide-[var(--border)]">
+                <div className="max-h-72 overflow-y-auto divide-y divide-[var(--border)]">
                   {lowItems.map(yarn => {
                     const isCritical = yarn.quantityKg <= yarn.reorderLevel * 0.4;
                     const deficit    = Math.max(0, yarn.reorderLevel - yarn.quantityKg);
+                    const isRead     = readIds.has(yarn.id);
                     return (
-                      <div key={yarn.id} className="px-4 py-3 hover:bg-[var(--sand)] transition-colors cursor-default">
+                      <div
+                        key={yarn.id}
+                        onClick={() => setReadIds(prev => new Set([...prev, yarn.id]))}
+                        className={`px-4 py-3 transition-colors cursor-pointer hover:bg-[var(--panel-bg)] ${isRead ? 'opacity-50' : ''}`}
+                      >
                         <div className="flex items-start gap-2.5">
-                          <div className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${isCritical ? 'bg-[color-mix(in_srgb,var(--bad)_12%,var(--surface))] text-[var(--bad)]' : 'bg-[color-mix(in_srgb,var(--warn)_12%,var(--surface))] text-[var(--warn)]'}`}>
+                          {/* Unread dot */}
+                          <div className="flex-shrink-0 mt-1.5">
+                            {!isRead
+                              ? <span className="block w-1.5 h-1.5 rounded-full bg-[var(--bad)]" />
+                              : <span className="block w-1.5 h-1.5 rounded-full bg-transparent" />
+                            }
+                          </div>
+                          <div className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 ${
+                            isCritical ? 'bg-[var(--panel-bg)] text-[var(--bad)]' : 'bg-[var(--panel-bg)] text-[var(--warn)]'
+                          }`}>
                             <AlertTriangle size={12} />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-1">
                               <p className="text-xs font-semibold text-[var(--text)] truncate">{yarn.colour} {yarn.type}</p>
-                              <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${isCritical ? 'bg-[color-mix(in_srgb,var(--bad)_10%,var(--surface))] text-[var(--bad)]' : 'bg-[color-mix(in_srgb,var(--warn)_10%,var(--surface))] text-[var(--warn)]'}`}>
+                              <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded flex-shrink-0 border ${
+                                isCritical
+                                  ? 'text-[var(--bad)] border-[var(--bad)] bg-[var(--panel-bg)]'
+                                  : 'text-[var(--warn)] border-[var(--warn)] bg-[var(--panel-bg)]'
+                              }`}>
                                 {isCritical ? 'CRITICAL' : 'WARNING'}
                               </span>
                             </div>
                             <p className="text-[10px] font-mono text-[var(--text-soft)] mt-0.5">{yarn.id} · {yarn.location}</p>
                             <div className="flex items-center gap-3 mt-1 text-[10px] font-mono tabular-nums">
-                              <span className={`font-bold ${isCritical ? 'text-[var(--bad)]' : 'text-[var(--warn)]'}`}>{yarn.quantityKg.toLocaleString()} kg on hand</span>
+                              <span className={`font-bold ${isCritical ? 'text-[var(--bad)]' : 'text-[var(--warn)]'}`}>
+                                {yarn.quantityKg.toLocaleString()} kg
+                              </span>
                               <span className="text-[var(--text-soft)]">↓ {deficit.toLocaleString()} kg short</span>
                             </div>
                           </div>
@@ -155,18 +216,16 @@ export default function TopBar() {
                 </div>
               )}
 
-              {/* Panel Footer */}
-              {alertCount > 0 && (
-                <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--sand)]">
-                  <button
-                    onClick={() => { navigate('/yarn/alerts'); setNotifOpen(false); }}
-                    className="w-full flex items-center justify-between text-xs font-semibold text-[var(--cyprus)] hover:text-[var(--text)] transition-colors"
-                  >
-                    <span>View all {alertCount} alerts in detail</span>
-                    <ChevronRight size={13} />
-                  </button>
-                </div>
-              )}
+              {/* Footer */}
+              <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--panel-bg)]">
+                <button
+                  onClick={() => { navigate('/yarn/alerts'); setNotifOpen(false); }}
+                  className="w-full flex items-center justify-between text-xs font-semibold text-[var(--cyprus)] hover:text-[var(--text)] transition-colors"
+                >
+                  <span>View all {lowItems.length} alerts in detail</span>
+                  <ChevronRight size={13} />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -174,7 +233,7 @@ export default function TopBar() {
         <div className="h-6 w-px bg-[var(--border)]" />
 
         <div className="flex items-center gap-2.5 px-2 py-1 rounded-lg">
-          <div className="w-7 h-7 rounded-full bg-[var(--sand)] border border-[var(--border)] flex items-center justify-center text-[var(--olive-dark)]">
+          <div className="w-7 h-7 rounded-full bg-[var(--panel-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--olive-dark)]">
             <User size={13} />
           </div>
           <div className="hidden md:block text-left">

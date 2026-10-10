@@ -11,6 +11,7 @@ const ProductionOrders = React.lazy(() => import('./pages/shopfloor/ProductionOr
 const YarnReceipts     = React.lazy(() => import('./pages/yarn/YarnReceipts'));
 const RawMaterialStock = React.lazy(() => import('./pages/yarn/RawMaterialStock'));
 const LowStockAlerts   = React.lazy(() => import('./pages/yarn/LowStockAlerts'));
+const YarnInspection   = React.lazy(() => import('./pages/yarn/YarnInspection'));
 const QualityChecks    = React.lazy(() => import('./pages/quality/QualityChecks'));
 const FabricRolls      = React.lazy(() => import('./pages/quality/FabricRolls'));
 const PendingInspection = React.lazy(() => import('./pages/quality/PendingInspection'));
@@ -37,9 +38,10 @@ export default function App() {
             <Route path="production/shopfloor" element={<ShopFloorBoard />} />
 
             {/* Yarn */}
-            <Route path="yarn/receipts" element={<YarnReceipts />} />
-            <Route path="yarn/stock"    element={<RawMaterialStock />} />
-            <Route path="yarn/alerts"   element={<LowStockAlerts />} />
+            <Route path="yarn/receipts"    element={<YarnReceipts />} />
+            <Route path="yarn/stock"       element={<RawMaterialStock />} />
+            <Route path="yarn/alerts"      element={<LowStockAlerts />} />
+            <Route path="yarn/inspection"  element={<YarnInspection />} />
 
             {/* Quality */}
             <Route path="quality/checks"  element={<QualityChecks />} />
