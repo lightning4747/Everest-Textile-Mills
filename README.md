@@ -50,15 +50,56 @@ A manufacturing ERP system for Everest Textile Mills built with TypeScript, Bun,
 
 ## Local Development (Without Docker)
 
-1. Ensure PostgreSQL is running on `localhost:5432` with database `everest_erp`.
-2. Configure `backend/.env`.
-3. In `backend/`:
-   ```bash
-   bun install
-   bun run db:migrate
-   bun run seed
-   bun run dev
-   ```
+### 1. Prerequisites
+- [Bun](https://bun.sh/) (v1.1+ installed: `curl -fsSL https://bun.sh/install | bash`)
+- PostgreSQL running on `localhost:5432` with database `everest_erp`
+
+### 2. Backend Setup
+In `backend/`:
+```bash
+# Install backend dependencies
+bun install
+
+# Run database migrations & seed initial records
+bun run db:migrate
+bun run seed
+
+# Start backend development server
+bun run dev
+```
+
+### 3. Frontend Setup
+In `frontend/`:
+```bash
+# Install frontend dependencies
+bun install
+
+# Start Vite development server with HMR
+bun run dev
+
+# Typecheck and build production distribution
+bun run build
+
+# Preview production build locally
+bun run preview
+```
+
+---
+
+## ⚡ Bun Command Cheat Sheet (Migration Reference)
+
+The entire Everest Textile Mills repository (both frontend & backend) standardizes on **Bun** instead of npm/yarn.
+
+| Action | Old (npm) | New (Bun) |
+| :--- | :--- | :--- |
+| **Install all dependencies** | `npm install` | `bun install` |
+| **Add dependency** | `npm install <pkg>` | `bun add <pkg>` |
+| **Add dev dependency** | `npm install -D <pkg>` | `bun add -d <pkg>` |
+| **Remove dependency** | `npm uninstall <pkg>` | `bun remove <pkg>` |
+| **Run script** | `npm run <script>` | `bun run <script>` (or `bun <script>`) |
+| **Execute binary directly** | `npx <pkg>` | `bunx <pkg>` |
+| **Lockfile** | `package-lock.json` | `bun.lock` |
+
 
 ---
 
