@@ -9,7 +9,6 @@ import { eq, desc, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { machines, machineStatusLog, yarnStock, machineOutputLog, fabricRolls, salesOrders } from '../db/schema.js';
 import { yarnStockLowCount, productionOutputMetresToday } from '../metrics.js';
-import { fabricRolls, salesOrders } from '../db/schema.js';
 
 export interface ReserveYarnInput {
   yarnStockId?: string;

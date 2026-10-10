@@ -8,8 +8,9 @@ A manufacturing ERP system for Everest Textile Mills built with TypeScript, Bun,
 
 - **Backend:** Express on Bun (`backend/`)
 - **Database:** PostgreSQL 16 with Drizzle ORM (`backend/src/db/`)
+- **Machine Learning:** ONNX Runtime inference engine (`onnxruntime-node`) & XGBoost model (`backend/models/revenue_model.onnx`)
 - **Observability:** Prometheus metrics (`/metrics`) and Grafana
-- **Testing:** k6 load testing scenarios (`k6/`)
+- **Testing:** Bun test suite & k6 load testing scenarios (`k6/`)
 - **Frontend:** React + Vite (`frontend/`)
 
 ---

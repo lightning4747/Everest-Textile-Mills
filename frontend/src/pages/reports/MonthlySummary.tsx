@@ -1,8 +1,27 @@
 import { useMemo, useState } from 'react';
-import { Download, Printer } from 'lucide-react';
+import { Download, Printer, RefreshCw } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { monthlyData, orderCosts } from '../../data/mockData';
 import { exportCsv } from '../../utils/exportCsv';
+import { useApi } from '../../hooks/useApi';
+import { api } from '../../services/apiClient';
+
+interface BackendMonthlyRecord {
+  id: string;
+  year: number;
+  month: number;
+  revenue: number;
+  cost: number;
+  outputMetres: number;
+  wages: number;
+  grossProfit: number;
+  marginPct: number;
+}
+
+interface BackendOrderCost {
+  yarnCost: number;
+}
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; stroke?: string; fill?: string }>; label?: string }) => {
   if (active && payload?.length) {
@@ -20,33 +39,73 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   return null;
 };
 
-const ALL_MONTHS = monthlyData.map(d => d.month);
-
 export default function MonthlySummary() {
+  const { data: rawMonthly, loading: monthlyLoading, error, refetch: refetchMonthly } = useApi<BackendMonthlyRecord[]>(
+    () => api.get<BackendMonthlyRecord[]>('/reports/monthly'),
+    [],
+    { autoPollMs: 15000 }
+  );
+
+  const { data: rawCosts, refetch: refetchCosts } = useApi<BackendOrderCost[]>(
+    () => api.get<BackendOrderCost[]>('/reports/order-costs'),
+    []
+  );
+
+  // Normalize and sort monthly records chronologically (oldest to newest)
+  const monthlyData = useMemo(() => {
+    if (!rawMonthly || rawMonthly.length === 0) return [];
+    return [...rawMonthly]
+      .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month))
+      .map(r => ({
+        month: `${MONTH_NAMES[r.month - 1]} '${String(r.year).slice(2)}`,
+        revenue: Number(r.revenue),
+        cost: Number(r.cost),
+        output: Number(r.outputMetres),
+        wages: Number(r.wages || 385000),
+      }));
+  }, [rawMonthly]);
+
+  const ALL_MONTHS = monthlyData.map(d => d.month);
+
   // Month range filter — from/to index into monthlyData
   const [fromIdx, setFromIdx] = useState(0);
-  const [toIdx,   setToIdx]   = useState(monthlyData.length - 1);
+  const [toIdx,   setToIdx]   = useState(Math.max(0, monthlyData.length - 1));
+
+  // Sync toIdx when monthlyData loads
+  useMemo(() => {
+    if (monthlyData.length > 0 && toIdx === 0 && fromIdx === 0) {
+      setToIdx(monthlyData.length - 1);
+    }
+  }, [monthlyData.length]);
+
+  const effectiveToIdx = Math.min(toIdx, Math.max(0, monthlyData.length - 1));
+  const effectiveFromIdx = Math.min(fromIdx, effectiveToIdx);
 
   const filtered = useMemo(() =>
-    monthlyData.slice(fromIdx, toIdx + 1),
-  [fromIdx, toIdx]);
+    monthlyData.slice(effectiveFromIdx, effectiveToIdx + 1),
+  [monthlyData, effectiveFromIdx, effectiveToIdx]);
 
   const { latest, prev, revGrowth, totalMatCost, chartData } = useMemo(() => {
-    const latest       = filtered[filtered.length - 1] ?? monthlyData[monthlyData.length - 1];
-    const prev         = filtered.length > 1 ? filtered[filtered.length - 2] : monthlyData[monthlyData.length - 2];
-    const revGrowth    = Math.round(((latest.revenue - prev.revenue) / prev.revenue) * 100);
-    const totalMatCost = orderCosts.reduce((s, o) => s + o.yarnCost, 0);
+    const latest       = filtered[filtered.length - 1] ?? { month: '—', revenue: 0, cost: 0, output: 0, wages: 385000 };
+    const prev         = filtered.length > 1 ? filtered[filtered.length - 2] : latest;
+    const revGrowth    = prev.revenue > 0 ? Math.round(((latest.revenue - prev.revenue) / prev.revenue) * 100) : 0;
+    const totalMatCost = (rawCosts || []).reduce((s, o) => s + (Number(o.yarnCost) || 0), 0) || Math.round(latest.cost * 0.52);
     const chartData    = filtered.map(d => ({
       month: d.month, Revenue: d.revenue, 'Manufacturing Cost': d.cost, 'Output (m)': d.output,
     }));
     return { latest, prev, revGrowth, totalMatCost, chartData };
-  }, [filtered]);
+  }, [filtered, rawCosts]);
 
-  const totalWages = 385000;
+  const totalWages = latest.wages || 385000;
+
+  const handleRefresh = () => {
+    refetchMonthly();
+    refetchCosts();
+  };
 
   function handleExport() {
     exportCsv(
-      `monthly-summary-${ALL_MONTHS[fromIdx]}-to-${ALL_MONTHS[toIdx]}.csv`,
+      `monthly-summary-${ALL_MONTHS[effectiveFromIdx] || 'start'}-to-${ALL_MONTHS[effectiveToIdx] || 'end'}.csv`,
       ['Month', 'Revenue (₹)', 'Mill Cost (₹)', 'Output (m)', 'Gross Profit (₹)', 'Margin (%)'],
       filtered.map(d => [
         d.month,
@@ -54,7 +113,7 @@ export default function MonthlySummary() {
         d.cost,
         d.output,
         d.revenue - d.cost,
-        Math.round(((d.revenue - d.cost) / d.revenue) * 100),
+        d.revenue > 0 ? Math.round(((d.revenue - d.cost) / d.revenue) * 100) : 0,
       ]),
     );
   }
@@ -66,6 +125,14 @@ export default function MonthlySummary() {
       <div className="flex items-center justify-between flex-wrap gap-3 print-hide">
         <h2 className="font-display text-lg font-semibold text-[var(--text)]">Monthly Production &amp; P&amp;L Summary</h2>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors h-9 flex items-center gap-1.5 text-xs"
+            title="Refresh"
+          >
+            <RefreshCw size={14} className={monthlyLoading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
           <button className="btn-secondary h-9 text-xs" onClick={handleExport}>
             <Download size={14} /> Export CSV ({filtered.length} months)
           </button>
@@ -75,16 +142,22 @@ export default function MonthlySummary() {
         </div>
       </div>
 
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
+          {error}
+        </div>
+      )}
+
       {/* Month range filter */}
       <div className="flex items-center gap-3 flex-wrap print-hide">
         <div className="flex items-center gap-2">
           <label className="text-xs text-[var(--text-soft)] font-medium">From</label>
           <select
-            value={fromIdx}
+            value={effectiveFromIdx}
             onChange={e => {
               const v = Number(e.target.value);
               setFromIdx(v);
-              if (v > toIdx) setToIdx(v);
+              if (v > effectiveToIdx) setToIdx(v);
             }}
             className="input-field h-9 text-xs font-mono w-32"
           >
@@ -94,18 +167,18 @@ export default function MonthlySummary() {
         <div className="flex items-center gap-2">
           <label className="text-xs text-[var(--text-soft)] font-medium">To</label>
           <select
-            value={toIdx}
+            value={effectiveToIdx}
             onChange={e => {
               const v = Number(e.target.value);
               setToIdx(v);
-              if (v < fromIdx) setFromIdx(v);
+              if (v < effectiveFromIdx) setFromIdx(v);
             }}
             className="input-field h-9 text-xs font-mono w-32"
           >
             {ALL_MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
           </select>
         </div>
-        {(fromIdx !== 0 || toIdx !== monthlyData.length - 1) && (
+        {(effectiveFromIdx !== 0 || effectiveToIdx !== monthlyData.length - 1) && (
           <button className="btn-ghost h-9 text-xs" onClick={() => { setFromIdx(0); setToIdx(monthlyData.length - 1); }}>
             Reset
           </button>
@@ -119,7 +192,7 @@ export default function MonthlySummary() {
           <div>
             <p className="stat-label mb-1">Fiscal Operations Review</p>
             <h2 className="font-display text-2xl md:text-3xl font-semibold text-[var(--text)]">
-              {filtered.length === 1 ? latest.month : `${ALL_MONTHS[fromIdx]} – ${ALL_MONTHS[toIdx]}`}
+              {filtered.length <= 1 ? latest.month : `${ALL_MONTHS[effectiveFromIdx]} – ${ALL_MONTHS[effectiveToIdx]}`}
             </h2>
           </div>
           <div className={`text-sm font-semibold font-mono px-3 py-1.5 rounded-lg border ${
@@ -150,8 +223,10 @@ export default function MonthlySummary() {
       {/* Chart */}
       <div className="card p-5">
         <h2 className="text-base font-display font-semibold text-[var(--text)] mb-4">
-          Trend — Revenue, Costs & Fabric Yield
-          <span className="text-xs font-sans font-normal text-[var(--text-soft)] ml-2">({ALL_MONTHS[fromIdx]} – {ALL_MONTHS[toIdx]})</span>
+          Trend — Revenue, Costs &amp; Fabric Yield
+          <span className="text-xs font-sans font-normal text-[var(--text-soft)] ml-2">
+            ({ALL_MONTHS[effectiveFromIdx] || ''} – {ALL_MONTHS[effectiveToIdx] || ''})
+          </span>
         </h2>
         <ResponsiveContainer width="100%" height={260}>
           <ComposedChart data={chartData} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
@@ -176,7 +251,11 @@ export default function MonthlySummary() {
             {[
               { label: 'Raw Fiber / Yarn',     amount: totalMatCost,                              color: 'bg-[var(--olive-dark)]', pct: 52 },
               { label: 'Worker & Staff Wages', amount: totalWages,                                color: 'bg-[var(--warn)]',       pct: 28 },
+<<<<<<< HEAD
               { label: 'Power, Steam & Opex',  amount: Math.abs(latest.cost - totalMatCost - totalWages),   color: 'bg-[var(--panel-border)]', pct: 20 },
+=======
+              { label: 'Power, Steam & Opex',  amount: Math.max(0, latest.cost - totalMatCost - totalWages), color: 'bg-[var(--panel-border)]', pct: 20 },
+>>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
             ].map(item => (
               <div key={item.label}>
                 <div className="flex justify-between text-xs mb-1.5 font-medium">
@@ -192,13 +271,17 @@ export default function MonthlySummary() {
         </div>
 
         <div className="card p-5">
-          <h3 className="text-sm font-display font-semibold text-[var(--text)] mb-4">P&L Operating Ledger ({latest.month})</h3>
+          <h3 className="text-sm font-display font-semibold text-[var(--text)] mb-4">P&amp;L Operating Ledger ({latest.month})</h3>
           <div className="space-y-2.5">
             {[
               { label: 'Gross Invoiced Revenue',   value: latest.revenue,                              accent: 'text-[var(--olive-dark)]', border: '' },
               { label: 'Less: Material Consumed',  value: -totalMatCost,                               accent: 'text-[var(--bad)]',        border: '' },
               { label: 'Less: Plant Wages',        value: -totalWages,                                 accent: 'text-[var(--bad)]',        border: '' },
+<<<<<<< HEAD
               { label: 'Less: Machine Opex',       value: -(Math.abs(latest.cost - totalMatCost - totalWages)),  accent: 'text-[var(--bad)]',        border: '' },
+=======
+              { label: 'Less: Machine Opex',       value: -Math.max(0, latest.cost - totalMatCost - totalWages), accent: 'text-[var(--bad)]', border: '' },
+>>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
               { label: 'Net Mill Operating Profit',value: latest.revenue - latest.cost,               accent: 'text-[var(--ok)] font-bold text-sm', border: 'border-t border-[var(--border)] pt-2.5 mt-2.5' },
             ].map(row => (
               <div key={row.label} className={`flex justify-between text-xs ${row.border}`}>
@@ -214,3 +297,4 @@ export default function MonthlySummary() {
     </div>
   );
 }
+

@@ -1,35 +1,87 @@
 import { useState } from 'react';
+<<<<<<< HEAD
 import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, FlaskConical } from 'lucide-react';
 import { fabricRolls as initialRolls, salesOrders, machines } from '../../data/mockData';
+=======
+import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, RefreshCw } from 'lucide-react';
+>>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
 import type { QCResult } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
+import { useApi } from '../../hooks/useApi';
+import { api } from '../../services/apiClient';
+
+interface BackendPendingRoll {
+  id: string;
+  orderId: string;
+  buyer?: string | null;
+  machineId: string;
+  machineName?: string | null;
+  machineType?: string | null;
+  metres: number;
+  producedDate: string;
+  qcResult: string;
+  defects?: string[];
+  checkedBy?: string | null;
+  checkedAt?: string | null;
+}
 
 export default function PendingInspection() {
-  const [rolls, setRolls] = useState(initialRolls);
-  const pending = rolls.filter(r => r.qcResult === 'pending');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
+  const { data: rawRolls, loading, error, refetch } = useApi<BackendPendingRoll[]>(
+    () => api.get<BackendPendingRoll[]>('/fabric-rolls/pending'),
+    [],
+    { autoPollMs: 15000 }
+  );
+
+  const pending = rawRolls || [];
   const { paginatedData, ...paginationProps } = usePagination(pending, 10);
 
-  const handleAction = (rollId: string, result: QCResult) => {
-    setRolls(prev => prev.map(r => r.id === rollId ? { ...r, qcResult: result, checkedAt: 'Just now', checkedBy: 'Supervisor' } : r));
+  const handleAction = async (rollId: string, result: QCResult) => {
+    setUpdatingId(rollId);
+    setActionError(null);
+    try {
+      await api.patch(`/fabric-rolls/${rollId}/qc`, {
+        qcResult: result,
+        grade: result === 'passed' ? 'A' : result === 'rework' ? 'B' : 'C',
+        remarks: `Verdict marked as ${result} via Quality Inspection`,
+      });
+      refetch();
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update roll status');
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   return (
     <div className="space-y-6">
       {/* Alert Header */}
-      <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_10%,var(--surface))] flex items-center gap-3">
-        <Clock size={20} className="text-[var(--warn)] flex-shrink-0" />
-        <div>
-          <h2 className="text-sm font-display font-semibold text-[var(--text)]">
-            {pending.length} fabric roll{pending.length !== 1 ? 's' : ''} awaiting laboratory inspection
-          </h2>
-          <p className="text-xs text-[var(--text-soft)]">
-            Examine rolls on grading table for yarn irregularities, warp/weft defects, and dye consistency.
-          </p>
+      <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_10%,var(--surface))] flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Clock size={20} className="text-[var(--warn)] flex-shrink-0" />
+          <div>
+            <h2 className="text-sm font-display font-semibold text-[var(--text)]">
+              {pending.length} fabric roll{pending.length !== 1 ? 's' : ''} awaiting laboratory inspection
+            </h2>
+            <p className="text-xs text-[var(--text-soft)]">
+              Examine rolls on grading table for yarn irregularities, warp/weft defects, and dye consistency.
+            </p>
+          </div>
         </div>
+        <button
+          onClick={() => refetch()}
+          className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors"
+          title="Refresh"
+          aria-label="Refresh list"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
+<<<<<<< HEAD
       {/* Threshold Info Banner */}
       <div className="card p-3 flex items-center gap-3 border-l-4 border-l-[var(--warn)]">
         <FlaskConical size={15} className="text-[var(--warn)] flex-shrink-0" />
@@ -39,10 +91,21 @@ export default function PendingInspection() {
           <strong className="text-[var(--text)]"> Threshold: pass ≥ 60%, rework 40–59%, reject &lt; 40% quality score.</strong>
         </p>
       </div>
+=======
+      {(error || actionError) && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
+          {error || actionError}
+        </div>
+      )}
+>>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
 
       {/* Rolls Queue */}
       <div className="space-y-5">
-        {pending.length === 0 ? (
+        {loading && pending.length === 0 ? (
+          <div className="card p-12 text-center text-xs text-[var(--text-soft)] font-mono animate-pulse">
+            Checking inspection queue…
+          </div>
+        ) : pending.length === 0 ? (
           /* Empty State */
           <div className="card p-16 flex flex-col items-center justify-center text-center gap-3">
             <ShieldAlert size={40} className="text-[var(--olive-grey)]" />
@@ -51,8 +114,7 @@ export default function PendingInspection() {
         ) : (
           <>
             {paginatedData.map(roll => {
-              const order   = salesOrders.find(o => o.id === roll.orderId);
-              const machine = machines.find(m => m.id === roll.machineId);
+              const isUpdating = updatingId === roll.id;
 
               return (
                 <div key={roll.id} className="card p-5 border-l-4 border-l-[var(--warn)] space-y-5">
@@ -69,11 +131,13 @@ export default function PendingInspection() {
                         </div>
                         <div>
                           <span className="text-[var(--text-soft)] block uppercase text-[10px] font-semibold">Buyer</span>
-                          <span className="font-medium text-[var(--text)]">{order?.buyer ?? '—'}</span>
+                          <span className="font-medium text-[var(--text)]">{roll.buyer ?? '—'}</span>
                         </div>
                         <div>
                           <span className="text-[var(--text-soft)] block uppercase text-[10px] font-semibold">Machine / Unit</span>
-                          <span className="font-mono text-[var(--text)]">{roll.machineId} ({machine?.type ?? '—'})</span>
+                          <span className="font-mono text-[var(--text)]">
+                            {roll.machineId} {roll.machineType ? `(${roll.machineType})` : ''}
+                          </span>
                         </div>
                         <div>
                           <span className="text-[var(--text-soft)] block uppercase text-[10px] font-semibold">Batch Length</span>
@@ -101,21 +165,24 @@ export default function PendingInspection() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <button
                         onClick={() => handleAction(roll.id, 'passed')}
-                        className="btn-quality-pass"
+                        disabled={isUpdating}
+                        className="btn-quality-pass disabled:opacity-50"
                       >
                         <CheckCircle2 size={20} />
                         <span>Pass Roll (Ready)</span>
                       </button>
                       <button
                         onClick={() => handleAction(roll.id, 'rework')}
-                        className="btn-quality-rework"
+                        disabled={isUpdating}
+                        className="btn-quality-rework disabled:opacity-50"
                       >
                         <RotateCcw size={20} />
                         <span>Mark Rework (Scouring/Re-dye)</span>
                       </button>
                       <button
                         onClick={() => handleAction(roll.id, 'rejected')}
-                        className="btn-quality-reject"
+                        disabled={isUpdating}
+                        className="btn-quality-reject disabled:opacity-50"
                       >
                         <XCircle size={20} />
                         <span>Reject / Scrap</span>
@@ -132,3 +199,4 @@ export default function PendingInspection() {
     </div>
   );
 }
+

@@ -17,20 +17,59 @@ import { updateYarnLowStockGauge, updateProductionOutputGauge } from '../service
 async function seed() {
   console.log('🌱 Starting seed...');
 
+  // ── Sequences ─────────────────────────────────────────────────────────────
+  await db.execute(sql`CREATE SEQUENCE IF NOT EXISTS yarn_receipts_seq START WITH 1000;`);
+  await db.execute(sql`SELECT setval('yarn_receipts_seq', COALESCE((SELECT max(CAST(SUBSTRING(id FROM 9) AS INTEGER)) FROM yarn_receipts WHERE id ~ '^YR-[0-9]{4}-[0-9]+$'), 0) + 1);`);
+
+  await db.execute(sql`CREATE SEQUENCE IF NOT EXISTS sales_orders_seq START WITH 1050;`);
+  await db.execute(sql`SELECT setval('sales_orders_seq', COALESCE((SELECT max(CAST(SUBSTRING(id FROM 5) AS INTEGER)) FROM sales_orders WHERE id ~ '^ORD-[0-9]+$'), 1000) + 1);`);
+
+  await db.execute(sql`CREATE SEQUENCE IF NOT EXISTS dispatches_seq START WITH 305;`);
+  await db.execute(sql`SELECT setval('dispatches_seq', COALESCE((SELECT max(CAST(SUBSTRING(id FROM 5) AS INTEGER)) FROM dispatches WHERE id ~ '^DSP-[0-9]+$'), 300) + 1);`);
+
+  await db.execute(sql`CREATE SEQUENCE IF NOT EXISTS fabric_rolls_seq START WITH 5515;`);
+  await db.execute(sql`SELECT setval('fabric_rolls_seq', COALESCE((SELECT max(CAST(SUBSTRING(id FROM 4) AS INTEGER)) FROM fabric_rolls WHERE id ~ '^FR-[0-9]+$'), 5500) + 1);`);
+
   // ── App Config ────────────────────────────────────────────────────────────
   await db.insert(appConfig).values([
     { key: 'machine_daily_target_metres', value: '500' },
     { key: 'monthly_wages_inr', value: '385000' },
   ]).onConflictDoNothing();
 
-  // ── Default admin user ────────────────────────────────────────────────────
+  // ── Default users for all roles ──────────────────────────────────────────
   const passwordHash = await bcrypt.hash('changeme123', 12);
-  await db.insert(users).values({
-    name: 'Admin',
-    email: 'admin@everest.local',
-    passwordHash,
-    role: 'admin',
-  }).onConflictDoNothing();
+  await db.insert(users).values([
+    {
+      name: 'Admin',
+      email: 'admin@everest.local',
+      passwordHash,
+      role: 'admin',
+    },
+    {
+      name: 'Plant Manager',
+      email: 'manager@everest.local',
+      passwordHash,
+      role: 'manager',
+    },
+    {
+      name: 'Floor Operator',
+      email: 'operator@everest.local',
+      passwordHash,
+      role: 'operator',
+    },
+    {
+      name: 'QC Inspector',
+      email: 'qc@everest.local',
+      passwordHash,
+      role: 'qc_inspector',
+    },
+    {
+      name: 'Guest Viewer',
+      email: 'viewer@everest.local',
+      passwordHash,
+      role: 'viewer',
+    },
+  ]).onConflictDoNothing();
 
   // ── Machines ──────────────────────────────────────────────────────────────
   await db.insert(machines).values([

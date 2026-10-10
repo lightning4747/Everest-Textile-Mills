@@ -18,7 +18,16 @@ export function validate(schema: ZodSchema, target: Target = 'body') {
       return;
     }
     // Replace with parsed/coerced value
-    (req as unknown as Record<string, unknown>)[target] = result.data;
+    if (target === 'query') {
+      try {
+        (req as unknown as Record<string, unknown>)[target] = result.data;
+      } catch {
+        // Express req.query might be getter-only on some runtimes/setups
+        Object.assign(req.query, result.data);
+      }
+    } else {
+      (req as unknown as Record<string, unknown>)[target] = result.data;
+    }
     next();
   };
 }

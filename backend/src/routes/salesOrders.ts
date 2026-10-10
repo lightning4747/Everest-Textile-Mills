@@ -196,21 +196,9 @@ router.post(
     try {
       const body = req.body as z.infer<typeof createOrderSchema>;
 
-      // Sequential ORD-NNNN generation using max existing ID
-      const [latest] = await db
-        .select({ id: salesOrders.id })
-        .from(salesOrders)
-        .where(sql`${salesOrders.id} ~ '^ORD-[0-9]+$'`)
-        .orderBy(desc(sql`CAST(SUBSTRING(${salesOrders.id} FROM 5) AS INTEGER)`))
-        .limit(1);
-
-      let nextNumber = 1001;
-      if (latest?.id) {
-        const numPart = parseInt(latest.id.replace('ORD-', ''), 10);
-        if (!isNaN(numPart)) {
-          nextNumber = numPart + 1;
-        }
-      }
+      // Sequential ORD-NNNN generation using atomic sequence
+      const nextValRes = await db.execute(sql<{ nextval: string }>`SELECT nextval('sales_orders_seq') as nextval;`);
+      const nextNumber = nextValRes.rows[0]?.nextval ?? Date.now();
       const newId = `ORD-${nextNumber}`;
 
       const [inserted] = await db
