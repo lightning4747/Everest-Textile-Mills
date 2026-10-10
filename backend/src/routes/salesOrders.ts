@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { db } from '../db/index.js';
-import { salesOrders, salesOrderItems } from '../db/schema.js';
+import { salesOrders, salesOrderItems, products } from '../db/schema.js';
 import { salesOrderService } from '../services/salesOrderService.js';
 import { eq, desc } from 'drizzle-orm';
 import { authenticate, authorize } from '../middleware/auth.js';
@@ -15,8 +15,48 @@ salesOrdersRouter.get('/', async (req: Request, res: Response) => {
     const orders = await db
       .select()
       .from(salesOrders)
-      .orderBy(desc(salesOrders.createdDate));
-    res.json(orders);
+      .orderBy(desc(salesOrders.createdDate), desc(salesOrders.id));
+
+    const allItems = await db.select().from(salesOrderItems);
+    const allProducts = await db.select().from(products);
+    const productMap = new Map(allProducts.map(p => [p.id, p]));
+
+    const ordersWithItems = orders.map((order) => {
+      const items = allItems
+        .filter((item) => item.orderId === order.id)
+        .map((item) => ({
+          ...item,
+          product: productMap.get(item.productId),
+        }));
+
+      const itemsQty = items.reduce((s, i) => s + (Number(i.quantityMetres) || 0), 0);
+      const itemsCompleted = items.reduce((s, i) => s + (Number(i.completedMetres) || 0), 0);
+      const totalQty = (Number(order.quantityMetres) > 0) ? Number(order.quantityMetres) : itemsQty;
+      const totalCompleted = (Number(order.completedMetres) > 0) ? Number(order.completedMetres) : itemsCompleted;
+
+      let fabricType = order.fabricType;
+      let colour = order.colour;
+      if (!fabricType || fabricType === 'Mixed') {
+        if (items.length === 1) {
+          fabricType = items[0].product?.fabricType || 'Mixed';
+          colour = colour || 'Standard';
+        } else if (items.length > 1) {
+          fabricType = 'Mixed';
+          colour = 'Mixed';
+        }
+      }
+
+      return {
+        ...order,
+        quantityMetres: totalQty.toFixed(2),
+        completedMetres: totalCompleted.toFixed(2),
+        fabricType: fabricType || 'Mixed',
+        colour: colour || 'Standard',
+        items,
+      };
+    });
+
+    res.json(ordersWithItems);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch sales orders' });
   }
@@ -40,7 +80,15 @@ salesOrdersRouter.get('/:id', async (req: Request, res: Response) => {
       .from(salesOrderItems)
       .where(eq(salesOrderItems.orderId, id));
 
-    res.json({ ...order, items });
+    const allProducts = await db.select().from(products);
+    const productMap = new Map(allProducts.map(p => [p.id, p]));
+
+    const itemsWithProduct = items.map(item => ({
+      ...item,
+      product: productMap.get(item.productId),
+    }));
+
+    res.json({ ...order, items: itemsWithProduct });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch order details' });
   }

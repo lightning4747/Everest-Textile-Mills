@@ -5,7 +5,7 @@
  * Run: bun run seed
  */
 import { db, pool } from './index.js';
-import { sql } from 'drizzle-orm';
+import { sql, inArray, eq } from 'drizzle-orm';
 import {
   appConfig, machines, machineStatusLog, machineOutputLog,
   suppliers, yarnTypeSuppliers, yarnStock, yarnReceipts,
@@ -304,6 +304,58 @@ async function seed() {
       idempotencyKey: `SEED:STOCK:${y.id}`,
       actor: 'System Seed',
     }).onConflictDoNothing();
+  }
+
+  // Backfill yarn reservations for confirmed orders waiting for production
+  const reservationOrders = await db.select().from(salesOrders).where(eq(salesOrders.status, 'confirmed'));
+  const allOrderItems = await db.select().from(salesOrderItems);
+  const allProducts = await db.select().from(products);
+  const prodMap = new Map(allProducts.map(p => [p.id, p]));
+
+  const standardBins: Record<string, string> = {
+    Cotton: 'YS-001',
+    Polyester: 'YS-003',
+    Wool: 'YS-005',
+    Silk: 'YS-006',
+    Blended: 'YS-007',
+  };
+
+  for (const so of reservationOrders) {
+    const items = allOrderItems.filter(i => i.orderId === so.id);
+    for (let idx = 0; idx < items.length; idx++) {
+      const it = items[idx];
+      const prod = prodMap.get(it.productId);
+      if (!prod) continue;
+      const targetBinId = standardBins[prod.yarnType] || 'YS-001';
+      const targetYarn = existingYarn.find(y => y.id === targetBinId) || existingYarn.find(y => y.type === prod.yarnType);
+      if (!targetYarn) continue;
+      const reqKg = Number(it.quantityMetres) * Number(it.yarnKgPerMetre || prod.yarnKgPerMetre);
+      if (reqKg <= 0) continue;
+
+      await db.execute(sql`
+        UPDATE inventory_balances
+        SET reserved_quantity = reserved_quantity + ${reqKg}
+        WHERE item_id = ${targetYarn.id} AND state = 'raw_yarn';
+      `);
+
+      await db.insert(inventoryMovements).values({
+        itemType: 'yarn',
+        itemId: targetYarn.id,
+        skuName: `${targetYarn.type} ${targetYarn.colour}`,
+        state: 'raw_yarn',
+        direction: 'out',
+        quantity: reqKg.toFixed(2),
+        quantityDelta: '0',
+        reservedDelta: reqKg.toFixed(2),
+        unit: 'kg',
+        reason: 'reservation',
+        referenceType: 'sales_order',
+        referenceId: so.id,
+        idempotencyKey: `SEED:RESV:${so.id}:${idx}`,
+        actor: 'System Seed',
+        notes: `Reserved for ${so.id}`,
+      }).onConflictDoNothing();
+    }
   }
 
   // Backfill WIP for orders in spinning/weaving/dyeing

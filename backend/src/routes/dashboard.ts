@@ -11,6 +11,8 @@ import { ok } from '../lib/response.js';
 import { db } from '../db/index.js';
 import {
   salesOrders,
+  salesOrderItems,
+  products,
   machines,
   machineStatusLog,
   machineOutputLog,
@@ -234,16 +236,27 @@ router.get('/recent-orders', async (_req, res, next) => {
       .orderBy(desc(salesOrders.createdDate), desc(salesOrders.id))
       .limit(5);
 
+    const allItems = await db.select().from(salesOrderItems);
+    const allProducts = await db.select().from(products);
+    const productMap = new Map(allProducts.map(p => [p.id, p]));
+
     const data = rows.map((o) => {
-      const targetMetres = Number(o.quantityMetres);
-      const completedMetres = Number(o.completedMetres);
+      const items = allItems.filter(i => i.orderId === o.id);
+      const itemsQty = items.reduce((s, i) => s + (Number(i.quantityMetres) || 0), 0);
+      const targetMetres = (Number(o.quantityMetres) > 0) ? Number(o.quantityMetres) : itemsQty;
+      const completedMetres = Number(o.completedMetres) || 0;
       const progressPct = targetMetres > 0 ? Math.round((completedMetres / targetMetres) * 100) : 0;
+
+      let fabric = o.fabricType;
+      if (!fabric && items.length > 0) {
+        fabric = items.length === 1 ? (productMap.get(items[0].productId)?.fabricType || 'Cotton Twill') : 'Mixed';
+      }
 
       return {
         id: o.id,
         buyer: o.buyer,
-        fabric: o.fabricType ?? 'Cotton Twill',
-        colour: o.colour ?? 'White',
+        fabric: fabric ?? 'Cotton Twill',
+        colour: o.colour ?? (items.length > 1 ? 'Mixed' : 'White'),
         targetMetres,
         completedMetres,
         progressPct,
