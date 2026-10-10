@@ -18,6 +18,7 @@ import productionOrdersRoutes from './routes/productionOrders.js';
 import fabricRollsRoutes from './routes/fabricRolls.js';
 import dispatchesRoutes from './routes/dispatches.js';
 import reportsRoutes from './routes/reports.js';
+import forecastRoutes from './routes/forecast.js';
 
 const app = express();
 
@@ -36,6 +37,9 @@ app.get('/health', (_req, res) => {
 
 app.get('/metrics', metricsHandler);
 
+// Direct top-level /api/forecast endpoint
+app.use('/api/forecast', forecastRoutes);
+
 // ── Domain API Routes (/api/v1) ─────────────────────────────────────────────
 const api = express.Router();
 
@@ -49,6 +53,7 @@ api.use('/production-orders', productionOrdersRoutes);
 api.use('/fabric-rolls', fabricRollsRoutes);
 api.use('/dispatches', dispatchesRoutes);
 api.use('/reports', reportsRoutes);
+api.use('/forecast', forecastRoutes);
 
 app.use('/api/v1', api);
 
@@ -57,10 +62,17 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 import { updateYarnLowStockGauge, updateProductionOutputGauge } from './services/stubs.js';
+import { getInferenceSession } from './services/forecaster.js';
 
 // ── Start Server ────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'test') {
   app.listen(config.PORT, async () => {
+    try {
+      await getInferenceSession();
+      console.log('🤖 ONNX Revenue Prediction Model initialized.');
+    } catch (err) {
+      console.warn('⚠️ ONNX Model initialization warning:', err);
+    }
     try {
       await updateYarnLowStockGauge();
       await updateProductionOutputGauge();
