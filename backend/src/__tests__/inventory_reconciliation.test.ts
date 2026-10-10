@@ -14,9 +14,12 @@ import {
 import { inventoryService } from '../services/inventoryService.js';
 import { eq, and } from 'drizzle-orm';
 
+import path from 'path';
+
 describe('Inventory 4-Way Mathematical Reconciliation Suite', () => {
   beforeAll(() => {
-    execSync('bun --env-file=.env src/db/seed.ts', { stdio: 'ignore' });
+    const backendDir = path.resolve(__dirname, '../..');
+    execSync('bun --env-file=.env src/db/seed.ts', { cwd: backendDir, stdio: 'ignore' });
   });
 
   it('Initial baseline reconciliation suite passes with zero drift across all 4 checks', async () => {

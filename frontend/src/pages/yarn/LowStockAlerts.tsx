@@ -311,11 +311,24 @@ function RaisePoModal({
     setSubmitting(true);
 
     try {
-      // Simulate dispatching purchase order workflow to supplier
-      await new Promise(resolve => setTimeout(resolve, 600));
+      const createdPo = await api.post<{ id: string }>('/purchase-orders', {
+        supplierName,
+        deliveryDate,
+        notes,
+        items: [
+          {
+            yarnStockId: yarn.id,
+            yarnType: yarn.type,
+            colour: yarn.colour,
+            orderedKg: poQuantityKg,
+            unitPrice: 150,
+          },
+        ],
+      });
 
+      const poId = createdPo.data?.id || poReference;
       onSuccess(
-        `Purchase Order ${poReference} (${poQuantityKg.toLocaleString()} kg of ${yarn.colour} ${yarn.type}) generated and dispatched to ${supplierName}!`
+        `Purchase Order ${poId} (${poQuantityKg.toLocaleString()} kg of ${yarn.colour} ${yarn.type}) generated and dispatched to ${supplierName}!`
       );
     } catch {
       setSubmitting(false);

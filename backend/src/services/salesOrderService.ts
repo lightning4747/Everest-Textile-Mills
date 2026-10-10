@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { db } from '../db/index.js';
-import { salesOrders, salesOrderItems, products, yarnStock, machines, machineStatusLog, productionOrders } from '../db/schema.js';
+import { salesOrders, salesOrderItems, products, yarnStock, machines, machineStatusLog, productionOrders, inventoryBalances } from '../db/schema.js';
 import { inventoryService } from './inventoryService.js';
-import { procurementService } from '../types/contract.js';
-import { eq, inArray, desc } from 'drizzle-orm';
+import { procurementService } from './procurementService.js';
+import { eq, inArray, desc, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 export const salesOrderService = {
@@ -91,6 +91,7 @@ export const salesOrderService = {
         const item = items[i];
         const prod = productMap.get(item.productId)!;
         const requiredYarn = Number(prod.yarnKgPerMetre) * Number(item.quantityMetres);
+        const itemId = uuidv4();
         
         // Find matching yarn bin from inventory
         const matchingBins = await tx
@@ -101,13 +102,26 @@ export const salesOrderService = {
 
         const yarnBin = matchingBins[0];
         let itemStatus = 'confirmed' as any;
+        let shortfallKg = 0;
 
         if (!yarnBin) {
           itemStatus = 'awaiting_yarn';
           hasShortfall = true;
-          await procurementService.createShortfallPO(orderId, requiredYarn);
+          shortfallKg = requiredYarn;
         } else {
-          try {
+          // Check currently available on-hand stock: quantity - reservedQuantity
+          const [balance] = await tx
+            .select()
+            .from(inventoryBalances)
+            .where(and(eq(inventoryBalances.itemId, yarnBin.id), eq(inventoryBalances.state, 'raw_yarn')))
+            .limit(1);
+
+          const currentQty = balance ? Number(balance.quantity) : Number(yarnBin.quantityKg);
+          const currentReserved = balance ? Number(balance.reservedQuantity) : 0;
+          const availableKg = Math.max(0, currentQty - currentReserved);
+
+          if (availableKg >= requiredYarn) {
+            // Full stock available — reserve entire requirement
             await inventoryService.reserveYarnForOrder(tx, {
               yarnStockId: yarnBin.id,
               orderId,
@@ -117,18 +131,32 @@ export const salesOrderService = {
               actor: buyer || 'Client Portal',
               idempotencyKey: `resv-${orderId}-${item.productId}-${i}-${Date.now()}`,
             });
-          } catch (err: any) {
-            console.warn(`Insufficient yarn for ${yarnBin.id}:`, err?.message);
+            itemStatus = 'confirmed';
+          } else {
+            // Shortfall! Reserve whatever available stock exists
+            if (availableKg > 0) {
+              await inventoryService.reserveYarnForOrder(tx, {
+                yarnStockId: yarnBin.id,
+                orderId,
+                requiredKg: availableKg,
+                yarnType: yarnBin.type,
+                colour: yarnBin.colour,
+                actor: buyer || 'Client Portal',
+                idempotencyKey: `resv-${orderId}-${item.productId}-${i}-${Date.now()}`,
+              });
+            }
+
+            shortfallKg = requiredYarn - availableKg;
             itemStatus = 'awaiting_yarn';
             hasShortfall = true;
-            await procurementService.createShortfallPO(orderId, requiredYarn);
           }
         }
         
+        // Insert sales order item first so foreign keys in restock_allocation_queue are satisfied
         await tx
           .insert(salesOrderItems)
           .values({
-            id: uuidv4(),
+            id: itemId,
             orderId: orderId,
             sequence: i + 1,
             productId: item.productId,
@@ -137,6 +165,19 @@ export const salesOrderService = {
             yarnKgPerMetre: prod.yarnKgPerMetre,
             status: itemStatus,
           });
+
+        // If there was a shortfall, automatically raise a PO to the supplier and enqueue restock allocation
+        if (shortfallKg > 0) {
+          await procurementService.createShortfallPO(tx, {
+            orderId,
+            orderItemId: itemId,
+            yarnStockId: yarnBin?.id || 'YS-001',
+            yarnType: yarnBin?.type || prod.yarnType,
+            colour: yarnBin?.colour || 'White',
+            shortfallKg,
+            buyer,
+          });
+        }
       }
       
       // Derive header status

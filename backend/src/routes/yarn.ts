@@ -8,6 +8,8 @@ import { db } from '../db/index.js';
 import { yarnStock, yarnReceipts, yarnTypeSuppliers, suppliers, appConfig } from '../db/schema.js';
 import { eq, sql, and, inArray } from 'drizzle-orm';
 import { updateYarnLowStockGauge } from '../services/stubs.js';
+import { inventoryService } from '../services/inventoryService.js';
+import { allocationService } from '../services/allocationService.js';
 
 const router = Router();
 router.use(authenticate);
@@ -187,6 +189,8 @@ const createReceiptSchema = z.object({
   yarnStockId: z.string().optional().nullable(),
   for_order_id: z.string().optional().nullable(),
   forOrderId: z.string().optional().nullable(),
+  purchase_order_id: z.string().optional().nullable(),
+  purchaseOrderId: z.string().optional().nullable(),
   received_by: z.string().optional(),
   receivedBy: z.string().optional(),
   invoice_no: z.string().optional(),
@@ -224,6 +228,7 @@ router.get('/receipts', async (req, res, next) => {
       quantityKg: Number(r.quantityKg),
       yarnStockId: r.yarnStockId,
       forOrderId: r.forOrderId ?? '',
+      purchaseOrderId: r.purchaseOrderId ?? '',
       receivedBy: r.receivedBy,
       invoiceNo: r.invoiceNo,
       createdAt: r.createdAt.toISOString(),
@@ -298,26 +303,8 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
         }
       }
 
-      // 4. Update yarn_stock if stock bin resolved, OR automatically create new stock bin if none exists
-      if (targetStockId) {
-        const [stock] = await tx
-          .select()
-          .from(yarnStock)
-          .where(eq(yarnStock.id, targetStockId))
-          .limit(1);
-
-        if (stock) {
-          const newQty = Number(stock.quantityKg) + quantityKg;
-          await tx
-            .update(yarnStock)
-            .set({
-              quantityKg: newQty.toFixed(2),
-              lastUpdated: new Date(),
-            })
-            .where(eq(yarnStock.id, targetStockId));
-        }
-      } else {
-        // Automatically create a new yarn_stock record so inventory is never lost
+      // 4. Ensure yarn_stock bin exists if none was found
+      if (!targetStockId) {
         const maxIdRes = await tx.execute(sql<{ max_num: number }>`
           SELECT COALESCE(MAX(CAST(SUBSTRING(id FROM 4) AS INTEGER)), 0) as max_num
           FROM yarn_stock
@@ -330,7 +317,7 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
           id: newStockId,
           type: yarnType,
           colour: body.colour,
-          quantityKg: quantityKg.toFixed(2),
+          quantityKg: '0.00',
           reorderLevel: '500.00',
           location: 'Staging Bay',
           lastUpdated: new Date(),
@@ -339,7 +326,19 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
         targetStockId = newStockId;
       }
 
-      // 5. Insert yarn_receipts record
+      // 5. Atomic balance update and audit ledger write via central InventoryService
+      await inventoryService.recordReceipt(tx, {
+        yarnStockId: targetStockId,
+        receiptKg: quantityKg,
+        yarnType,
+        colour: body.colour,
+        actor: receivedBy,
+        invoiceNo,
+        receiptId,
+        idempotencyKey: `rcv-${receiptId}-${Date.now()}`,
+      });
+
+      // 6. Insert yarn_receipts record
       const [inserted] = await tx
         .insert(yarnReceipts)
         .values({
@@ -352,10 +351,20 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
           quantityKg: quantityKg.toFixed(2),
           yarnStockId: targetStockId,
           forOrderId,
+          purchaseOrderId: body.purchaseOrderId || body.purchase_order_id || null,
           receivedBy,
           invoiceNo,
         })
         .returning();
+
+      // 7. Auto-allocate newly arrived stock to waiting customer orders (FIFO queue)
+      await allocationService.processRestockAllocation(tx, {
+        yarnStockId: targetStockId,
+        receivedKg: quantityKg,
+        actor: receivedBy,
+        yarnType,
+        colour: body.colour,
+      });
 
       return inserted;
     });

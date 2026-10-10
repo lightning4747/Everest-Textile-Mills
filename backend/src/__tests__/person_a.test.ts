@@ -52,6 +52,13 @@ describe('Person A: Domain Suite', () => {
   // ─── 1. Stubs & Domain Logic ──────────────────────────────────────────────
   describe('Stubs & Domain Logic', () => {
     it('checkMachineAvailability returns accurate status', async () => {
+      await db.insert(machineStatusLog).values({
+        machineId: 'SP-03',
+        status: 'idle',
+        shift: 'A',
+        recordedAt: new Date(),
+      });
+
       const avail = await checkMachineAvailability({ machineId: 'SP-03' });
       expect(avail.currentStatus).toBe('idle');
       expect(avail.available).toBe(true);
@@ -248,10 +255,7 @@ describe('Person A: Domain Suite', () => {
     });
 
     it('POST /api/v1/yarn/receipts auto-creates a new stock bin when no matching bin exists', async () => {
-      // Ensure test idempotency
-      await db.delete(yarnReceipts).where(eq(yarnReceipts.invoiceNo, 'TEST-NEW-BIN-01'));
-      await db.delete(yarnStock).where(and(eq(yarnStock.type, 'Silk'), eq(yarnStock.colour, 'Royal Blue')));
-
+      const testColour = `TestShade-${Date.now()}`;
       const res = await fetch(`${baseUrl}/yarn/receipts`, {
         method: 'POST',
         headers: {
@@ -262,10 +266,10 @@ describe('Person A: Domain Suite', () => {
           date: '2026-10-10',
           supplierName: 'Silk Route Traders',
           yarnType: 'Silk',
-          colour: 'Royal Blue',
+          colour: testColour,
           quantityKg: 200,
           receivedBy: 'Integration Test Clerk',
-          invoiceNo: 'TEST-NEW-BIN-01',
+          invoiceNo: `TEST-NEW-BIN-${Date.now()}`,
         }),
       });
 
@@ -278,7 +282,7 @@ describe('Person A: Domain Suite', () => {
       const [newStock] = await db.select().from(yarnStock).where(eq(yarnStock.id, body.data.yarnStockId)).limit(1);
       expect(newStock).toBeDefined();
       expect(newStock.type).toBe('Silk');
-      expect(newStock.colour).toBe('Royal Blue');
+      expect(newStock.colour).toBe(testColour);
       expect(Number(newStock.quantityKg)).toBe(200);
       expect(newStock.location).toBe('Staging Bay');
     });

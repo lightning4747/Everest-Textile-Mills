@@ -6,6 +6,21 @@ import { api } from '../../services/apiClient';
 import type { Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
+const MILL_SHADES = [
+  'Natural White',
+  'Bleached White',
+  'Navy Blue',
+  'Indigo',
+  'Jet Black',
+  'Crimson Red',
+  'Heather Grey',
+  'Olive Green',
+  'Khaki',
+  'Royal Blue',
+  'Ivory',
+  'Charcoal',
+];
+
 export default function NewOrder() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -18,7 +33,7 @@ export default function NewOrder() {
   const activeProducts = useMemo(() => (products || []).filter(p => p.isActive), [products]);
 
   const [items, setItems] = useState<{ id: string; productId: string; colour: string; quantityMetres: number }[]>([
-    { id: crypto.randomUUID(), productId: '', colour: '', quantityMetres: 1000 }
+    { id: crypto.randomUUID(), productId: '', colour: 'Natural White', quantityMetres: 1000 }
   ]);
   
   const [deliveryDate, setDeliveryDate] = useState(() => {
@@ -31,7 +46,7 @@ export default function NewOrder() {
   const [error, setError] = useState<string | null>(null);
 
   const addItem = () => {
-    setItems(prev => [...prev, { id: crypto.randomUUID(), productId: '', colour: '', quantityMetres: 1000 }]);
+    setItems(prev => [...prev, { id: crypto.randomUUID(), productId: '', colour: 'Natural White', quantityMetres: 1000 }]);
   };
 
   const removeItem = (id: string) => {
@@ -52,8 +67,8 @@ export default function NewOrder() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.some(i => !i.productId || !i.quantityMetres || i.quantityMetres <= 0)) {
-      setError('Please fill all items with valid product and quantity');
+    if (items.some(i => !i.productId || !i.colour || !i.quantityMetres || i.quantityMetres <= 0)) {
+      setError('Please fill all items with valid product, shade, and quantity');
       return;
     }
 
@@ -127,17 +142,26 @@ export default function NewOrder() {
                         </option>
                       ))}
                     </select>
+                    {product && (
+                      <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[var(--olive-dark)] font-mono">
+                        <span className="font-semibold text-[var(--text-soft)]">Fiber:</span> {product.yarnType} · {product.yarnKgPerMetre} kg/m
+                      </div>
+                    )}
                   </div>
                   
                   <div className="md:col-span-3">
-                    <label className="text-xs font-semibold text-[var(--text-soft)] mb-1 block">Colour/Dye</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Navy Blue"
+                    <label className="text-xs font-semibold text-[var(--text-soft)] mb-1 block">Colour / Shade *</label>
+                    <select
+                      required
                       value={item.colour}
                       onChange={e => updateItem(item.id, 'colour', e.target.value)}
                       className="input-field text-xs font-mono w-full"
-                    />
+                    >
+                      <option value="">-- Select Shade --</option>
+                      {MILL_SHADES.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="md:col-span-2">

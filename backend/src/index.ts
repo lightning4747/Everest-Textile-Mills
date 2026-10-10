@@ -23,6 +23,7 @@ import forecastRoutes from './routes/forecast.js';
 import inventoryRoutes from './routes/inventory.js';
 import productsRoutes from './routes/products.js';
 import clientPortalRoutes from './routes/clientPortal.js';
+import purchaseOrdersRoutes from './routes/purchaseOrders.js';
 
 const app = express();
 
@@ -97,6 +98,7 @@ api.use('/forecast', forecastRoutes);
 api.use('/inventory', inventoryRoutes);
 api.use('/products', productsRoutes);
 api.use('/client', clientPortalRoutes);
+api.use('/purchase-orders', purchaseOrdersRoutes);
 
 app.use('/api/v1', api);
 
