@@ -3,6 +3,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db/index.js';
 import { salesOrders, salesOrderItems, products } from '../db/schema.js';
 import { salesOrderService } from '../services/salesOrderService.js';
+import { orderLifecycleService } from '../services/orderLifecycleService.js';
 import { eq, desc } from 'drizzle-orm';
 import { authenticate, authorize } from '../middleware/auth.js';
 
@@ -105,6 +106,38 @@ salesOrdersRouter.post('/', authorize('admin', 'manager', 'client'), async (req:
     res.status(201).json(newOrder);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create sales order' });
+  }
+});
+
+/**
+ * POST /api/v1/sales-orders/:id/advance
+ * Advances sales order to the next manufacturing/QC/dispatch phase.
+ */
+salesOrdersRouter.post('/:id/advance', authorize('admin', 'manager', 'operator'), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const actor = req.user?.username || req.user?.name || 'Demo Controller';
+    const result = await orderLifecycleService.advanceOrderStage(id, actor);
+    res.json(result);
+  } catch (err: any) {
+    console.error(`Failed to advance order ${req.params.id}:`, err);
+    res.status(400).json({ error: err.message || 'Failed to advance order' });
+  }
+});
+
+/**
+ * POST /api/v1/sales-orders/:id/fast-forward
+ * Fast-forwards the order completely to 'dispatched'.
+ */
+salesOrdersRouter.post('/:id/fast-forward', authorize('admin', 'manager', 'operator'), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const actor = req.user?.username || req.user?.name || 'Demo Fast-Forward';
+    const result = await orderLifecycleService.fastForwardOrder(id, actor);
+    res.json(result);
+  } catch (err: any) {
+    console.error(`Failed to fast-forward order ${req.params.id}:`, err);
+    res.status(400).json({ error: err.message || 'Failed to fast-forward order' });
   }
 });
 

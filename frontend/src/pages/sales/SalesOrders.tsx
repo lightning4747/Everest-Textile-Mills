@@ -1,5 +1,6 @@
 import { useState, Fragment } from 'react';
-import { Search, PackageSearch, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, PackageSearch, RefreshCw, ChevronDown, ChevronUp, Zap, FastForward, CheckCircle2, Clock, Loader2, X, AlertTriangle } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ProgressBar from '../../components/ui/ProgressBar';
 import type { SalesOrder } from '../../types';
@@ -14,12 +15,60 @@ export default function SalesOrders() {
   const [statusFilter, setStatusFilter] = useState('all');
   const debouncedSearch = useDebounce(search, 300);
   const [expandedOrderIds, setExpandedOrderIds] = useState<Set<string>>(new Set());
+  const [advancingOrderId, setAdvancingOrderId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const { data: rawOrders, loading, error, refetch } = useApi<SalesOrder[]>(
     () => api.get<SalesOrder[]>('/sales-orders?limit=200'),
     [],
     { autoPollMs: 15000 }
   );
+
+  const handleAdvance = async (orderId: string) => {
+    setAdvancingOrderId(orderId);
+    try {
+      const res = await api.post<{ success: boolean; message: string; newStatus: string }>(`/sales-orders/${orderId}/advance`);
+      setNotification({ type: 'success', message: res.data?.message || `Order advanced to ${res.data?.newStatus}` });
+      await refetch();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Failed to advance order' });
+    } finally {
+      setAdvancingOrderId(null);
+    }
+  };
+
+  const handleFastForward = async (orderId: string) => {
+    setAdvancingOrderId(orderId);
+    try {
+      const res = await api.post<{ success: boolean; message: string }>(`/sales-orders/${orderId}/fast-forward`);
+      setNotification({ type: 'success', message: res.data?.message || 'Order fast-forwarded to Dispatched!' });
+      await refetch();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Failed to fast-forward order' });
+    } finally {
+      setAdvancingOrderId(null);
+    }
+  };
+
+  const getNextStageLabel = (status: string) => {
+    switch (status) {
+      case 'pending':
+      case 'confirmed':
+        return 'Start Spinning';
+      case 'spinning':
+        return 'To Weaving';
+      case 'weaving':
+        return 'To Dyeing';
+      case 'dyeing':
+        return 'To QC';
+      case 'quality_check':
+        return 'Approve QC';
+      case 'ready_to_ship':
+        return 'Dispatch';
+      default:
+        return 'Next Stage';
+    }
+  };
 
   const orders = rawOrders || [];
 
@@ -130,6 +179,30 @@ export default function SalesOrders() {
         </div>
       )}
 
+      {/* Action Notification Banner */}
+      {notification && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 animate-in fade-in duration-200 ${
+          notification.type === 'success'
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-800'
+            : 'bg-red-500/10 border-red-500/20 text-red-700'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {notification.type === 'success' ? (
+              <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertTriangle size={18} className="text-red-600 flex-shrink-0" />
+            )}
+            <span className="text-xs font-semibold">{notification.message}</span>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="p-1 hover:bg-black/5 rounded text-[var(--text-soft)] transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
       <div className="card overflow-hidden">
         {loading && orders.length === 0 ? (
           <div className="p-12 text-center text-xs text-[var(--text-soft)] font-mono animate-pulse">
@@ -156,6 +229,7 @@ export default function SalesOrders() {
                     <th className="px-4 py-3 section-title whitespace-nowrap text-right">Delivery</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap">Progress</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-center">Status</th>
+                    <th className="px-4 py-3 section-title whitespace-nowrap text-right">Demo / Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
@@ -194,10 +268,49 @@ export default function SalesOrders() {
                           <td className="px-4 py-3.5 text-center">
                             <StatusBadge status={order.status} />
                           </td>
+                          <td className="px-4 py-3.5 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                            {order.status === 'dispatched' ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-[var(--ok)] font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                <CheckCircle2 size={12} /> Delivered
+                              </span>
+                            ) : order.status === 'awaiting_yarn' ? (
+                              <Link
+                                to="/yarn/receipts"
+                                className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-700 hover:text-amber-800 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20"
+                                title="Awaiting yarn arrival. Receive PO in receipts"
+                              >
+                                <Clock size={12} /> Receive PO
+                              </Link>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5 justify-end">
+                                <button
+                                  disabled={advancingOrderId === order.id}
+                                  onClick={() => handleAdvance(order.id)}
+                                  className="btn-primary text-xs h-7 px-2.5 py-0 inline-flex items-center gap-1 whitespace-nowrap"
+                                  title="Advance to next manufacturing phase"
+                                >
+                                  {advancingOrderId === order.id ? (
+                                    <Loader2 size={11} className="animate-spin" />
+                                  ) : (
+                                    <Zap size={11} />
+                                  )}
+                                  <span>{getNextStageLabel(order.status)}</span>
+                                </button>
+                                <button
+                                  disabled={advancingOrderId === order.id}
+                                  onClick={() => handleFastForward(order.id)}
+                                  className="btn-ghost text-xs h-7 px-2 py-0 inline-flex items-center gap-1 whitespace-nowrap border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)]"
+                                  title="Fast-forward entire order directly to Dispatched"
+                                >
+                                  <FastForward size={11} />
+                                </button>
+                              </div>
+                            )}
+                          </td>
                         </tr>
                         {isExpanded && items.length > 0 && (
                           <tr className="bg-[var(--surface-2)]/10">
-                            <td colSpan={9} className="p-0 border-b border-[var(--border)]">
+                            <td colSpan={10} className="p-0 border-b border-[var(--border)]">
                               <div className="px-10 py-3">
                                 <table className="w-full text-left">
                                   <thead>

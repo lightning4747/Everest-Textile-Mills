@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, CheckCircle, Clock, Circle, SearchX, RefreshCw } from 'lucide-react';
+import { Search, CheckCircle, Clock, Circle, SearchX, RefreshCw, Zap, FastForward, Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import type { SalesOrder } from '../../types';
 import { useDebounce } from '../../hooks/useDebounce';
 import { usePagination } from '../../hooks/usePagination';
@@ -27,12 +27,60 @@ function getStageIndex(status: string) {
 export default function OrderStatus() {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 300);
+  const [advancingOrderId, setAdvancingOrderId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const { data: rawOrders, loading, error, refetch } = useApi<SalesOrder[]>(
     () => api.get<SalesOrder[]>('/sales-orders?limit=200'),
     [],
     { autoPollMs: 10000 }
   );
+
+  const handleAdvance = async (orderId: string) => {
+    setAdvancingOrderId(orderId);
+    try {
+      const res = await api.post<{ success: boolean; message: string; newStatus: string }>(`/sales-orders/${orderId}/advance`);
+      setNotification({ type: 'success', message: res.data?.message || `Order advanced to ${res.data?.newStatus}` });
+      await refetch();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Failed to advance order' });
+    } finally {
+      setAdvancingOrderId(null);
+    }
+  };
+
+  const handleFastForward = async (orderId: string) => {
+    setAdvancingOrderId(orderId);
+    try {
+      const res = await api.post<{ success: boolean; message: string }>(`/sales-orders/${orderId}/fast-forward`);
+      setNotification({ type: 'success', message: res.data?.message || 'Order fast-forwarded to Dispatched!' });
+      await refetch();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Failed to fast-forward order' });
+    } finally {
+      setAdvancingOrderId(null);
+    }
+  };
+
+  const getNextStageLabel = (status: string) => {
+    switch (status) {
+      case 'pending':
+      case 'confirmed':
+        return 'Start Spinning';
+      case 'spinning':
+        return 'To Weaving';
+      case 'weaving':
+        return 'To Dyeing';
+      case 'dyeing':
+        return 'To QC';
+      case 'quality_check':
+        return 'Approve QC';
+      case 'ready_to_ship':
+        return 'Dispatch';
+      default:
+        return 'Next Stage';
+    }
+  };
 
   const salesOrders = rawOrders || [];
 
@@ -76,6 +124,30 @@ export default function OrderStatus() {
           />
         </div>
       </div>
+
+      {/* Action Notification Banner */}
+      {notification && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 animate-in fade-in duration-200 ${
+          notification.type === 'success'
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-800'
+            : 'bg-red-500/10 border-red-500/20 text-red-700'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {notification.type === 'success' ? (
+              <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertTriangle size={18} className="text-red-600 flex-shrink-0" />
+            )}
+            <span className="text-xs font-semibold">{notification.message}</span>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="p-1 hover:bg-black/5 rounded text-[var(--text-soft)] transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
@@ -139,9 +211,37 @@ export default function OrderStatus() {
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] uppercase font-semibold text-[var(--text-soft)] block">Completed</span>
-                      <p className="font-display text-xl font-semibold text-[var(--ok)]">{pct}%</p>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-[10px] uppercase font-semibold text-[var(--text-soft)] block">Completed</span>
+                        <p className="font-display text-xl font-semibold text-[var(--ok)]">{pct}%</p>
+                      </div>
+
+                      {order.status !== 'dispatched' && order.status !== 'awaiting_yarn' && (
+                        <div className="flex items-center gap-1.5 pl-3 border-l border-[var(--border)]">
+                          <button
+                            disabled={advancingOrderId === order.id}
+                            onClick={() => handleAdvance(order.id)}
+                            className="btn-primary text-xs h-7 px-2.5 py-0 inline-flex items-center gap-1 whitespace-nowrap"
+                            title="Advance to next manufacturing phase"
+                          >
+                            {advancingOrderId === order.id ? (
+                              <Loader2 size={11} className="animate-spin" />
+                            ) : (
+                              <Zap size={11} />
+                            )}
+                            <span>{getNextStageLabel(order.status)}</span>
+                          </button>
+                          <button
+                            disabled={advancingOrderId === order.id}
+                            onClick={() => handleFastForward(order.id)}
+                            className="btn-ghost text-xs h-7 px-2 py-0 inline-flex items-center gap-1 whitespace-nowrap border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)]"
+                            title="Fast-forward order directly to Dispatched"
+                          >
+                            <FastForward size={12} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
