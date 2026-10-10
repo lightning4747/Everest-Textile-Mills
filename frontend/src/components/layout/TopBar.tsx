@@ -273,7 +273,10 @@ export default function TopBar() {
           </div>
           {isAuthenticated && (
             <button
-              onClick={logout}
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
               title="Sign Out"
               className="ml-1 p-1 text-[var(--text-soft)] hover:text-[var(--bad)] transition-colors rounded"
             >

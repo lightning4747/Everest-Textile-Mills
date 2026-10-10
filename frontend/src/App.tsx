@@ -1,9 +1,11 @@
 import React, { Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import PageSkeleton from './components/ui/PageSkeleton';
-import { AuthProvider } from './context/AuthContext';
-import LoginModal from './components/auth/LoginModal';
+import { AuthProvider, useAuth } from './context/AuthContext';
+
+// Auth page
+const LoginPage        = React.lazy(() => import('./pages/auth/LoginPage'));
 
 // Pages — lazy loaded for route-level code splitting
 const Dashboard        = React.lazy(() => import('./pages/dashboard/Dashboard'));
@@ -25,14 +27,35 @@ const OrderCosting     = React.lazy(() => import('./pages/reports/OrderCosting')
 const MachinePerformance = React.lazy(() => import('./pages/reports/MachinePerformance'));
 const MonthlySummary   = React.lazy(() => import('./pages/reports/MonthlySummary'));
 
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <AuthProvider>
-      <LoginModal />
       <BrowserRouter>
         <Suspense fallback={<PageSkeleton />}>
           <Routes>
-            <Route path="/" element={<AppLayout />}>
+            {/* Dedicated full-page login route without AppLayout */}
+            <Route path="/login" element={<LoginPage />} />
+
+            {/* Protected mill operations routes inside AppLayout */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
 
@@ -72,3 +95,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+
