@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../context/AuthContext';
 import { ShieldCheck, LogIn, AlertCircle, KeyRound, User } from 'lucide-react';
 import LuminousFilaments from '../../components/ui/LuminousFilaments';
+import { CloudShader } from '@/components/ui/cloud-shader';
 
 const DEMO_ACCOUNTS: { role: UserRole; name: string; email: string; desc: string }[] = [
   { role: 'admin', name: 'Admin User', email: 'admin@everest.local', desc: 'Full System & Config Control' },
@@ -61,12 +62,22 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* 2. Right side: Luminous Filaments background with centered login form card */}
+      {/* 2. Right side: CloudShader & Luminous Filaments background with centered login form card */}
       <div className="relative w-full lg:w-1/2 h-full flex flex-col justify-center items-center px-4 py-6 sm:px-8 overflow-y-auto bg-[#0a0e14]">
-        {/* React Bits Pro: Luminous Filaments glowing background */}
+        {/* Aceternity UI: CloudShader animated sky & clouds background */}
+        <CloudShader
+          skyTopColor="#004643"
+          skyBottomColor="#0a0e14"
+          cloudColor="#1C7C54"
+          count={5}
+          speed={0.8}
+          className="absolute inset-0 w-full h-full pointer-events-none z-0 opacity-75"
+        />
+
+        {/* React Bits Pro: Luminous Filaments glowing overlay */}
         <LuminousFilaments
           colors={['#00E5FF', '#10B981']}
-          backgroundColor="#0a0e14"
+          backgroundColor="transparent"
           mode="glow"
           fibers={96}
           lineWidth={2.2}
