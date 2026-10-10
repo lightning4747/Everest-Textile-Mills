@@ -34,6 +34,7 @@ const filters: { label: string; value: QCResult | 'all' }[] = [
 export default function QualityChecks() {
   const [filter, setFilter]       = useState<QCResult | 'all'>('all');
   const [rollSearch, setRollSearch] = useState('');
+  const [machineType, setMachineType] = useState('all');
   const debouncedRollSearch       = useDebounce(rollSearch, 300);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -70,18 +71,24 @@ export default function QualityChecks() {
 
   const filtered = useMemo(() => {
     const base = filter === 'all' ? rolls : rolls.filter(r => r.qcResult === filter);
-    return base.filter(r =>
-      r.id.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
-      r.orderId.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
-      (r.buyer && r.buyer.toLowerCase().includes(debouncedRollSearch.toLowerCase()))
-    );
-  }, [rolls, filter, debouncedRollSearch]);
+    return base.filter(r => {
+      const textMatch =
+        r.id.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
+        r.orderId.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
+        (r.buyer && r.buyer.toLowerCase().includes(debouncedRollSearch.toLowerCase()));
+      const typeMatch =
+        machineType === 'all' ||
+        (r.machineType && r.machineType.toLowerCase() === machineType.toLowerCase());
+      return textMatch && typeMatch;
+    });
+  }, [rolls, filter, debouncedRollSearch, machineType]);
 
   const { paginatedData, ...paginationProps } = usePagination(filtered, 20);
 
   const handleReset = () => {
     setFilter('all');
     setRollSearch('');
+    setMachineType('all');
   };
 
   const handleCreateInspection = async (e: React.FormEvent) => {
@@ -160,6 +167,17 @@ export default function QualityChecks() {
               className="input-field h-10 pl-9 text-xs font-mono max-w-xs"
             />
           </div>
+          <select
+            value={machineType}
+            onChange={e => setMachineType(e.target.value)}
+            className="input-field h-10 text-xs font-mono w-36"
+            aria-label="Filter by machine type"
+          >
+            <option value="all">All Machines</option>
+            <option value="spinning">Spinning</option>
+            <option value="weaving">Weaving</option>
+            <option value="dyeing">Dyeing</option>
+          </select>
           <button
             onClick={() => setIsModalOpen(true)}
             className="btn-primary text-xs h-10"
@@ -424,4 +442,3 @@ export default function QualityChecks() {
     </div>
   );
 }
-

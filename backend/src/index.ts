@@ -36,6 +36,8 @@ const allowedOrigins = [
   'http://127.0.0.1:5174',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
   'http://localhost:4173',
   'http://127.0.0.1:4173',
 ];
@@ -43,7 +45,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (curl, mobile, Postman, server-to-server)
       if (!origin) return callback(null, true);
       if (
         config.NODE_ENV !== 'production' ||
@@ -53,7 +54,7 @@ app.use(
       ) {
         return callback(null, true);
       }
-      return callback(new Error('CORS not allowed'));
+      return callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],

@@ -10,11 +10,12 @@ import { useApi } from '../../hooks/useApi';
 import { api } from '../../services/apiClient';
 
 export default function SalesOrders() {
-  const [search, setSearch]     = useState('');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const debouncedSearch         = useDebounce(search, 300);
+  const debouncedSearch = useDebounce(search, 300);
 
   const [formData, setFormData] = useState({
     buyer: '',
@@ -33,11 +34,14 @@ export default function SalesOrders() {
 
   const orders = rawOrders || [];
 
-  const filtered = orders.filter(o =>
-    (o.buyer && o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-    (o.id && o.id.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-    (o.fabricType && o.fabricType.toLowerCase().includes(debouncedSearch.toLowerCase()))
-  );
+  const filtered = orders.filter(o => {
+    const textMatch =
+      (o.buyer && o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+      (o.id && o.id.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+      (o.fabricType && o.fabricType.toLowerCase().includes(debouncedSearch.toLowerCase()));
+    const statusMatch = statusFilter === 'all' || o.status === statusFilter;
+    return textMatch && statusMatch;
+  });
 
   const { paginatedData, ...paginationProps } = usePagination(filtered, 20);
 
@@ -92,15 +96,33 @@ export default function SalesOrders() {
       </div>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by buyer, order ID, fabric…"
-            className="input-field h-10 pl-9 text-xs font-mono"
-          />
+        <div className="flex items-center gap-3 flex-1 max-w-lg">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by buyer, order ID, fabric…"
+              className="input-field h-10 pl-9 text-xs font-mono w-full"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="input-field h-10 text-xs font-mono w-44"
+            aria-label="Filter by status"
+          >
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="spinning">Spinning</option>
+            <option value="weaving">Weaving</option>
+            <option value="dyeing">Dyeing</option>
+            <option value="quality_check">Quality Check</option>
+            <option value="ready_to_ship">Ready to Ship</option>
+            <option value="dispatched">Dispatched</option>
+          </select>
         </div>
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => refetch()}
@@ -221,7 +243,7 @@ export default function SalesOrders() {
           <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
             <PackageSearch size={36} className="text-[var(--olive-grey)]" />
             <p className="text-sm font-semibold text-[var(--text)]">No orders match the current filters</p>
-            <button className="btn-secondary text-xs" onClick={() => setSearch('')}>Reset Filters</button>
+            <button className="btn-secondary text-xs" onClick={() => { setSearch(''); setStatusFilter('all'); }}>Reset Filters</button>
           </div>
         ) : (
           <>
@@ -276,4 +298,3 @@ export default function SalesOrders() {
     </div>
   );
 }
-

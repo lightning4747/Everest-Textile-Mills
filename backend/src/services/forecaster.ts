@@ -34,9 +34,11 @@ let sessionInstance: ort.InferenceSession | null = null;
 
 function getModelPath(): string {
   const candidates = [
-    path.resolve(process.cwd(), 'models/revenue_model.onnx'),
     path.resolve(process.cwd(), 'backend/models/revenue_model.onnx'),
+    path.resolve(process.cwd(), 'backend/revenue_model.onnx'),
+    path.resolve(process.cwd(), 'models/revenue_model.onnx'),
     path.resolve(__dirname, '../../models/revenue_model.onnx'),
+    path.resolve(__dirname, '../../revenue_model.onnx'),
     path.resolve(__dirname, '../models/revenue_model.onnx'),
   ];
 
@@ -46,7 +48,7 @@ function getModelPath(): string {
     }
   }
 
-  return path.resolve(process.cwd(), 'models/revenue_model.onnx');
+  return path.resolve(process.cwd(), 'backend/models/revenue_model.onnx');
 }
 
 /**

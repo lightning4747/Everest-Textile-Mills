@@ -31,6 +31,7 @@ interface BackendProductionOrder {
 
 export default function ProductionOrders() {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const debouncedSearch = useDebounce(search, 300);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,13 +58,14 @@ export default function ProductionOrders() {
     () =>
       orders.filter(
         o =>
-          (o.salesOrderId && o.salesOrderId.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-          (o.id && o.id.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-          (o.buyer && o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-          (o.machineId && o.machineId.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-          (o.fabricType && o.fabricType.toLowerCase().includes(debouncedSearch.toLowerCase())),
+          ((o.salesOrderId && o.salesOrderId.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            (o.id && o.id.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            (o.buyer && o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            (o.machineId && o.machineId.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            (o.fabricType && o.fabricType.toLowerCase().includes(debouncedSearch.toLowerCase()))) &&
+          (statusFilter === 'all' || o.status === statusFilter),
       ),
-    [orders, debouncedSearch],
+    [orders, debouncedSearch, statusFilter],
   );
 
   const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(filteredOrders, 20);
@@ -114,6 +116,20 @@ export default function ProductionOrders() {
           />
         </div>
         <div className="flex items-center gap-2">
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="input-field h-10 text-xs font-mono w-36"
+            aria-label="Filter by stage"
+          >
+            <option value="all">All Stages</option>
+            <option value="queued">Queued</option>
+            <option value="in_progress">In Progress</option>
+            <option value="spinning">Spinning</option>
+            <option value="weaving">Weaving</option>
+            <option value="dyeing">Dyeing</option>
+            <option value="completed">Completed</option>
+          </select>
           <button
             onClick={() => refetch()}
             className="p-2.5 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors"
@@ -146,7 +162,7 @@ export default function ProductionOrders() {
           <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
             <SearchX size={36} className="text-[var(--olive-grey)]" />
             <p className="text-sm font-semibold text-[var(--text)]">No production orders match the current filters</p>
-            <button className="btn-secondary text-xs" onClick={() => setSearch('')}>Reset Filters</button>
+            <button className="btn-secondary text-xs" onClick={() => { setSearch(''); setStatusFilter('all'); }}>Reset Filters</button>
           </div>
         ) : (
           <>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, RefreshCw } from 'lucide-react';
+import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, RefreshCw, FlaskConical } from 'lucide-react';
 import type { QCResult } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
@@ -76,6 +76,16 @@ export default function PendingInspection() {
         </button>
       </div>
 
+      {/* Threshold Info Banner */}
+      <div className="card p-3 flex items-center gap-3 border-l-4 border-l-[var(--warn)]">
+        <FlaskConical size={15} className="text-[var(--warn)] flex-shrink-0" />
+        <p className="text-xs text-[var(--text-soft)]">
+          Inspection criteria: Yarn irregularity &lt; 5%, Warp/weft defect density &lt; 2 per metre,
+          Dye consistency ΔE &lt; 1.5. Rolls failing any criterion are flagged for rework or rejection.
+          <strong className="text-[var(--text)]"> Threshold: pass ≥ 60%, rework 40–59%, reject &lt; 40% quality score.</strong>
+        </p>
+      </div>
+
       {(error || actionError) && (
         <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
           {error || actionError}
@@ -133,6 +143,13 @@ export default function PendingInspection() {
                     </div>
                   </div>
 
+                  {/* Pending Reason */}
+                  <div className="mt-2 p-3 rounded-lg bg-[var(--panel-bg)] text-xs text-[var(--text-soft)]">
+                    <p className="font-semibold text-[var(--text)] mb-1">Pending reason:</p>
+                    <p>Roll produced on {roll.producedDate}. Awaiting lab grading table inspection for weave density,
+                    colour fastness (ISO 105-C06), and tensile elongation test. No inspector assigned yet.</p>
+                  </div>
+
                   {/* Quality Action Buttons */}
                   <div className="pt-3 border-t border-[var(--border)]">
                     <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-soft)] mb-2.5">
@@ -175,4 +192,3 @@ export default function PendingInspection() {
     </div>
   );
 }
-
