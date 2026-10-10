@@ -11,6 +11,7 @@ import {
   suppliers, yarnTypeSuppliers, yarnStock, yarnReceipts,
   salesOrders, salesOrderItems, productionOrders, fabricRolls,
   dispatches, dispatchRolls, orderCosts, monthlySnapshots, users, products,
+  inventoryBalances, inventoryMovements,
 } from './schema.js';
 import bcrypt from 'bcrypt';
 import { updateYarnLowStockGauge, updateProductionOutputGauge } from '../services/stubs.js';
@@ -175,14 +176,26 @@ async function seed() {
   const clientId = clientRes.rows[0]?.id as string;
 
   await db.insert(salesOrders).values([
-    { id: 'ORD-1042', buyer: 'Fabindia Exports',            clientId: clientId, deliveryDate: '2026-10-25', createdDate: '2026-10-01', status: 'spinning',       machineId: 'SP-01', completedMetres: '3400', totalAmount: "0", },
-    { id: 'ORD-1041', buyer: 'Mafatlal Industries',            clientId: clientId, deliveryDate: '2026-10-28', createdDate: '2026-10-03', status: 'dyeing',         machineId: 'DY-03', completedMetres: '1575', totalAmount: "0", },
-    { id: 'ORD-1040', buyer: 'Welspun Corp',                     clientId: clientId, deliveryDate: '2026-11-02', createdDate: '2026-10-04', status: 'weaving',        machineId: 'WV-03', completedMetres: '1100', totalAmount: "0", },
-    { id: 'ORD-1038', buyer: 'Arvind Ltd.',               clientId: clientId, deliveryDate: '2026-11-10', createdDate: '2026-09-25', status: 'weaving',        machineId: 'WV-01', completedMetres: '7280', totalAmount: "0", },
-    { id: 'ORD-1045', buyer: 'Trident Group',                 clientId: clientId, deliveryDate: '2026-10-30', createdDate: '2026-10-07', status: 'spinning',       machineId: 'SP-02', completedMetres: '1440', totalAmount: "0", },
-    { id: 'ORD-1033', buyer: 'Bombay Dyeing',              clientId: clientId, deliveryDate: '2026-10-20', createdDate: '2026-09-20', status: 'quality_check',  machineId: 'DY-01', completedMetres: '1200', totalAmount: "0", },
-    { id: 'ORD-1029', buyer: 'Raymond Ltd.',                clientId: clientId, deliveryDate: '2026-10-15', createdDate: '2026-09-15', status: 'ready_to_ship',  machineId: null,    completedMetres: '3000', totalAmount: "0", },
-    { id: 'ORD-1025', buyer: 'Grasim Industries',             clientId: clientId, deliveryDate: '2026-10-05', createdDate: '2026-09-10', status: 'dispatched',     machineId: null,    completedMetres: '2500', totalAmount: "0", },
+    { id: 'ORD-1042', buyer: 'Fabindia Exports',      clientId: clientId, fabricType: 'Cotton Twill',    colour: 'White',       quantityMetres: '5000', unitPrice: '120.00', totalAmount: '600000.00', deliveryDate: '2026-10-25', createdDate: '2026-10-01', status: 'spinning',       machineId: 'SP-01', completedMetres: '3400' },
+    { id: 'ORD-1041', buyer: 'Mafatlal Industries',   clientId: clientId, fabricType: 'Cotton Denim',    colour: 'Navy Blue',   quantityMetres: '3500', unitPrice: '180.00', totalAmount: '630000.00', deliveryDate: '2026-10-28', createdDate: '2026-10-03', status: 'dyeing',         machineId: 'DY-03', completedMetres: '1575' },
+    { id: 'ORD-1040', buyer: 'Welspun Corp',          clientId: clientId, fabricType: 'Wool Tweed',      colour: 'Grey',        quantityMetres: '2000', unitPrice: '350.00', totalAmount: '700000.00', deliveryDate: '2026-11-02', createdDate: '2026-10-04', status: 'weaving',        machineId: 'WV-03', completedMetres: '1100' },
+    { id: 'ORD-1038', buyer: 'Arvind Ltd.',           clientId: clientId, fabricType: 'Cotton Denim',    colour: 'Navy Blue',   quantityMetres: '8000', unitPrice: '175.00', totalAmount: '1400000.00', deliveryDate: '2026-11-10', createdDate: '2026-09-25', status: 'weaving',        machineId: 'WV-01', completedMetres: '7280' },
+    { id: 'ORD-1045', buyer: 'Trident Group',         clientId: clientId, fabricType: 'Cotton Poplin',   colour: 'White',       quantityMetres: '4500', unitPrice: '95.00',  totalAmount: '427500.00', deliveryDate: '2026-10-30', createdDate: '2026-10-07', status: 'spinning',       machineId: 'SP-02', completedMetres: '1440' },
+    { id: 'ORD-1033', buyer: 'Bombay Dyeing',         clientId: clientId, fabricType: 'Silk Charmeuse',  colour: 'Ivory',       quantityMetres: '1500', unitPrice: '450.00', totalAmount: '675000.00', deliveryDate: '2026-10-20', createdDate: '2026-09-20', status: 'quality_check',  machineId: 'DY-01', completedMetres: '1200' },
+    { id: 'ORD-1029', buyer: 'Raymond Ltd.',          clientId: clientId, fabricType: 'Wool Blend',      colour: 'Charcoal',    quantityMetres: '3000', unitPrice: '280.00', totalAmount: '840000.00', deliveryDate: '2026-10-15', createdDate: '2026-09-15', status: 'ready_to_ship',  machineId: null,    completedMetres: '3000' },
+    { id: 'ORD-1025', buyer: 'Grasim Industries',     clientId: clientId, fabricType: 'Poly-Cotton',     colour: 'Olive Green', quantityMetres: '2500', unitPrice: '110.00', totalAmount: '275000.00', deliveryDate: '2026-10-05', createdDate: '2026-09-10', status: 'dispatched',     machineId: null,    completedMetres: '2500' },
+  ]).onConflictDoNothing();
+
+  // ── Sales Order Items ─────────────────────────────────────────────────────
+  await db.insert(salesOrderItems).values([
+    { orderId: 'ORD-1042', sequence: 1, productId: 'PROD-001', quantityMetres: '5000', unitPrice: '120.00', yarnKgPerMetre: '0.4500', status: 'spinning', completedMetres: '3400', dispatchedMetres: '0' },
+    { orderId: 'ORD-1041', sequence: 1, productId: 'PROD-002', quantityMetres: '3500', unitPrice: '180.00', yarnKgPerMetre: '0.8500', status: 'dyeing', completedMetres: '1575', dispatchedMetres: '0' },
+    { orderId: 'ORD-1040', sequence: 1, productId: 'PROD-003', quantityMetres: '2000', unitPrice: '350.00', yarnKgPerMetre: '0.6000', status: 'weaving', completedMetres: '1100', dispatchedMetres: '0' },
+    { orderId: 'ORD-1038', sequence: 1, productId: 'PROD-002', quantityMetres: '8000', unitPrice: '175.00', yarnKgPerMetre: '0.8500', status: 'weaving', completedMetres: '7280', dispatchedMetres: '0' },
+    { orderId: 'ORD-1045', sequence: 1, productId: 'PROD-001', quantityMetres: '4500', unitPrice: '95.00',  yarnKgPerMetre: '0.4500', status: 'spinning', completedMetres: '1440', dispatchedMetres: '0' },
+    { orderId: 'ORD-1033', sequence: 1, productId: 'PROD-004', quantityMetres: '1500', unitPrice: '450.00', yarnKgPerMetre: '0.1500', status: 'quality_check', completedMetres: '1200', dispatchedMetres: '0' },
+    { orderId: 'ORD-1029', sequence: 1, productId: 'PROD-003', quantityMetres: '3000', unitPrice: '280.00', yarnKgPerMetre: '0.6000', status: 'ready_to_ship', completedMetres: '3000', dispatchedMetres: '0' },
+    { orderId: 'ORD-1025', sequence: 1, productId: 'PROD-005', quantityMetres: '2500', unitPrice: '110.00', yarnKgPerMetre: '0.3500', status: 'dispatched', completedMetres: '2500', dispatchedMetres: '2500' },
   ]).onConflictDoNothing();
 
   // ── Yarn Receipts ─────────────────────────────────────────────────────────
@@ -217,8 +230,15 @@ async function seed() {
     { id: 'FR-5507', orderId: 'ORD-1029', machineId: 'WV-03', metres: '180', producedDate: '2026-10-06', qcResult: 'passed',   checkedBy: 'Suresh QC', checkedAt: new Date('2026-10-07T11:00:00') },
     { id: 'FR-5508', orderId: 'ORD-1029', machineId: 'WV-03', metres: '175', producedDate: '2026-10-06', qcResult: 'passed',   checkedBy: 'Suresh QC', checkedAt: new Date('2026-10-07T11:15:00') },
     { id: 'FR-5509', orderId: 'ORD-1040', machineId: 'WV-03', metres: '160', producedDate: '2026-10-10', qcResult: 'pending' },
-    { id: 'FR-5510', orderId: 'ORD-1040', machineId: 'WV-03', metres: '165', producedDate: '2026-10-10', qcResult: 'pending' },
-  ]).onConflictDoNothing();
+  ]).onConflictDoUpdate({
+    target: fabricRolls.id,
+    set: {
+      qcResult: sql`EXCLUDED.qc_result`,
+      checkedBy: sql`EXCLUDED.checked_by`,
+      checkedAt: sql`EXCLUDED.checked_at`,
+      defects: sql`EXCLUDED.defects`,
+    },
+  });
 
   // ── Dispatches ────────────────────────────────────────────────────────────
   await db.insert(dispatches).values([
@@ -252,6 +272,246 @@ async function seed() {
     { year: 2026, month: 9,  revenue: '1050000', cost: '680000', outputMetres: '23500', wages: '385000' },
     { year: 2026, month: 10, revenue: '1240000', cost: '760000', outputMetres: '27800', wages: '385000' },
   ]).onConflictDoNothing();
+
+  // ── Inventory Balances & Baseline Movements Backfill ──────────────────────
+  await db.execute(sql`TRUNCATE TABLE inventory_balances, inventory_movements CASCADE;`);
+  const existingYarn = await db.select().from(yarnStock);
+  for (const y of existingYarn) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'yarn',
+      itemId: y.id,
+      skuName: `${y.type} ${y.colour}`,
+      state: 'raw_yarn',
+      quantity: y.quantityKg,
+      reservedQuantity: '0',
+      unit: 'kg',
+      location: y.location,
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'yarn',
+      itemId: y.id,
+      skuName: `${y.type} ${y.colour}`,
+      state: 'raw_yarn',
+      direction: 'in',
+      quantity: y.quantityKg,
+      quantityDelta: y.quantityKg,
+      reservedDelta: '0',
+      unit: 'kg',
+      reason: 'receipt',
+      referenceType: 'initial_stock',
+      referenceId: y.id,
+      idempotencyKey: `SEED:STOCK:${y.id}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
+
+  // Backfill WIP for orders in spinning/weaving/dyeing
+  const activeOrders = await db.select().from(salesOrders);
+  for (const so of activeOrders) {
+    if (['spinning', 'weaving', 'dyeing'].includes(so.status)) {
+      const remainingMetres = Math.max(0, Number(so.quantityMetres) - Number(so.completedMetres));
+      const wipKg = (remainingMetres * 0.25).toFixed(2);
+      if (Number(wipKg) > 0) {
+        await db.insert(inventoryBalances).values({
+          itemType: 'yarn',
+          itemId: so.id,
+          skuName: `${so.fabricType} WIP (${so.colour})`,
+          state: 'wip',
+          quantity: wipKg,
+          reservedQuantity: '0',
+          unit: 'kg',
+          location: 'Production Floor',
+        }).onConflictDoNothing();
+
+        await db.insert(inventoryMovements).values({
+          itemType: 'yarn',
+          itemId: so.id,
+          skuName: `${so.fabricType} WIP (${so.colour})`,
+          state: 'wip',
+          direction: 'in',
+          quantity: wipKg,
+          quantityDelta: wipKg,
+          reservedDelta: '0',
+          unit: 'kg',
+          reason: 'consumption',
+          referenceType: 'sales_order',
+          referenceId: so.id,
+          idempotencyKey: `SEED:WIP:${so.id}`,
+          actor: 'System Seed',
+        }).onConflictDoNothing();
+      }
+    }
+  }
+
+  // Backfill fabric rolls: pending QC, finished goods, scrap fabric
+  const allRolls = await db.select().from(fabricRolls);
+  const dispatchedRollRows = await db.select().from(dispatchRolls);
+  const dispatchedRollIds = new Set(dispatchedRollRows.map((dr) => dr.rollId));
+
+  // 1. Rolls pending QC
+  const pendingRolls = allRolls.filter((r) => r.qcResult === 'pending');
+  const pendingByOrder: Record<string, number> = {};
+  for (const r of pendingRolls) {
+    pendingByOrder[r.orderId] = (pendingByOrder[r.orderId] ?? 0) + Number(r.metres);
+  }
+  for (const [orderId, metres] of Object.entries(pendingByOrder)) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'fabric_pending_qc',
+      quantity: metres.toFixed(2),
+      reservedQuantity: '0',
+      unit: 'metres',
+      location: 'Grading Area',
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'fabric_pending_qc',
+      direction: 'in',
+      quantity: metres.toFixed(2),
+      quantityDelta: metres.toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'roll_production',
+      referenceType: 'sales_order',
+      referenceId: orderId,
+      idempotencyKey: `SEED:PENDING:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
+
+  // 2. Rolls passed QC (split unshipped vs dispatched)
+  const passedRolls = allRolls.filter((r) => r.qcResult === 'passed');
+  const unshippedPassedByOrder: Record<string, number> = {};
+  const dispatchedPassedByOrder: Record<string, number> = {};
+  for (const r of passedRolls) {
+    if (dispatchedRollIds.has(r.id)) {
+      dispatchedPassedByOrder[r.orderId] = (dispatchedPassedByOrder[r.orderId] ?? 0) + Number(r.metres);
+    } else {
+      unshippedPassedByOrder[r.orderId] = (unshippedPassedByOrder[r.orderId] ?? 0) + Number(r.metres);
+    }
+  }
+
+  for (const [orderId, metres] of Object.entries(unshippedPassedByOrder)) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      quantity: metres.toFixed(2),
+      reservedQuantity: '0',
+      unit: 'metres',
+      location: 'Finished Goods Vault',
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      direction: 'in',
+      quantity: metres.toFixed(2),
+      quantityDelta: metres.toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'qc_pass',
+      referenceType: 'sales_order',
+      referenceId: orderId,
+      idempotencyKey: `SEED:FG:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
+
+  for (const [orderId, metres] of Object.entries(dispatchedPassedByOrder)) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      quantity: '0.00',
+      reservedQuantity: '0',
+      unit: 'metres',
+      location: 'Finished Goods Vault',
+    }).onConflictDoUpdate({
+      target: [inventoryBalances.itemId, inventoryBalances.state],
+      set: { quantity: '0.00' },
+    });
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      direction: 'in',
+      quantity: metres.toFixed(2),
+      quantityDelta: metres.toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'qc_pass',
+      referenceType: 'sales_order',
+      referenceId: orderId,
+      idempotencyKey: `SEED:FG_PASS:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      direction: 'out',
+      quantity: metres.toFixed(2),
+      quantityDelta: (-metres).toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'dispatch',
+      referenceType: 'dispatch',
+      referenceId: 'DSP-302',
+      idempotencyKey: `SEED:DSP:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
+
+  // 3. Rolls rejected QC
+  const rejectedRolls = allRolls.filter((r) => r.qcResult === 'rejected');
+  const rejectedByOrder: Record<string, number> = {};
+  for (const r of rejectedRolls) {
+    rejectedByOrder[r.orderId] = (rejectedByOrder[r.orderId] ?? 0) + Number(r.metres);
+  }
+  for (const [orderId, metres] of Object.entries(rejectedByOrder)) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'scrap_fabric',
+      quantity: metres.toFixed(2),
+      reservedQuantity: '0',
+      unit: 'metres',
+      location: 'Scrap Storage',
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'scrap_fabric',
+      direction: 'in',
+      quantity: metres.toFixed(2),
+      quantityDelta: metres.toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'qc_reject',
+      referenceType: 'sales_order',
+      referenceId: orderId,
+      idempotencyKey: `SEED:SCRAP:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
 
   // ── Observability Gauges ──────────────────────────────────────────────────
   await updateYarnLowStockGauge();

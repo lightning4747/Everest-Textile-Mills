@@ -55,9 +55,11 @@ export default function TopBar() {
     if (!isAuthenticated) return;
     try {
       const res = await api.get<StockAlertItem[]>('/yarn/stock/alerts');
-      setLowItems(res.data || []);
+      const items = Array.isArray(res?.data) ? res.data : [];
+      setLowItems(items);
     } catch {
       // Fallback or unauthenticated
+      setLowItems([]);
     }
   }, [isAuthenticated]);
 
@@ -67,7 +69,8 @@ export default function TopBar() {
     return () => clearInterval(interval);
   }, [fetchAlerts]);
 
-  const unreadCount = lowItems.filter(y => !readIds.has(y.id)).length;
+  const safeItems = Array.isArray(lowItems) ? lowItems : [];
+  const unreadCount = safeItems.filter(y => !readIds.has(y.id)).length;
 
   const handleAlertsClick = useCallback(() => {
     if (notifOpen) {
@@ -79,7 +82,8 @@ export default function TopBar() {
   }, [notifOpen, navigate]);
 
   const markAllRead = useCallback(() => {
-    setReadIds(new Set(lowItems.map(y => y.id)));
+    const safe = Array.isArray(lowItems) ? lowItems : [];
+    setReadIds(new Set(safe.map(y => y.id)));
   }, [lowItems]);
 
   useEffect(() => {
@@ -171,13 +175,13 @@ export default function TopBar() {
               </div>
 
               {/* Alert Items */}
-              {lowItems.length === 0 ? (
+              {safeItems.length === 0 ? (
                 <div className="px-4 py-8 text-center">
                   <p className="text-xs text-[var(--text-soft)]">All yarn stock levels are healthy.</p>
                 </div>
               ) : (
                 <div className="max-h-72 overflow-y-auto divide-y divide-[var(--border)]">
-                  {lowItems.map(yarn => {
+                  {safeItems.map(yarn => {
                     const isCritical = yarn.severity === 'critical';
                     const deficit    = yarn.deficit;
                     const isRead     = readIds.has(yarn.id);
@@ -204,7 +208,7 @@ export default function TopBar() {
                               <p className="text-xs font-semibold text-[var(--text)] truncate">{yarn.colour} {yarn.type}</p>
                               <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded flex-shrink-0 border ${
                                 isCritical
-                                  ? 'text-[var(--bad)] border-[var(--bad)] bg-[var(--panel-bg)]'
+                                    ? 'text-[var(--bad)] border-[var(--bad)] bg-[var(--panel-bg)]'
                                   : 'text-[var(--warn)] border-[var(--warn)] bg-[var(--panel-bg)]'
                               }`}>
                                 {isCritical ? 'CRITICAL' : 'WARNING'}
@@ -231,7 +235,7 @@ export default function TopBar() {
                   onClick={() => { navigate('/yarn/alerts'); setNotifOpen(false); }}
                   className="w-full flex items-center justify-between text-xs font-semibold text-[var(--cyprus)] hover:text-[var(--text)] transition-colors"
                 >
-                  <span>View all {lowItems.length} alerts in detail</span>
+                  <span>View all {safeItems.length} alerts in detail</span>
                   <ChevronRight size={13} />
                 </button>
               </div>

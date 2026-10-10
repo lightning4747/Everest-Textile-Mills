@@ -32,6 +32,7 @@ const DeliveryStatus   = React.lazy(() => import('./pages/sales/DeliveryStatus')
 const OrderCosting     = React.lazy(() => import('./pages/reports/OrderCosting'));
 const MachinePerformance = React.lazy(() => import('./pages/reports/MachinePerformance'));
 const MonthlySummary   = React.lazy(() => import('./pages/reports/MonthlySummary'));
+const AuditLedger      = React.lazy(() => import('./pages/inventory/AuditLedger'));
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: import('./context/AuthContext').UserRole[] }) {
   const { isAuthenticated, user, isAuthorized } = useAuth();
@@ -108,6 +109,9 @@ export default function App() {
               <Route path="quality/checks"  element={<QualityChecks />} />
               <Route path="quality/rolls"   element={<FabricRolls />} />
               <Route path="quality/pending" element={<PendingInspection />} />
+
+              {/* Inventory */}
+              <Route path="inventory/ledger" element={<AuditLedger />} />
 
               {/* Sales */}
               <Route path="sales/orders"     element={<SalesOrders />} />

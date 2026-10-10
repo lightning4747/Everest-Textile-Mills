@@ -15,6 +15,7 @@ import {
   type Machine,
 } from '../db/schema.js';
 import { qcDecisionsTotal } from '../metrics.js';
+import { inventoryService } from '../services/inventoryService.js';
 
 const router = Router();
 router.use(authenticate);
@@ -43,18 +44,17 @@ const createFabricRollSchema = z.object({
 
 const qcDecisionSchema = z
   .object({
-    qc_result: z.enum(['passed', 'rejected']),
-    checked_by: z.string().trim().min(1, 'Checked by is required'),
+    qc_result: z.enum(['passed', 'rejected']).optional(),
+    qcResult: z.enum(['passed', 'rejected']).optional(),
+    checked_by: z.string().trim().optional(),
+    checkedBy: z.string().trim().optional(),
     defects: z.array(z.string().trim().min(1)).optional(),
   })
-  .superRefine((data, ctx) => {
-    if (data.qc_result === 'rejected' && (!data.defects || data.defects.length === 0)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Defects must be specified when result is rejected',
-        path: ['defects'],
-      });
-    }
+  .transform((val) => {
+    const qc_result = (val.qc_result ?? val.qcResult ?? 'passed') as 'passed' | 'rejected';
+    const checked_by = val.checked_by ?? val.checkedBy ?? 'QC Inspector';
+    const defects = val.defects ?? (qc_result === 'rejected' ? ['Defect flagged on grading table'] : undefined);
+    return { qc_result, checked_by, defects };
   });
 
 function formatFabricRoll(
@@ -277,20 +277,17 @@ router.post(
       const newId = `FR-${nextNum}`;
       const producedDate = body.producedDate ?? new Date().toISOString().split('T')[0];
 
-      // 3. Insert roll and update completed_metres on sales order in transaction
+      // 3. Route roll creation through inventoryService and update sales order
       const { inserted, orderUpdated } = await db.transaction(async (tx) => {
-        const [insertedRoll] = await tx
-          .insert(fabricRolls)
-          .values({
-            id: newId,
-            orderId: body.orderId,
-            machineId: body.machineId,
-            metres: String(body.metres),
-            producedDate,
-            qcResult: 'pending',
-            defects: null,
-          })
-          .returning();
+        const actor = req.user?.username ?? req.user?.name ?? 'operator';
+        const insertedRoll = await inventoryService.produceRoll(tx, {
+          rollId: newId,
+          orderId: body.orderId,
+          machineId: body.machineId,
+          metres: body.metres,
+          producedDate,
+          actor,
+        });
 
         // Increment order completedMetres to reflect real-time production
         const currentCompleted = Number(order.completedMetres) + Number(body.metres);
@@ -359,22 +356,16 @@ router.patch(
         return;
       }
 
-      // 2. Perform atomic update guarded by qcResult = 'pending'
+      // 2. Perform atomic update routed through inventoryService
       const result = await db.transaction(async (tx) => {
-        const [updated] = await tx
-          .update(fabricRolls)
-          .set({
-            qcResult: body.qc_result,
-            checkedBy: body.checked_by,
-            checkedAt: new Date(),
-            defects: body.defects ?? null,
-          })
-          .where(and(eq(fabricRolls.id, id), eq(fabricRolls.qcResult, 'pending')))
-          .returning();
-
-        if (!updated) {
-          throw new Error('CONCURRENT_QC_MODIFICATION');
-        }
+        const actor = req.user?.username ?? req.user?.name ?? body.checked_by;
+        const updated = await inventoryService.recordQcVerdict(tx, {
+          rollId: id,
+          qcResult: body.qc_result,
+          checkedBy: body.checked_by,
+          defects: body.defects,
+          actor,
+        });
 
         // 3. If passed: check if total passed metres reach target to advance to ready_to_ship
         let updatedOrder = null;

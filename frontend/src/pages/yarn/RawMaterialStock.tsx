@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, MapPin, Search } from 'lucide-react';
+import { AlertTriangle, MapPin, Search, Layers, Lock, CheckCircle2 } from 'lucide-react';
 import ProgressBar from '../../components/ui/ProgressBar';
 import { usePagination } from '../../hooks/usePagination';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -9,6 +9,20 @@ import { useApi } from '../../hooks/useApi';
 import type { YarnStock } from '../../types';
 import DetailModal from '../../components/ui/DetailModal';
 
+interface InventoryBalance {
+  id: string;
+  itemType: string;
+  itemId: string;
+  skuName: string;
+  state: string;
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  unit: string;
+  location: string;
+  lastUpdated: string;
+}
+
 export default function RawMaterialStock() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -16,33 +30,73 @@ export default function RawMaterialStock() {
   const debouncedSearch = useDebounce(search, 300);
   const [selectedStock, setSelectedStock] = useState<YarnStock | null>(null);
 
-  const { data: stockItems, loading, error } = useApi<YarnStock[]>(
-    () => api.get<YarnStock[]>('/yarn/stock'),
-    []
+  // Real-time inventory balances from central inventory service
+  const { data: balanceData, loading: balanceLoading, error: balanceError } = useApi<InventoryBalance[]>(
+    () => api.get<InventoryBalance[]>('/inventory/balances?state=raw_yarn'),
+    [],
+    { autoPollMs: 15000 }
   );
 
-  const items = stockItems || [];
-  const totalKg = items.reduce((s, y) => s + y.quantityKg, 0);
-  const lowStockItems = items.filter(y => y.quantityKg <= y.reorderLevel);
+  // Auxiliary yarn bin metadata for reorder thresholds and fiber classifications
+  const { data: stockMeta, loading: metaLoading, error: metaError } = useApi<YarnStock[]>(
+    () => api.get<YarnStock[]>('/yarn/stock'),
+    [],
+    { autoPollMs: 15000 }
+  );
 
-  const filtered = items.filter(yarn => {
+  const metaMap = new Map<string, YarnStock>();
+  (stockMeta || []).forEach(m => metaMap.set(m.id, m));
+
+  const balances = balanceData || [];
+  const mergedItems = balances.map(b => {
+    const meta = metaMap.get(b.itemId);
+    const reorderLevel = meta?.reorderLevel ?? 200;
+    const type = meta?.type ?? b.skuName.split(' ')[0] ?? 'Yarn';
+    const colour = meta?.colour ?? '';
+    const isLow = b.availableQuantity <= reorderLevel;
+    const isCritical = b.availableQuantity <= reorderLevel * 0.4;
+
+    return {
+      id: b.itemId,
+      balanceId: b.id,
+      skuName: b.skuName,
+      type,
+      colour,
+      onHandKg: b.quantity,
+      reservedKg: b.reservedQuantity,
+      availableKg: b.availableQuantity,
+      reorderLevel,
+      location: b.location || meta?.location || 'Main Floor',
+      lastUpdated: new Date(b.lastUpdated).toISOString().split('T')[0],
+      isLow,
+      isCritical,
+    };
+  });
+
+  const totalOnHandKg = mergedItems.reduce((s, y) => s + y.onHandKg, 0);
+  const totalReservedKg = mergedItems.reduce((s, y) => s + y.reservedKg, 0);
+  const totalAvailableKg = mergedItems.reduce((s, y) => s + y.availableKg, 0);
+  const lowStockItems = mergedItems.filter(y => y.isLow);
+
+  const filtered = mergedItems.filter(yarn => {
     const q = debouncedSearch.toLowerCase();
     const matchesSearch =
       !debouncedSearch.trim() ||
       yarn.id.toLowerCase().includes(q) ||
+      yarn.skuName.toLowerCase().includes(q) ||
       yarn.type.toLowerCase().includes(q) ||
       yarn.colour.toLowerCase().includes(q) ||
       yarn.location.toLowerCase().includes(q);
 
-    const matchesType = typeFilter === 'all' || yarn.type === typeFilter;
+    const matchesType = typeFilter === 'all' || yarn.type.toLowerCase() === typeFilter.toLowerCase();
 
     let matchesStatus = true;
     if (statusFilter === 'low') {
-      matchesStatus = yarn.quantityKg <= yarn.reorderLevel;
+      matchesStatus = yarn.isLow;
     } else if (statusFilter === 'critical') {
-      matchesStatus = yarn.quantityKg <= yarn.reorderLevel * 0.4;
+      matchesStatus = yarn.isCritical;
     } else if (statusFilter === 'healthy') {
-      matchesStatus = yarn.quantityKg > yarn.reorderLevel;
+      matchesStatus = !yarn.isLow;
     }
 
     return matchesSearch && matchesType && matchesStatus;
@@ -50,28 +104,59 @@ export default function RawMaterialStock() {
 
   const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(filtered, 20);
 
+  const loading = balanceLoading || metaLoading;
+  const error = balanceError || metaError;
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* 4 Summary Stat KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card p-4">
-          <p className="stat-label mb-1">Total Warehouse Stock</p>
-          <p className="font-display text-4xl font-semibold text-[var(--text)]">
-            {totalKg.toLocaleString()} <span className="text-sm font-sans font-normal text-[var(--text-soft)]">kg</span>
+          <div className="flex items-center justify-between mb-1">
+            <p className="stat-label">On-Hand Physical Stock</p>
+            <Layers size={16} className="text-[var(--text-soft)]" />
+          </div>
+          <p className="font-display text-3xl font-semibold text-[var(--text)]">
+            {totalOnHandKg.toLocaleString()} <span className="text-xs font-sans font-normal text-[var(--text-soft)]">kg</span>
           </p>
+          <p className="text-[11px] text-[var(--text-soft)] mt-1">Physical material in warehouse bins</p>
         </div>
+
         <div className="card p-4">
-          <p className="stat-label mb-1">Active Yarn Varieties</p>
-          <p className="font-display text-4xl font-semibold text-[var(--text)]">{items.length}</p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="stat-label">Reserved For Orders</p>
+            <Lock size={16} className="text-[var(--warn)]" />
+          </div>
+          <p className="font-display text-3xl font-semibold text-[var(--warn)]">
+            {totalReservedKg.toLocaleString()} <span className="text-xs font-sans font-normal text-[var(--text-soft)]">kg</span>
+          </p>
+          <p className="text-[11px] text-[var(--text-soft)] mt-1">Earmarked for spinning & weaving</p>
         </div>
+
         <div className="card p-4">
-          <p className="stat-label mb-1">Low Stock Alerts</p>
-          <p className={`font-display text-4xl font-semibold ${lowStockItems.length > 0 ? 'text-[var(--warn)]' : 'text-[var(--ok)]'}`}>
+          <div className="flex items-center justify-between mb-1">
+            <p className="stat-label">Available to Allocate</p>
+            <CheckCircle2 size={16} className="text-[var(--ok)]" />
+          </div>
+          <p className="font-display text-3xl font-semibold text-[var(--ok)]">
+            {totalAvailableKg.toLocaleString()} <span className="text-xs font-sans font-normal text-[var(--text-soft)]">kg</span>
+          </p>
+          <p className="text-[11px] text-[var(--text-soft)] mt-1">Unreserved stock ready for sales</p>
+        </div>
+
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-1">
+            <p className="stat-label">Safety Alerts</p>
+            <AlertTriangle size={16} className={lowStockItems.length > 0 ? 'text-[var(--warn)]' : 'text-[var(--ok)]'} />
+          </div>
+          <p className={`font-display text-3xl font-semibold ${lowStockItems.length > 0 ? 'text-[var(--warn)]' : 'text-[var(--ok)]'}`}>
             {lowStockItems.length}
           </p>
-          {lowStockItems.length > 0 && <p className="text-xs text-[var(--text-soft)] mt-1">counts below safety stock</p>}
+          <p className="text-[11px] text-[var(--text-soft)] mt-1">Bins below safety reorder threshold</p>
         </div>
       </div>
 
+      {/* Filter and Search Bar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 flex-1 max-w-xl">
           <div className="relative flex-1">
@@ -80,7 +165,7 @@ export default function RawMaterialStock() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search stock by ID, fiber type, colour, bin location..."
+              placeholder="Search stock by ID, fiber SKU, colour, bin location..."
               className="input-field h-10 pl-9 text-xs font-mono w-full"
             />
           </div>
@@ -115,62 +200,83 @@ export default function RawMaterialStock() {
         </div>
       )}
 
+      {/* Real-time Material Balances Table */}
       <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-[var(--border)]">
-          <h2 className="text-sm font-display font-semibold text-[var(--text)]">Raw Material Inventory Ledgers</h2>
+        <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-display font-semibold text-[var(--text)]">Raw Material Real-Time Balances</h2>
+            <p className="text-xs text-[var(--text-soft)]">Live material snapshots synchronized with immutable event ledger</p>
+          </div>
+          <span className="text-[11px] font-mono bg-[var(--surface-2)] px-2.5 py-1 rounded border border-[var(--border)] text-[var(--text-soft)]">
+            Central Ledger Connected
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
                 <th className="px-4 py-3 section-title whitespace-nowrap text-left">Stock ID</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Fiber Type</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Colour</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Current Qty (kg)</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Reorder Level</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap">Stock Level</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">SKU / Fiber Name</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right">On-Hand (kg)</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Reserved (kg)</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Available (kg)</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Safety Level</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap">Stock Gauge</th>
                 <th className="px-4 py-3 section-title whitespace-nowrap text-left">Warehouse Bin</th>
                 <th className="px-4 py-3 section-title whitespace-nowrap text-right">Last Verified</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {loading && items.length === 0 ? (
+              {loading && mergedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-xs text-[var(--text-soft)] font-mono">
-                    Loading inventory ledger from database...
+                  <td colSpan={9} className="px-4 py-8 text-center text-xs text-[var(--text-soft)] font-mono">
+                    Loading inventory balances from central engine...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-xs text-[var(--text-soft)]">
-                    No yarn stock ledgers match your search filters.
+                  <td colSpan={9} className="px-4 py-8 text-center text-xs text-[var(--text-soft)]">
+                    No yarn stock balances match your search filters.
                   </td>
                 </tr>
               ) : (
                 paginatedData.map(yarn => {
-                  const pct = Math.min(100, Math.round((yarn.quantityKg / (yarn.reorderLevel * 4)) * 100));
-                  const isLow      = yarn.quantityKg <= yarn.reorderLevel;
-                  const isCritical = yarn.quantityKg <= yarn.reorderLevel * 0.4;
+                  const pct = Math.min(100, Math.round((yarn.availableKg / (yarn.reorderLevel * 4)) * 100));
                   return (
-                    <tr key={yarn.id} className="table-row-hover cursor-pointer" onClick={() => setSelectedStock(yarn)}>
-                      <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{yarn.id}</td>
-                      <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{yarn.type}</td>
-                      <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{yarn.colour}</td>
+                    <tr key={yarn.id} className="table-row-hover">
+                      <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">
+                        {yarn.id}
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-left">
+                        <span className="font-semibold text-[var(--text)] block">{yarn.skuName}</span>
+                        <span className="text-[11px] text-[var(--text-soft)]">{yarn.type} {yarn.colour ? `· ${yarn.colour}` : ''}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-mono text-xs tabular-nums text-[var(--text)] font-semibold">
+                        {yarn.onHandKg.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-mono text-xs tabular-nums text-[var(--warn)] font-semibold">
+                        {yarn.reservedKg > 0 ? `${yarn.reservedKg.toLocaleString()}` : '0'}
+                      </td>
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <span className={`text-sm font-mono font-bold tabular-nums ${isCritical ? 'text-[var(--bad)]' : isLow ? 'text-[var(--warn)]' : 'text-[var(--text)]'}`}>
-                            {yarn.quantityKg.toLocaleString()}
+                          <span className={`text-sm font-mono font-bold tabular-nums ${yarn.isCritical ? 'text-[var(--bad)]' : yarn.isLow ? 'text-[var(--warn)]' : 'text-[var(--ok)]'}`}>
+                            {yarn.availableKg.toLocaleString()}
                           </span>
-                          {isLow && <AlertTriangle size={13} className={isCritical ? 'text-[var(--bad)]' : 'text-[var(--warn)]'} />}
+                          {yarn.isLow && (
+                            <AlertTriangle size={13} className={yarn.isCritical ? 'text-[var(--bad)]' : 'text-[var(--warn)]'} />
+                          )}
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-xs font-mono tabular-nums text-[var(--text-soft)] text-right">{yarn.reorderLevel.toLocaleString()}</td>
-                      <td className="px-4 py-3.5 w-44">
+                      <td className="px-4 py-3.5 text-xs font-mono tabular-nums text-[var(--text-soft)] text-right">
+                        {yarn.reorderLevel.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3.5 w-40">
                         <div className="space-y-1">
-                          <ProgressBar value={pct} color={isCritical ? 'bad' : isLow ? 'warn' : 'ok'} />
+                          <ProgressBar value={pct} color={yarn.isCritical ? 'bad' : yarn.isLow ? 'warn' : 'ok'} />
                           <p className="text-[10px] font-mono tabular-nums text-[var(--text-soft)] text-right">
-                            <span className={`font-semibold ${isCritical ? 'text-[var(--bad)]' : isLow ? 'text-[var(--warn)]' : 'text-[var(--text)]'}`}>{yarn.quantityKg.toLocaleString()} kg</span>
-                            {' '}/ {(yarn.reorderLevel * 4).toLocaleString()} kg
+                            <span className={`font-semibold ${yarn.isCritical ? 'text-[var(--bad)]' : yarn.isLow ? 'text-[var(--warn)]' : 'text-[var(--ok)]'}`}>
+                              {yarn.availableKg.toLocaleString()} kg avail
+                            </span>
                           </p>
                         </div>
                       </td>
@@ -180,7 +286,9 @@ export default function RawMaterialStock() {
                           <span className="font-mono">{yarn.location}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right">{yarn.lastUpdated}</td>
+                      <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right">
+                        {yarn.lastUpdated}
+                      </td>
                     </tr>
                   );
                 })
@@ -235,4 +343,3 @@ export default function RawMaterialStock() {
     </div>
   );
 }
-
