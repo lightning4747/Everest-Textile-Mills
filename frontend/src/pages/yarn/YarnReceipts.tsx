@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { Plus, Package, Calendar, User, FileText } from 'lucide-react';
 import { yarnReceipts } from '../../data/mockData';
+import { usePagination } from '../../hooks/usePagination';
+import Pagination from '../../components/ui/Pagination';
 
 export default function YarnReceipts() {
   const [showForm, setShowForm] = useState(false);
+
+  const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(yarnReceipts, 20);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <p className="text-[var(--text-soft)] text-sm font-medium">{yarnReceipts.length} material intake receipts logged</p>
-        <button className="btn-primary text-xs" onClick={() => setShowForm(!showForm)}>
+        <button className="btn-primary text-xs h-10" onClick={() => setShowForm(!showForm)}>
           <Plus size={14} /> Record Yarn Inward Receipt
         </button>
       </div>
@@ -65,38 +69,44 @@ export default function YarnReceipts() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
-                {['Receipt ID','Date','Supplier','Yarn Type','Colour','Net Qty (kg)','Linked Order','Invoice Ref','Receiving Clerk'].map(h=>(
-                  <th key={h} className="px-4 py-3 section-title whitespace-nowrap">{h}</th>
-                ))}
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Receipt ID</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Date</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Supplier</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Yarn Type</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Colour</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Net Qty (kg)</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Linked Order</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Invoice Ref</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Receiving Clerk</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {yarnReceipts.map(r => (
+              {paginatedData.map(r => (
                 <tr key={r.id} className="table-row-hover">
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 text-left">
                     <div className="flex items-center gap-2">
                       <Package size={13} className="text-[var(--olive-grey)] flex-shrink-0" />
                       <span className="text-xs font-mono font-bold text-[var(--olive-dark)]">{r.id}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 text-left">
                     <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-soft)]">
                       <Calendar size={12} />
                       <span>{r.date}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)]">{r.supplier}</td>
-                  <td className="px-4 py-3.5 text-xs text-[var(--text)]">{r.yarnType}</td>
-                  <td className="px-4 py-3.5 text-xs text-[var(--text-soft)]">{r.colour}</td>
-                  <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)]">{r.quantityKg.toLocaleString()}</td>
-                  <td className="px-4 py-3.5 text-xs font-mono font-semibold text-[var(--olive-dark)]">{r.forOrderId}</td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{r.supplier}</td>
+                  <td className="px-4 py-3.5 text-xs text-[var(--text)] text-left">{r.yarnType}</td>
+                  <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{r.colour}</td>
+                  <td className="px-4 py-3.5 text-xs font-mono font-bold tabular-nums text-[var(--ok)] text-right">{r.quantityKg.toLocaleString()}</td>
+                  <td className="px-4 py-3.5 text-xs font-mono font-semibold text-[var(--olive-dark)] text-left">{r.forOrderId}</td>
+                  <td className="px-4 py-3.5 text-left">
                     <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-soft)]">
                       <FileText size={12} />
                       <span>{r.invoiceNo}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 text-left">
                     <div className="flex items-center gap-1.5 text-xs text-[var(--text)]">
                       <User size={12} className="text-[var(--olive-grey)]" />
                       <span>{r.receivedBy}</span>
@@ -106,6 +116,15 @@ export default function YarnReceipts() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="px-5 pb-4">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            setPage={setPage}
+            setPageSize={setPageSize}
+          />
         </div>
       </div>
     </div>

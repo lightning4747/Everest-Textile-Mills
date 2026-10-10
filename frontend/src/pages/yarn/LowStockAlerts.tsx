@@ -88,7 +88,7 @@ function AlertCard({ yarn, severity, supplier }: {
           </div>
         </div>
 
-        <button className="btn-primary text-xs flex-shrink-0">
+        <button className="btn-primary text-xs h-10 flex-shrink-0">
           <ShoppingCart size={13} /> Raise Purchase Order
         </button>
       </div>
