@@ -274,7 +274,7 @@ export default function QualityChecks() {
       {/* Log Inspection Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-xl max-w-md w-full p-6 shadow-2xl animate-in fade-in duration-200">
+          <div className="bg-white border border-[var(--border)] rounded-xl max-w-md w-full p-6 shadow-2xl animate-in fade-in duration-200">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-syne font-bold text-base text-[var(--text)]">Log Quality Inspection</h3>
               <button

@@ -23,6 +23,7 @@
   /* Semantic System Mappings */
   --bg: var(--cloud-white);
   --surface: #FFFFFF;
+  --surface-1: #FFFFFF;
   --surface-2: var(--panel-bg);
   --text: var(--text-dark);
   --text-soft: var(--cyprus-muted);

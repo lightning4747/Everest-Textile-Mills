@@ -374,7 +374,7 @@ function RaisePoModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-xl max-w-lg w-full p-6 shadow-2xl animate-in fade-in duration-200">
+      <div className="bg-white border border-[var(--border)] rounded-xl max-w-lg w-full p-6 shadow-2xl animate-in fade-in duration-200">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[var(--olive-dark)]/10 text-[var(--olive-dark)] flex items-center justify-center">
