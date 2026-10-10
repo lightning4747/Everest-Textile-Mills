@@ -33,12 +33,26 @@ const OrderCosting     = React.lazy(() => import('./pages/reports/OrderCosting')
 const MachinePerformance = React.lazy(() => import('./pages/reports/MachinePerformance'));
 const MonthlySummary   = React.lazy(() => import('./pages/reports/MonthlySummary'));
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: import('./context/AuthContext').UserRole[] }) {
+  const { isAuthenticated, user, isAuthorized } = useAuth();
   const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (allowedRoles && !isAuthorized(...allowedRoles)) {
+    // If the user is a client, redirect them to the client portal
+    if (user?.role === 'client') {
+      return <Navigate to="/portal/orders" replace />;
+    }
+    // Otherwise redirect unauthorized users to dashboard or a not-authorized page
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // If a client tries to access the root '/', redirect them to portal
+  if (user?.role === 'client' && location.pathname === '/dashboard') {
+      return <Navigate to="/portal/orders" replace />;
   }
 
   return <>{children}</>;
@@ -71,7 +85,7 @@ export default function App() {
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'qc_inspector', 'viewer']}>
                   <AppLayout />
                 </ProtectedRoute>
               }

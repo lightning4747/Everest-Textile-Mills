@@ -73,6 +73,12 @@ async function seed() {
       passwordHash,
       role: 'viewer',
     },
+    {
+      name: 'Acme Corp',
+      email: 'client@acme.com',
+      passwordHash,
+      role: 'client',
+    },
   ]).onConflictDoNothing();
 
   // ── Machines ──────────────────────────────────────────────────────────────

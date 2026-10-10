@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../context/AuthContext';
 import { ShieldCheck, LogIn, AlertCircle, KeyRound, User } from 'lucide-react';
-import { CloudShader } from '@/components/ui/cloud-shader';
 
 const DEMO_ACCOUNTS: { role: UserRole; name: string; email: string; desc: string }[] = [
   { role: 'admin', name: 'Admin User', email: 'admin@everest.local', desc: 'Full System & Config Control' },
@@ -62,23 +61,14 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* 2. Right side: CloudShader background with centered login form card */}
-      <div className="relative w-full lg:w-1/2 h-full flex flex-col justify-between items-center px-4 py-6 sm:px-8 overflow-y-auto bg-[#0a0e14]">
-        {/* CloudShader animated sky & cloud background */}
-        <CloudShader
-          skyTopColor="#0a192f"
-          skyBottomColor="#1e3a8a"
-          cloudColor="#f8fafc"
-          count={6}
-          speed={0.8}
-          className="absolute inset-0 w-full h-full pointer-events-none z-0"
-        />
-
+      {/* 2. Right side: Neat minimal background with centered login form card */}
+      <div className="relative w-full lg:w-1/2 h-full flex flex-col justify-between items-center px-4 py-6 sm:px-8 overflow-y-auto bg-slate-50 text-slate-900">
+        
         {/* Top spacer */}
-        <div className="w-full h-2 relative z-10" />
+        <div className="w-full h-2" />
 
         {/* 3. Form card */}
-        <div className="relative z-10 w-full max-w-[420px] p-6 sm:p-7 bg-white/95 backdrop-blur-xl border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.5)] rounded-[24px] space-y-4 my-auto">
+        <div className="w-full max-w-[420px] p-6 sm:p-7 bg-white border border-slate-200 shadow-xl rounded-[24px] space-y-4 my-auto">
           {/* Above form: logo, short heading ("Welcome back"), subtext */}
           <div className="text-center pb-1">
             <img
@@ -142,7 +132,7 @@ export default function LoginPage() {
             <p className="text-[10.5px] font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-2">
               One-Click Demo Profiles (password: changeme123)
             </p>
-            <div className="grid grid-cols-1 gap-1.5 max-h-[160px] overflow-y-auto pr-0.5 custom-scrollbar">
+            <div className="grid grid-cols-1 gap-1.5 max-h-[300px] overflow-y-auto pr-0.5 custom-scrollbar">
               {DEMO_ACCOUNTS.map(acc => (
                 <button
                   key={acc.email}
@@ -168,7 +158,7 @@ export default function LoginPage() {
         </div>
 
         {/* Small footer at bottom of right side */}
-        <footer className="relative z-10 pt-3 pb-1 text-center text-xs font-medium text-white/90 drop-shadow-sm">
+        <footer className="pt-3 pb-1 text-center text-xs font-medium text-slate-500">
           © {new Date().getFullYear()} Everest Textile Mills. All rights reserved.
         </footer>
       </div>
