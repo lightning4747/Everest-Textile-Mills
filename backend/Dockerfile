@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-FROM oven/bun:1-alpine AS base
-=======
 FROM oven/bun:1.4.2 AS base
->>>>>>> main
+
 WORKDIR /app
 
 # Install dependencies
