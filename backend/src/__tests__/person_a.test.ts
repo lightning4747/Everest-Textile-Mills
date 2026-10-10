@@ -466,5 +466,194 @@ describe('Person A: Domain Suite', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  // ─── 6. Reports Endpoints ─────────────────────────────────────────────────
+  describe('Reports Endpoints', () => {
+    it('GET /api/v1/reports/order-costs returns order costs with computed financials', async () => {
+      const res = await fetch(`${baseUrl}/reports/order-costs`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBeGreaterThan(0);
+
+      const first = body.data[0];
+      expect(first).toHaveProperty('orderId');
+      expect(first).toHaveProperty('buyer');
+      expect(first).toHaveProperty('yarnCost');
+      expect(first).toHaveProperty('labourCost');
+      expect(first).toHaveProperty('machineCost');
+      expect(first).toHaveProperty('totalCost');
+      expect(first).toHaveProperty('revenue');
+      expect(first).toHaveProperty('profit');
+      expect(first).toHaveProperty('marginPct');
+      expect(first.totalCost).toBe(first.yarnCost + first.labourCost + first.machineCost);
+      expect(first.profit).toBe(first.revenue - first.totalCost);
+    });
+
+    it('GET /api/v1/reports/order-costs?order_id=ORD-1025 filters correctly', async () => {
+      const res = await fetch(`${baseUrl}/reports/order-costs?order_id=ORD-1025`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBe(1);
+      expect(body.data[0].orderId).toBe('ORD-1025');
+    });
+
+    it('PUT /api/v1/reports/order-costs/:order_id enforces auth & upserts cost record', async () => {
+      // Operator should be forbidden (only admin, manager allowed)
+      const forbiddenRes = await fetch(`${baseUrl}/reports/order-costs/ORD-1042`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${operatorToken}`,
+        },
+        body: JSON.stringify({
+          yarnCost: 50000,
+          labourCost: 15000,
+          machineCost: 10000,
+          revenue: 150000,
+        }),
+      });
+      expect(forbiddenRes.status).toBe(403);
+
+      // Non-existent order should return 404
+      const notFoundRes = await fetch(`${baseUrl}/reports/order-costs/ORD-NONEXISTENT`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          yarnCost: 50000,
+          labourCost: 15000,
+          machineCost: 10000,
+          revenue: 150000,
+        }),
+      });
+      expect(notFoundRes.status).toBe(404);
+
+      // Valid upsert as admin
+      const res = await fetch(`${baseUrl}/reports/order-costs/ORD-1042`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          yarnCost: 55000,
+          labourCost: 15000,
+          machineCost: 10000,
+          revenue: 160000,
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.orderId).toBe('ORD-1042');
+      expect(body.data.totalCost).toBe(80000);
+      expect(body.data.profit).toBe(80000);
+      expect(body.data.marginPct).toBe(50);
+    });
+
+    it('GET /api/v1/reports/machine-performance returns efficiency stats per machine', async () => {
+      const res = await fetch(`${baseUrl}/reports/machine-performance`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBeGreaterThanOrEqual(9);
+
+      const first = body.data[0];
+      expect(first).toHaveProperty('id');
+      expect(first).toHaveProperty('name');
+      expect(first).toHaveProperty('type');
+      expect(first).toHaveProperty('status');
+      expect(first).toHaveProperty('outputToday');
+      expect(first).toHaveProperty('target');
+      expect(first).toHaveProperty('efficiencyPct');
+    });
+
+    it('GET /api/v1/reports/monthly returns monthly snapshots with grossProfit and marginPct', async () => {
+      const res = await fetch(`${baseUrl}/reports/monthly`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBeGreaterThan(0);
+
+      const first = body.data[0];
+      expect(first).toHaveProperty('year');
+      expect(first).toHaveProperty('month');
+      expect(first).toHaveProperty('revenue');
+      expect(first).toHaveProperty('cost');
+      expect(first).toHaveProperty('grossProfit');
+      expect(first).toHaveProperty('marginPct');
+      expect(first.grossProfit).toBe(first.revenue - first.cost);
+    });
+
+    it('GET /api/v1/reports/monthly filters by year and month', async () => {
+      const res = await fetch(`${baseUrl}/reports/monthly?year=2026&month=10`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBe(1);
+      expect(body.data[0].year).toBe(2026);
+      expect(body.data[0].month).toBe(10);
+    });
+
+    it('PUT /api/v1/reports/monthly/:year/:month upserts monthly record', async () => {
+      // Operator should be forbidden
+      const forbiddenRes = await fetch(`${baseUrl}/reports/monthly/2026/11`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${operatorToken}`,
+        },
+        body: JSON.stringify({
+          revenue: 1300000,
+          cost: 800000,
+          outputMetres: 29000,
+          wages: 385000,
+        }),
+      });
+      expect(forbiddenRes.status).toBe(403);
+
+      // Admin upsert
+      const res = await fetch(`${baseUrl}/reports/monthly/2026/11`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          revenue: 1300000,
+          cost: 800000,
+          outputMetres: 29000,
+          wages: 385000,
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.year).toBe(2026);
+      expect(body.data.month).toBe(11);
+      expect(body.data.revenue).toBe(1300000);
+      expect(body.data.grossProfit).toBe(500000);
+      expect(body.data.marginPct).toBe(38.46);
+    });
+  });
 });
 
