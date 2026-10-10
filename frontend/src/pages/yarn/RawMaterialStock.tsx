@@ -1,12 +1,19 @@
-import { AlertTriangle, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, MapPin, Search } from 'lucide-react';
 import ProgressBar from '../../components/ui/ProgressBar';
 import { usePagination } from '../../hooks/usePagination';
+import { useDebounce } from '../../hooks/useDebounce';
 import Pagination from '../../components/ui/Pagination';
 import { api } from '../../services/apiClient';
 import { useApi } from '../../hooks/useApi';
 import type { YarnStock } from '../../types';
 
 export default function RawMaterialStock() {
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const debouncedSearch = useDebounce(search, 300);
+
   const { data: stockItems, loading, error } = useApi<YarnStock[]>(
     () => api.get<YarnStock[]>('/yarn/stock'),
     []
@@ -16,7 +23,30 @@ export default function RawMaterialStock() {
   const totalKg = items.reduce((s, y) => s + y.quantityKg, 0);
   const lowStockItems = items.filter(y => y.quantityKg <= y.reorderLevel);
 
-  const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(items, 20);
+  const filtered = items.filter(yarn => {
+    const q = debouncedSearch.toLowerCase();
+    const matchesSearch =
+      !debouncedSearch.trim() ||
+      yarn.id.toLowerCase().includes(q) ||
+      yarn.type.toLowerCase().includes(q) ||
+      yarn.colour.toLowerCase().includes(q) ||
+      yarn.location.toLowerCase().includes(q);
+
+    const matchesType = typeFilter === 'all' || yarn.type === typeFilter;
+
+    let matchesStatus = true;
+    if (statusFilter === 'low') {
+      matchesStatus = yarn.quantityKg <= yarn.reorderLevel;
+    } else if (statusFilter === 'critical') {
+      matchesStatus = yarn.quantityKg <= yarn.reorderLevel * 0.4;
+    } else if (statusFilter === 'healthy') {
+      matchesStatus = yarn.quantityKg > yarn.reorderLevel;
+    }
+
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(filtered, 20);
 
   return (
     <div className="space-y-6">
@@ -37,6 +67,43 @@ export default function RawMaterialStock() {
             {lowStockItems.length}
           </p>
           {lowStockItems.length > 0 && <p className="text-xs text-[var(--text-soft)] mt-1">counts below safety stock</p>}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3 flex-1 max-w-xl">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search stock by ID, fiber type, colour, bin location..."
+              className="input-field h-10 pl-9 text-xs font-mono w-full"
+            />
+          </div>
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            className="input-field h-10 text-xs font-mono w-40"
+          >
+            <option value="all">All Fiber Types</option>
+            <option value="Cotton">Cotton</option>
+            <option value="Polyester">Polyester</option>
+            <option value="Wool">Wool</option>
+            <option value="Silk">Silk</option>
+            <option value="Blended">Blended</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="input-field h-10 text-xs font-mono w-40"
+          >
+            <option value="all">All Stock Levels</option>
+            <option value="healthy">Healthy Stock</option>
+            <option value="low">Low Stock Alert</option>
+            <option value="critical">Critical Deficit</option>
+          </select>
         </div>
       </div>
 
@@ -71,10 +138,10 @@ export default function RawMaterialStock() {
                     Loading inventory ledger from database...
                   </td>
                 </tr>
-              ) : items.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-xs text-[var(--text-soft)]">
-                    No yarn inventory records found in warehouse.
+                    No yarn stock ledgers match your search filters.
                   </td>
                 </tr>
               ) : (
@@ -132,3 +199,4 @@ export default function RawMaterialStock() {
     </div>
   );
 }
+

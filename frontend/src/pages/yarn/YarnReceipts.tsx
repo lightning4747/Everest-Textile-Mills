@@ -1,19 +1,26 @@
 import { useState } from 'react';
-import { Plus, Package, Calendar, User, FileText, AlertCircle } from 'lucide-react';
+import { Plus, Package, Calendar, User, FileText, AlertCircle, Search } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
+import { useDebounce } from '../../hooks/useDebounce';
 import Pagination from '../../components/ui/Pagination';
 import { api } from '../../services/apiClient';
 import { useApi } from '../../hooks/useApi';
-import type { YarnReceipt, YarnType } from '../../types';
+import type { YarnReceipt, YarnStock, YarnType } from '../../types';
 
 export default function YarnReceipts() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Search & Filter state
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const debouncedSearch = useDebounce(search, 300);
+
   // Form states
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [supplier, setSupplier] = useState('');
+  const [selectedStockId, setSelectedStockId] = useState('');
   const [yarnType, setYarnType] = useState<YarnType>('Cotton');
   const [colour, setColour] = useState('');
   const [quantityKg, setQuantityKg] = useState<number | ''>('');
@@ -26,8 +33,40 @@ export default function YarnReceipts() {
     []
   );
 
+  const { data: stockData } = useApi<YarnStock[]>(
+    () => api.get<YarnStock[]>('/yarn/stock'),
+    []
+  );
+
+  const stockLedgers = stockData || [];
   const receipts = data || [];
-  const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(receipts, 20);
+
+  const handleStockSelect = (stockId: string) => {
+    setSelectedStockId(stockId);
+    if (!stockId) return;
+    const found = stockLedgers.find(s => s.id === stockId);
+    if (found) {
+      setYarnType(found.type as YarnType);
+      setColour(found.colour);
+    }
+  };
+
+  const filtered = receipts.filter(r => {
+    const q = debouncedSearch.toLowerCase();
+    const matchesSearch =
+      !debouncedSearch.trim() ||
+      r.id.toLowerCase().includes(q) ||
+      r.supplier.toLowerCase().includes(q) ||
+      r.yarnType.toLowerCase().includes(q) ||
+      r.colour.toLowerCase().includes(q) ||
+      (r.forOrderId && r.forOrderId.toLowerCase().includes(q)) ||
+      (r.invoiceNo && r.invoiceNo.toLowerCase().includes(q));
+
+    const matchesType = typeFilter === 'all' || r.yarnType === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(filtered, 20);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,12 +94,14 @@ export default function YarnReceipts() {
         yarnType,
         colour: colour.trim(),
         quantityKg: Number(quantityKg),
+        yarnStockId: selectedStockId || undefined,
         forOrderId: forOrderId.trim() ? forOrderId.trim() : null,
         invoiceNo: invoiceNo.trim() ? invoiceNo.trim() : `INV-${Date.now().toString().slice(-6)}`,
         receivedBy: receivedBy.trim() ? receivedBy.trim() : 'Store Clerk',
       });
 
       // Reset form and refetch
+      setSelectedStockId('');
       setSupplier('');
       setColour('');
       setQuantityKg('');
@@ -69,8 +110,8 @@ export default function YarnReceipts() {
       setReceivedBy('');
       setShowForm(false);
       await refetch();
-    } catch (err: any) {
-      setFormError(err?.message || 'Failed to record yarn receipt consignment');
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Failed to record yarn receipt consignment');
     } finally {
       setSubmitting(false);
     }
@@ -78,8 +119,32 @@ export default function YarnReceipts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-[var(--text-soft)] text-sm font-medium">{receipts.length} material intake receipts logged</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3 flex-1 max-w-lg">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search receipts by ID, supplier, yarn type, invoice..."
+              className="input-field h-10 pl-9 text-xs font-mono w-full"
+            />
+          </div>
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            className="input-field h-10 text-xs font-mono w-40"
+          >
+            <option value="all">All Yarn Types</option>
+            <option value="Cotton">Cotton</option>
+            <option value="Polyester">Polyester</option>
+            <option value="Wool">Wool</option>
+            <option value="Silk">Silk</option>
+            <option value="Blended">Blended</option>
+          </select>
+        </div>
+
         <button className="btn-primary text-xs h-10" onClick={() => setShowForm(!showForm)}>
           <Plus size={14} /> Record Yarn Inward Receipt
         </button>
@@ -104,6 +169,21 @@ export default function YarnReceipts() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
+              <label className="section-title block mb-1.5">Link Warehouse Stock Ledger</label>
+              <select
+                value={selectedStockId}
+                onChange={e => handleStockSelect(e.target.value)}
+                className="input-field text-xs font-mono"
+              >
+                <option value="">-- Select Stock Ledger --</option>
+                {stockLedgers.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.id} · {s.type} {s.colour} ({s.quantityKg} kg on hand)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="section-title block mb-1.5">Receipt Date</label>
               <input
                 type="date"
@@ -120,7 +200,7 @@ export default function YarnReceipts() {
                 value={supplier}
                 onChange={e => setSupplier(e.target.value)}
                 required
-                placeholder="e.g. Shree Yarns Ltd."
+                placeholder="e.g. Shree Yarns Pvt. Ltd."
                 className="input-field text-xs"
               />
             </div>
@@ -143,7 +223,7 @@ export default function YarnReceipts() {
                 value={colour}
                 onChange={e => setColour(e.target.value)}
                 required
-                placeholder="e.g. Navy Indigo"
+                placeholder="e.g. White"
                 className="input-field text-xs"
               />
             </div>
@@ -225,10 +305,10 @@ export default function YarnReceipts() {
                     Loading receipts archive...
                   </td>
                 </tr>
-              ) : receipts.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-xs text-[var(--text-soft)]">
-                    No yarn receipts recorded yet.
+                    No yarn receipts match your search filter.
                   </td>
                 </tr>
               ) : (
@@ -282,3 +362,4 @@ export default function YarnReceipts() {
     </div>
   );
 }
+
