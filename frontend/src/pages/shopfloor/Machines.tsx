@@ -8,12 +8,14 @@ import { api } from '../../services/apiClient';
 import { useApi } from '../../hooks/useApi';
 import type { Machine } from '../../types';
 import { AnimatedStatusIcon } from '../../components/ui/AnimatedStatusIcon';
+import DetailModal from '../../components/ui/DetailModal';
 
 export default function Machines() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const debouncedSearch = useDebounce(search, 300);
+  const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
 
   const { data, loading, error, refetch } = useApi<Machine[]>(
     () => api.get<Machine[]>('/machines'),
@@ -134,7 +136,7 @@ export default function Machines() {
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
                   {paginatedData.map(m => (
-                    <tr key={m.id} className="table-row-hover">
+                    <tr key={m.id} className="table-row-hover cursor-pointer" onClick={() => setSelectedMachine(m)}>
                       <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{m.id}</td>
                       <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{m.name}</td>
                       <td className="px-4 py-3.5 text-left">
@@ -172,6 +174,35 @@ export default function Machines() {
           </>
         )}
       </div>
+
+      {/* Machine Detail Modal */}
+      <DetailModal
+        open={!!selectedMachine}
+        onClose={() => setSelectedMachine(null)}
+        title={selectedMachine ? selectedMachine.name : ''}
+        subtitle={selectedMachine?.id}
+        sections={selectedMachine ? [
+          {
+            title: 'Machine Identity',
+            fields: [
+              { label: 'Machine ID',    value: selectedMachine.id,                  mono: true, accent: 'text-[var(--olive-dark)]' },
+              { label: 'Name',          value: selectedMachine.name,                accent: 'font-semibold' },
+              { label: 'Process Type',  value: selectedMachine.type,                accent: 'capitalize' },
+              { label: 'Status',        value: selectedMachine.status,              accent: selectedMachine.status === 'running' ? 'text-[var(--ok)] font-bold capitalize' : selectedMachine.status === 'breakdown' ? 'text-[var(--bad)] font-bold capitalize' : 'text-[var(--warn)] font-bold capitalize' },
+            ],
+          },
+          {
+            title: 'Current Operation',
+            fields: [
+              { label: 'Current Order', value: selectedMachine.currentOrder ?? '—', mono: true, accent: 'text-[var(--olive-dark)]' },
+              { label: 'Operator',      value: selectedMachine.operator ?? '—' },
+              { label: 'Shift',         value: `Shift ${selectedMachine.shift}`,    mono: true },
+              { label: 'Today Output',  value: `${selectedMachine.outputToday} m`,  mono: true, accent: 'text-[var(--ok)] font-bold' },
+              { label: 'Progress',      value: `${selectedMachine.progress}%`,      mono: true },
+            ],
+          },
+        ] : []}
+      />
     </div>
   );
 }
