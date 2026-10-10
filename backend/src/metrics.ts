@@ -62,6 +62,27 @@ export const productionOutputMetresToday = new Gauge({
   registers: [registry],
 });
 
+// ── Inventory Domain Metrics (Person A) ───────────────────────────────────────
+export const inventoryMovementsTotal = new Counter({
+  name: 'inventory_movements_total',
+  help: 'Total inventory movements logged',
+  labelNames: ['state', 'direction', 'reason'],
+  registers: [registry],
+});
+
+export const inventoryReconciliationDriftCount = new Gauge({
+  name: 'inventory_reconciliation_drift_count',
+  help: 'Number of detected inventory balance reconciliation discrepancies',
+  registers: [registry],
+});
+
+export const inventoryLockWaitSeconds = new Histogram({
+  name: 'inventory_lock_wait_seconds',
+  help: 'Time spent acquiring row-level locks on inventory balances',
+  buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1],
+  registers: [registry],
+});
+
 // ── HTTP Metrics Middleware ───────────────────────────────────────────────────
 export function metricsMiddleware(req: Request, res: Response, next: NextFunction): void {
   const start = process.hrtime.bigint();

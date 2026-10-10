@@ -19,6 +19,7 @@ import fabricRollsRoutes from './routes/fabricRolls.js';
 import dispatchesRoutes from './routes/dispatches.js';
 import reportsRoutes from './routes/reports.js';
 import forecastRoutes from './routes/forecast.js';
+import inventoryRoutes from './routes/inventory.js';
 
 const app = express();
 
@@ -90,6 +91,7 @@ api.use('/fabric-rolls', fabricRollsRoutes);
 api.use('/dispatches', dispatchesRoutes);
 api.use('/reports', reportsRoutes);
 api.use('/forecast', forecastRoutes);
+api.use('/inventory', inventoryRoutes);
 
 app.use('/api/v1', api);
 

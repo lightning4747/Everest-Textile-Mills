@@ -10,6 +10,7 @@ import {
   suppliers, yarnTypeSuppliers, yarnStock, yarnReceipts,
   salesOrders, productionOrders, fabricRolls,
   dispatches, dispatchRolls, orderCosts, monthlySnapshots, users,
+  inventoryBalances, inventoryMovements,
 } from './schema.js';
 import bcrypt from 'bcrypt';
 import { updateYarnLowStockGauge, updateProductionOutputGauge } from '../services/stubs.js';
@@ -233,6 +234,245 @@ async function seed() {
     { year: 2026, month: 9,  revenue: '1050000', cost: '680000', outputMetres: '23500', wages: '385000' },
     { year: 2026, month: 10, revenue: '1240000', cost: '760000', outputMetres: '27800', wages: '385000' },
   ]).onConflictDoNothing();
+
+  // ── Inventory Balances & Baseline Movements Backfill ──────────────────────
+  const existingYarn = await db.select().from(yarnStock);
+  for (const y of existingYarn) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'yarn',
+      itemId: y.id,
+      skuName: `${y.type} ${y.colour}`,
+      state: 'raw_yarn',
+      quantity: y.quantityKg,
+      reservedQuantity: '0',
+      unit: 'kg',
+      location: y.location,
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'yarn',
+      itemId: y.id,
+      skuName: `${y.type} ${y.colour}`,
+      state: 'raw_yarn',
+      direction: 'in',
+      quantity: y.quantityKg,
+      quantityDelta: y.quantityKg,
+      reservedDelta: '0',
+      unit: 'kg',
+      reason: 'receipt',
+      referenceType: 'initial_stock',
+      referenceId: y.id,
+      idempotencyKey: `SEED:STOCK:${y.id}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
+
+  // Backfill WIP for orders in spinning/weaving/dyeing
+  const activeOrders = await db.select().from(salesOrders);
+  for (const so of activeOrders) {
+    if (['spinning', 'weaving', 'dyeing'].includes(so.status)) {
+      const remainingMetres = Math.max(0, Number(so.quantityMetres) - Number(so.completedMetres));
+      const wipKg = (remainingMetres * 0.25).toFixed(2);
+      if (Number(wipKg) > 0) {
+        await db.insert(inventoryBalances).values({
+          itemType: 'yarn',
+          itemId: so.id,
+          skuName: `${so.fabricType} WIP (${so.colour})`,
+          state: 'wip',
+          quantity: wipKg,
+          reservedQuantity: '0',
+          unit: 'kg',
+          location: 'Production Floor',
+        }).onConflictDoNothing();
+
+        await db.insert(inventoryMovements).values({
+          itemType: 'yarn',
+          itemId: so.id,
+          skuName: `${so.fabricType} WIP (${so.colour})`,
+          state: 'wip',
+          direction: 'in',
+          quantity: wipKg,
+          quantityDelta: wipKg,
+          reservedDelta: '0',
+          unit: 'kg',
+          reason: 'consumption',
+          referenceType: 'sales_order',
+          referenceId: so.id,
+          idempotencyKey: `SEED:WIP:${so.id}`,
+          actor: 'System Seed',
+        }).onConflictDoNothing();
+      }
+    }
+  }
+
+  // Backfill fabric rolls: pending QC, finished goods, scrap fabric
+  const allRolls = await db.select().from(fabricRolls);
+  const dispatchedRollRows = await db.select().from(dispatchRolls);
+  const dispatchedRollIds = new Set(dispatchedRollRows.map((dr) => dr.rollId));
+
+  // 1. Rolls pending QC
+  const pendingRolls = allRolls.filter((r) => r.qcResult === 'pending');
+  const pendingByOrder: Record<string, number> = {};
+  for (const r of pendingRolls) {
+    pendingByOrder[r.orderId] = (pendingByOrder[r.orderId] ?? 0) + Number(r.metres);
+  }
+  for (const [orderId, metres] of Object.entries(pendingByOrder)) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'fabric_pending_qc',
+      quantity: metres.toFixed(2),
+      reservedQuantity: '0',
+      unit: 'metres',
+      location: 'Grading Area',
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'fabric_pending_qc',
+      direction: 'in',
+      quantity: metres.toFixed(2),
+      quantityDelta: metres.toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'roll_production',
+      referenceType: 'sales_order',
+      referenceId: orderId,
+      idempotencyKey: `SEED:PENDING:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
+
+  // 2. Rolls passed QC (split unshipped vs dispatched)
+  const passedRolls = allRolls.filter((r) => r.qcResult === 'passed');
+  const unshippedPassedByOrder: Record<string, number> = {};
+  const dispatchedPassedByOrder: Record<string, number> = {};
+  for (const r of passedRolls) {
+    if (dispatchedRollIds.has(r.id)) {
+      dispatchedPassedByOrder[r.orderId] = (dispatchedPassedByOrder[r.orderId] ?? 0) + Number(r.metres);
+    } else {
+      unshippedPassedByOrder[r.orderId] = (unshippedPassedByOrder[r.orderId] ?? 0) + Number(r.metres);
+    }
+  }
+
+  for (const [orderId, metres] of Object.entries(unshippedPassedByOrder)) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      quantity: metres.toFixed(2),
+      reservedQuantity: '0',
+      unit: 'metres',
+      location: 'Finished Goods Vault',
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      direction: 'in',
+      quantity: metres.toFixed(2),
+      quantityDelta: metres.toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'qc_pass',
+      referenceType: 'sales_order',
+      referenceId: orderId,
+      idempotencyKey: `SEED:FG:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
+
+  for (const [orderId, metres] of Object.entries(dispatchedPassedByOrder)) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      quantity: '0.00',
+      reservedQuantity: '0',
+      unit: 'metres',
+      location: 'Finished Goods Vault',
+    }).onConflictDoUpdate({
+      target: [inventoryBalances.itemId, inventoryBalances.state],
+      set: { quantity: '0.00' },
+    });
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      direction: 'in',
+      quantity: metres.toFixed(2),
+      quantityDelta: metres.toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'qc_pass',
+      referenceType: 'sales_order',
+      referenceId: orderId,
+      idempotencyKey: `SEED:FG_PASS:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'finished_goods',
+      direction: 'out',
+      quantity: metres.toFixed(2),
+      quantityDelta: (-metres).toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'dispatch',
+      referenceType: 'dispatch',
+      referenceId: 'DSP-302',
+      idempotencyKey: `SEED:DSP:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
+
+  // 3. Rolls rejected QC
+  const rejectedRolls = allRolls.filter((r) => r.qcResult === 'rejected');
+  const rejectedByOrder: Record<string, number> = {};
+  for (const r of rejectedRolls) {
+    rejectedByOrder[r.orderId] = (rejectedByOrder[r.orderId] ?? 0) + Number(r.metres);
+  }
+  for (const [orderId, metres] of Object.entries(rejectedByOrder)) {
+    await db.insert(inventoryBalances).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'scrap_fabric',
+      quantity: metres.toFixed(2),
+      reservedQuantity: '0',
+      unit: 'metres',
+      location: 'Scrap Storage',
+    }).onConflictDoNothing();
+
+    await db.insert(inventoryMovements).values({
+      itemType: 'fabric',
+      itemId: orderId,
+      skuName: `Fabric Order ${orderId}`,
+      state: 'scrap_fabric',
+      direction: 'in',
+      quantity: metres.toFixed(2),
+      quantityDelta: metres.toFixed(2),
+      reservedDelta: '0',
+      unit: 'metres',
+      reason: 'qc_reject',
+      referenceType: 'sales_order',
+      referenceId: orderId,
+      idempotencyKey: `SEED:SCRAP:${orderId}`,
+      actor: 'System Seed',
+    }).onConflictDoNothing();
+  }
 
   // ── Observability Gauges ──────────────────────────────────────────────────
   await updateYarnLowStockGauge();

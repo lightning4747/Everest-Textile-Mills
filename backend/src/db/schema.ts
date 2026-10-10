@@ -21,6 +21,17 @@ export const qcResultEnum      = pgEnum('qc_result',      ['passed', 'rejected',
 export const dispatchStatusEnum = pgEnum('dispatch_status', ['prepared', 'loaded', 'delivered']);
 export const userRoleEnum      = pgEnum('user_role', ['admin', 'manager', 'operator', 'qc_inspector', 'viewer']);
 
+export const inventoryItemTypeEnum = pgEnum('inventory_item_type', ['yarn', 'fabric', 'scrap']);
+export const inventoryStateEnum    = pgEnum('inventory_state', [
+  'raw_yarn', 'wip', 'fabric_pending_qc', 'finished_goods', 'scrap_fabric', 'scrap_yarn',
+]);
+export const movementDirectionEnum = pgEnum('movement_direction', ['in', 'out']);
+export const movementReasonEnum    = pgEnum('movement_reason', [
+  'receipt', 'reservation', 'unreservation', 'consumption',
+  'roll_production', 'qc_pass', 'qc_reject', 'dispatch',
+  'yield_variance', 'adjustment', 'cancellation',
+]);
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = pgTable('users', {
   id:           uuid('id').primaryKey().default(sql`gen_random_uuid()`),
@@ -180,6 +191,7 @@ export const dispatchRolls = pgTable('dispatch_rolls', {
   rollId:     varchar('roll_id', { length: 20 }).notNull().references(() => fabricRolls.id),
 }, (t) => [
   unique('dispatch_roll_unique').on(t.dispatchId, t.rollId),
+  unique('dispatch_roll_single_shipment').on(t.rollId),
 ]);
 
 // ─── Order Costs ──────────────────────────────────────────────────────────────
@@ -210,6 +222,50 @@ export const monthlySnapshots = pgTable('monthly_snapshots', {
   unique('monthly_snapshot_unique').on(t.year, t.month),
 ]);
 
+// ─── Inventory Balances Snapshot ──────────────────────────────────────────────
+export const inventoryBalances = pgTable('inventory_balances', {
+  id:               uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  itemType:         inventoryItemTypeEnum('item_type').notNull(),
+  itemId:           varchar('item_id', { length: 80 }).notNull(), // 'YS-001' or 'ORD-1038:Cotton-Denim'
+  skuName:          varchar('sku_name', { length: 150 }).notNull(),
+  state:            inventoryStateEnum('state').notNull(),
+  quantity:         numeric('quantity', { precision: 12, scale: 2 }).notNull().default('0'),
+  reservedQuantity: numeric('reserved_quantity', { precision: 12, scale: 2 }).notNull().default('0'),
+  unit:             varchar('unit', { length: 20 }).notNull(), // 'kg' or 'metres'
+  location:         varchar('location', { length: 80 }).notNull().default('Main Floor'),
+  lastUpdated:      timestamp('last_updated', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  unique('uq_inv_balance_item_state').on(t.itemId, t.state),
+  check('chk_balance_qty_non_neg', sql`${t.quantity} >= 0`),
+  check('chk_balance_reserved_non_neg', sql`${t.reservedQuantity} >= 0`),
+  check('chk_balance_avail_non_neg', sql`${t.quantity} >= ${t.reservedQuantity}`),
+]);
+
+// ─── Immutable Inventory Movement Ledger ──────────────────────────────────────
+export const inventoryMovements = pgTable('inventory_movements', {
+  id:             uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  itemType:       inventoryItemTypeEnum('item_type').notNull(),
+  itemId:         varchar('item_id', { length: 80 }).notNull(),
+  skuName:        varchar('sku_name', { length: 150 }).notNull(),
+  state:          inventoryStateEnum('state').notNull(),
+  direction:      movementDirectionEnum('direction').notNull(),
+  quantity:       numeric('quantity', { precision: 12, scale: 2 }).notNull(),
+  quantityDelta:  numeric('quantity_delta', { precision: 12, scale: 2 }).notNull(),
+  reservedDelta:  numeric('reserved_delta', { precision: 12, scale: 2 }).notNull().default('0'),
+  unit:           varchar('unit', { length: 20 }).notNull(),
+  reason:         movementReasonEnum('reason').notNull(),
+  referenceType:  varchar('reference_type', { length: 40 }).notNull(),
+  referenceId:    varchar('reference_id', { length: 80 }).notNull(),
+  idempotencyKey: varchar('idempotency_key', { length: 120 }).unique(),
+  actor:          varchar('actor', { length: 120 }).notNull(),
+  unitCostInr:    numeric('unit_cost_inr', { precision: 10, scale: 2 }),
+  totalCostInr:   numeric('total_cost_inr', { precision: 12, scale: 2 }),
+  notes:          text('notes'),
+  createdAt:      timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  check('chk_movement_qty_positive', sql`${t.quantity} > 0`),
+]);
+
 // ─── Type exports ─────────────────────────────────────────────────────────────
 export type User               = typeof users.$inferSelect;
 export type NewUser            = typeof users.$inferInsert;
@@ -232,3 +288,7 @@ export type Dispatch           = typeof dispatches.$inferSelect;
 export type NewDispatch        = typeof dispatches.$inferInsert;
 export type OrderCost          = typeof orderCosts.$inferSelect;
 export type MonthlySnapshot    = typeof monthlySnapshots.$inferSelect;
+export type InventoryBalance   = typeof inventoryBalances.$inferSelect;
+export type NewInventoryBalance = typeof inventoryBalances.$inferInsert;
+export type InventoryMovement  = typeof inventoryMovements.$inferSelect;
+export type NewInventoryMovement = typeof inventoryMovements.$inferInsert;

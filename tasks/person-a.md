@@ -90,11 +90,11 @@ Implement atomic transaction methods in `backend/src/services/inventoryService.t
 
 ## 4. Done Checklist
 
-- [ ] `inventory_balances` has database check constraints (`quantity >= 0`, `quantity >= reserved_quantity`).
-- [ ] `inventory_movements` database trigger blocks all updates and deletes.
-- [ ] No application code updates stock balances outside of `inventoryService.ts`.
-- [ ] Row locks are acquired in strict alphabetical order of `(item_id, state)`.
-- [ ] QC workflow supports only `passed` and `rejected`; no reference to `rework` exists anywhere.
-- [ ] Reconciliation endpoint cross-checks balances vs. ledger sum and rolls with 0 drift.
-- [ ] Concurrency and idempotency integration tests pass in CI.
-- [ ] Frontend pages (`/yarn/stock`, `/quality/*`, `/inventory/ledger`) render correctly without console warnings.
+- [x] `inventory_balances` has database check constraints (`quantity >= 0`, `quantity >= reserved_quantity`).
+- [x] `inventory_movements` database trigger blocks all updates and deletes.
+- [x] No application code updates stock balances outside of `inventoryService.ts`.
+- [x] Row locks are acquired in strict alphabetical order of `(item_id, state)`.
+- [x] QC workflow supports only `passed` and `rejected`; no reference to `rework` exists anywhere.
+- [x] Reconciliation endpoint cross-checks balances vs. ledger sum and rolls with 0 drift.
+- [x] Concurrency and idempotency integration tests pass in CI.
+- [x] Frontend pages (`/yarn/stock`, `/quality/*`, `/inventory/ledger`) render correctly without console warnings.
