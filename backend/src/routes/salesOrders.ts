@@ -1,13 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { eq, or, ilike, desc, sql, count } from 'drizzle-orm';
+import { eq, or, and, ilike, desc, sql, count } from 'drizzle-orm';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ok, created, notFound, badRequest } from '../lib/response.js';
 import { db } from '../db/index.js';
-import { salesOrders, machines, type SalesOrder, orderStatusEnum } from '../db/schema.js';
+import { salesOrders, machines, yarnStock, type SalesOrder, orderStatusEnum } from '../db/schema.js';
 import { ordersCreatedTotal } from '../metrics.js';
-import { reserveYarnStock } from '../services/stubs.js';
 
 const router = Router();
 router.use(authenticate);
@@ -260,13 +259,57 @@ router.patch(
         return;
       }
 
-      // If advancing to or past yarn_check, consume reserveYarnStock stub
-      if (targetStatus === 'yarn_check') {
-        const requiredKg = Math.round(Number(order.quantityMetres) * 0.25); // estimate 0.25kg per metre
-        await reserveYarnStock({
-          orderId: order.id,
-          quantityKg: requiredKg,
+      // If advancing to spinning or yarn_check: check and reserve yarn stock
+      const requiredKg = Math.round(Number(order.quantityMetres) * 0.25); // estimate 0.25kg yarn per metre of fabric
+
+      // Map fabricType (e.g. Cotton, Polyester, etc.) to yarn type
+      const normalizedFabric = order.fabricType.trim().toLowerCase();
+      let matchedYarnType: 'Cotton' | 'Polyester' | 'Wool' | 'Silk' | 'Blended' = 'Cotton';
+      if (normalizedFabric.includes('poly')) matchedYarnType = 'Polyester';
+      else if (normalizedFabric.includes('wool')) matchedYarnType = 'Wool';
+      else if (normalizedFabric.includes('silk')) matchedYarnType = 'Silk';
+      else if (normalizedFabric.includes('blend')) matchedYarnType = 'Blended';
+
+      if (targetStatus === 'spinning') {
+        // Find matching yarn stock row
+        const [stock] = await db
+          .select()
+          .from(yarnStock)
+          .where(eq(yarnStock.type, matchedYarnType))
+          .limit(1);
+
+        const availableKg = Number(stock?.quantityKg ?? 0);
+        if (!stock || availableKg < requiredKg) {
+          badRequest(
+            res,
+            `Cannot start spinning: ${requiredKg.toLocaleString()} kg ${matchedYarnType} yarn required, but only ${availableKg.toLocaleString()} kg available in stock.`,
+          );
+          return;
+        }
+
+        // Atomically deduct yarn stock and update order status
+        const [updated] = await db.transaction(async (tx) => {
+          const newQty = availableKg - requiredKg;
+          await tx
+            .update(yarnStock)
+            .set({
+              quantityKg: newQty.toFixed(2),
+              lastUpdated: new Date(),
+            })
+            .where(eq(yarnStock.id, stock.id));
+
+          return await tx
+            .update(salesOrders)
+            .set({
+              status: targetStatus,
+              updatedAt: new Date(),
+            })
+            .where(eq(salesOrders.id, id))
+            .returning();
         });
+
+        ok(res, formatSalesOrder(updated));
+        return;
       }
 
       const [updated] = await db

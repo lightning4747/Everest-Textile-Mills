@@ -4,7 +4,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ok, created, notFound, conflict } from '../lib/response.js';
 import { db } from '../db/index.js';
-import { machines, machineStatusLog, machineOutputLog } from '../db/schema.js';
+import { machines, machineStatusLog, machineOutputLog, salesOrders, productionOrders } from '../db/schema.js';
 import { eq, sql, desc, and } from 'drizzle-orm';
 import { updateProductionOutputGauge } from '../services/stubs.js';
 
@@ -235,6 +235,8 @@ router.patch('/:id/status', authorize('admin', 'manager', 'operator'), validate(
 
     // Business rule: breakdown or maintenance disassociates active order
     let currentOrderId: string | null = null;
+    const previousOrderId = latest?.currentOrderId ?? null;
+
     if (body.status === 'breakdown' || body.status === 'maintenance') {
       currentOrderId = null;
     } else {
@@ -249,17 +251,40 @@ router.patch('/:id/status', authorize('admin', 'manager', 'operator'), validate(
     const shift = body.shift ?? (latest?.shift ?? 'A');
     const progress = body.progress !== undefined ? body.progress : (body.status === 'idle' ? 0 : latest?.progress ?? 0);
 
-    const [newLog] = await db
-      .insert(machineStatusLog)
-      .values({
-        machineId: id,
-        status: body.status,
-        operator,
-        shift,
-        currentOrderId,
-        progress,
-      })
-      .returning();
+    const newLog = await db.transaction(async (tx) => {
+      const [insertedLog] = await tx
+        .insert(machineStatusLog)
+        .values({
+          machineId: id,
+          status: body.status,
+          operator,
+          shift,
+          currentOrderId,
+          progress,
+        })
+        .returning();
+
+      // If machine is entering breakdown or maintenance, clear machineId on active sales order and pause production order
+      if ((body.status === 'breakdown' || body.status === 'maintenance') && previousOrderId) {
+        await tx
+          .update(salesOrders)
+          .set({
+            machineId: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(salesOrders.id, previousOrderId));
+
+        await tx
+          .update(productionOrders)
+          .set({
+            status: 'paused',
+            updatedAt: new Date(),
+          })
+          .where(and(eq(productionOrders.salesOrderId, previousOrderId), eq(productionOrders.machineId, id)));
+      }
+
+      return insertedLog;
+    });
 
     ok(res, {
       id: machine.id,

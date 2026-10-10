@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { eq, and, inArray, sql, desc } from 'drizzle-orm';
+import { eq, and, inArray, notInArray, sql, desc } from 'drizzle-orm';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ok, created, notFound, badRequest } from '../lib/response.js';
@@ -202,6 +202,20 @@ router.post(
       let selectedRolls: { id: string; metres: string }[] = [];
 
       if (body.rollIds && body.rollIds.length > 0) {
+        // Verify specified rolls belong to order, passed QC, and have not yet been dispatched
+        const alreadyDispatched = await db
+          .select({ rollId: dispatchRolls.rollId })
+          .from(dispatchRolls)
+          .where(inArray(dispatchRolls.rollId, body.rollIds));
+
+        if (alreadyDispatched.length > 0) {
+          badRequest(
+            res,
+            `Cannot dispatch: rolls [${alreadyDispatched.map(r => r.rollId).join(', ')}] have already been dispatched.`,
+          );
+          return;
+        }
+
         selectedRolls = await db
           .select({ id: fabricRolls.id, metres: fabricRolls.metres })
           .from(fabricRolls)
@@ -221,14 +235,22 @@ router.post(
           return;
         }
       } else {
-        // Auto-select all passed rolls for this order
+        // Auto-select all passed rolls for this order that have NOT already been dispatched
+        const dispatchedRollSubquery = db.select({ rollId: dispatchRolls.rollId }).from(dispatchRolls);
+
         selectedRolls = await db
           .select({ id: fabricRolls.id, metres: fabricRolls.metres })
           .from(fabricRolls)
-          .where(and(eq(fabricRolls.orderId, body.orderId), eq(fabricRolls.qcResult, 'passed')));
+          .where(
+            and(
+              eq(fabricRolls.orderId, body.orderId),
+              eq(fabricRolls.qcResult, 'passed'),
+              notInArray(fabricRolls.id, dispatchedRollSubquery),
+            ),
+          );
 
         if (selectedRolls.length === 0) {
-          badRequest(res, `No passed fabric rolls found for sales order '${body.orderId}'`);
+          badRequest(res, `No available (un-dispatched, passed) fabric rolls found for sales order '${body.orderId}'`);
           return;
         }
       }

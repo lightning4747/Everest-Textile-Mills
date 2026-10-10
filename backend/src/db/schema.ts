@@ -135,7 +135,7 @@ export const yarnReceipts = pgTable('yarn_receipts', {
 // ─── Production Orders ────────────────────────────────────────────────────────
 export const productionOrders = pgTable('production_orders', {
   id:              uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-  salesOrderId:    varchar('sales_order_id', { length: 20 }).notNull().unique().references(() => salesOrders.id),
+  salesOrderId:    varchar('sales_order_id', { length: 20 }).notNull().references(() => salesOrders.id),
   machineId:       varchar('machine_id', { length: 10 }).notNull().references(() => machines.id),
   startDate:       date('start_date').notNull(),
   expectedEndDate: date('expected_end_date').notNull(),

@@ -278,23 +278,47 @@ router.post(
       const newId = `FR-${nextNum}`;
       const producedDate = body.producedDate ?? new Date().toISOString().split('T')[0];
 
-      const [inserted] = await db
-        .insert(fabricRolls)
-        .values({
-          id: newId,
-          orderId: body.orderId,
-          machineId: body.machineId,
-          metres: String(body.metres),
-          producedDate,
-          qcResult: 'pending',
-          defects: null,
-        })
-        .returning();
+      // 3. Insert roll and update completed_metres on sales order in transaction
+      const { inserted, orderUpdated } = await db.transaction(async (tx) => {
+        const [insertedRoll] = await tx
+          .insert(fabricRolls)
+          .values({
+            id: newId,
+            orderId: body.orderId,
+            machineId: body.machineId,
+            metres: String(body.metres),
+            producedDate,
+            qcResult: 'pending',
+            defects: null,
+          })
+          .returning();
 
-      // If order is in active stage, optionally transition to quality_check if completed
+        // Increment order completedMetres to reflect real-time production
+        const currentCompleted = Number(order.completedMetres) + Number(body.metres);
+        const target = Number(order.quantityMetres);
+
+        // If in spinning, weaving, or dyeing, transition to quality_check if target reached
+        let newStatus = order.status;
+        if (currentCompleted >= target && ['spinning', 'weaving', 'dyeing'].includes(order.status)) {
+          newStatus = 'quality_check';
+        }
+
+        const [soUpdated] = await tx
+          .update(salesOrders)
+          .set({
+            completedMetres: String(currentCompleted),
+            status: newStatus,
+            updatedAt: new Date(),
+          })
+          .where(eq(salesOrders.id, order.id))
+          .returning();
+
+        return { inserted: insertedRoll, orderUpdated: soUpdated };
+      });
+
       created(
         res,
-        formatFabricRoll(inserted, { buyer: order.buyer }, { name: machine.name, type: machine.type }),
+        formatFabricRoll(inserted, { buyer: orderUpdated?.buyer ?? order.buyer }, { name: machine.name, type: machine.type }),
       );
     } catch (err) {
       next(err);
@@ -353,7 +377,7 @@ router.patch(
           throw new Error('CONCURRENT_QC_MODIFICATION');
         }
 
-        // 3. If passed: update completed_metres on sales order
+        // 3. If passed: check if total passed metres reach target to advance to ready_to_ship
         let updatedOrder = null;
         if (body.qc_result === 'passed') {
           const [so] = await tx
@@ -363,28 +387,32 @@ router.patch(
             .limit(1);
 
           if (so) {
-            const newCompleted = Number(so.completedMetres) + Number(updated.metres);
+            // Calculate total passed metres across all passed rolls for this order
+            const [passedSumRow] = await tx
+              .select({ total: sql<number>`coalesce(sum(${fabricRolls.metres}), 0)` })
+              .from(fabricRolls)
+              .where(and(eq(fabricRolls.orderId, so.id), eq(fabricRolls.qcResult, 'passed')));
+
+            const totalPassed = Number(passedSumRow?.total ?? 0);
             const target = Number(so.quantityMetres);
 
-            // If order completed target and not yet ready to ship, advance to ready_to_ship
             let newStatus = so.status;
-            if (newCompleted >= target && ['spinning', 'weaving', 'dyeing', 'quality_check'].includes(so.status)) {
+            if (totalPassed >= target && ['spinning', 'weaving', 'dyeing', 'quality_check'].includes(so.status)) {
               newStatus = 'ready_to_ship';
-            } else if (['spinning', 'weaving', 'dyeing'].includes(so.status)) {
-              newStatus = 'quality_check';
             }
 
-            const [soUpdated] = await tx
-              .update(salesOrders)
-              .set({
-                completedMetres: String(newCompleted),
-                status: newStatus,
-                updatedAt: new Date(),
-              })
-              .where(eq(salesOrders.id, so.id))
-              .returning();
+            if (newStatus !== so.status) {
+              const [soUpdated] = await tx
+                .update(salesOrders)
+                .set({
+                  status: newStatus,
+                  updatedAt: new Date(),
+                })
+                .where(eq(salesOrders.id, so.id))
+                .returning();
 
-            updatedOrder = soUpdated;
+              updatedOrder = soUpdated;
+            }
           }
         }
 

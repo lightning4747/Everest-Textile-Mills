@@ -81,24 +81,7 @@ router.get('/kpis', async (_req, res, next) => {
       .from(machineOutputLog)
       .where(eq(machineOutputLog.date, today));
 
-    let outputToday = Number(todayOutputRow?.total ?? 0);
-
-    // Fallback to latest day with output if today has 0 output
-    if (outputToday === 0) {
-      const [latestOutputRow] = await db
-        .select({
-          date: machineOutputLog.date,
-          total: sql<number>`sum(${machineOutputLog.metres})`,
-        })
-        .from(machineOutputLog)
-        .groupBy(machineOutputLog.date)
-        .orderBy(desc(machineOutputLog.date))
-        .limit(1);
-
-      if (latestOutputRow) {
-        outputToday = Number(latestOutputRow.total ?? 0);
-      }
-    }
+    const outputToday = Number(todayOutputRow?.total ?? 0);
 
     // 4. lowStockCount
     const [lowStockRow] = await db

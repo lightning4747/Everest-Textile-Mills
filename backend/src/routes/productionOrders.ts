@@ -202,18 +202,6 @@ router.post(
         return;
       }
 
-      // Check if a production order already exists for this sales order
-      const [existingPo] = await db
-        .select()
-        .from(productionOrders)
-        .where(eq(productionOrders.salesOrderId, body.salesOrderId))
-        .limit(1);
-
-      if (existingPo) {
-        badRequest(res, `A production order already exists for sales order '${body.salesOrderId}'`);
-        return;
-      }
-
       // 2. Verify machine exists and check availability via stub
       const [machine] = await db
         .select()

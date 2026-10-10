@@ -194,27 +194,12 @@ router.get('/machine-performance', async (_req: Request, res: Response, next: Ne
       statusMap.set(s.machineId, s);
     }
 
-    // Today's output per machine (fallback to latest date if today is empty)
+    // Today's output per machine
     const today = new Date().toISOString().split('T')[0];
-    let outputs = await db
+    const outputs = await db
       .select()
       .from(machineOutputLog)
       .where(eq(machineOutputLog.date, today));
-
-    if (outputs.length === 0) {
-      const [latestDateRow] = await db
-        .select({ date: machineOutputLog.date })
-        .from(machineOutputLog)
-        .orderBy(desc(machineOutputLog.date))
-        .limit(1);
-
-      if (latestDateRow) {
-        outputs = await db
-          .select()
-          .from(machineOutputLog)
-          .where(eq(machineOutputLog.date, latestDateRow.date));
-      }
-    }
 
     const outputMap = new Map<string, number>();
     for (const o of outputs) {
