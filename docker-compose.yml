@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: everest_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: everest_erp
+      POSTGRES_USER: erp_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp_user -d everest_erp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: everest_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://erp_user:${DB_PASSWORD:-secret}@db:5432/everest_erp
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_that_is_at_least_32_characters_long}
+      NODE_ENV: ${NODE_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+    ports:
+      - "3000:3000"
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: everest_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: everest_grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    volumes:
+      - grafdata:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3001:3000"
+
+volumes:
+  pgdata:
+  promdata:
+  grafdata:

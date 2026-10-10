@@ -1,0 +1,1303 @@
+{
+  "id": "cdb3ffd0-6c86-46e1-b8ba-dacfb31b913d",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.app_config": {
+      "name": "app_config",
+      "schema": "",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "varchar(80)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.dispatch_rolls": {
+      "name": "dispatch_rolls",
+      "schema": "",
+      "columns": {
+        "dispatch_id": {
+          "name": "dispatch_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "roll_id": {
+          "name": "roll_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "dispatch_rolls_dispatch_id_dispatches_id_fk": {
+          "name": "dispatch_rolls_dispatch_id_dispatches_id_fk",
+          "tableFrom": "dispatch_rolls",
+          "tableTo": "dispatches",
+          "columnsFrom": [
+            "dispatch_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "dispatch_rolls_roll_id_fabric_rolls_id_fk": {
+          "name": "dispatch_rolls_roll_id_fabric_rolls_id_fk",
+          "tableFrom": "dispatch_rolls",
+          "tableTo": "fabric_rolls",
+          "columnsFrom": [
+            "roll_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "dispatch_roll_unique": {
+          "name": "dispatch_roll_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "dispatch_id",
+            "roll_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.dispatches": {
+      "name": "dispatches",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyer": {
+          "name": "buyer",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_metres": {
+          "name": "total_metres",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dispatch_date": {
+          "name": "dispatch_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invoice_no": {
+          "name": "invoice_no",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "truck_no": {
+          "name": "truck_no",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "dispatch_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'prepared'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "dispatches_order_id_sales_orders_id_fk": {
+          "name": "dispatches_order_id_sales_orders_id_fk",
+          "tableFrom": "dispatches",
+          "tableTo": "sales_orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.fabric_rolls": {
+      "name": "fabric_rolls",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "machine_id": {
+          "name": "machine_id",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metres": {
+          "name": "metres",
+          "type": "numeric(8, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "produced_date": {
+          "name": "produced_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "qc_result": {
+          "name": "qc_result",
+          "type": "qc_result",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "defects": {
+          "name": "defects",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_by": {
+          "name": "checked_by",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fabric_rolls_order_id_sales_orders_id_fk": {
+          "name": "fabric_rolls_order_id_sales_orders_id_fk",
+          "tableFrom": "fabric_rolls",
+          "tableTo": "sales_orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "fabric_rolls_machine_id_machines_id_fk": {
+          "name": "fabric_rolls_machine_id_machines_id_fk",
+          "tableFrom": "fabric_rolls",
+          "tableTo": "machines",
+          "columnsFrom": [
+            "machine_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.machine_output_log": {
+      "name": "machine_output_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "machine_id": {
+          "name": "machine_id",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metres": {
+          "name": "metres",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "machine_output_log_machine_id_machines_id_fk": {
+          "name": "machine_output_log_machine_id_machines_id_fk",
+          "tableFrom": "machine_output_log",
+          "tableTo": "machines",
+          "columnsFrom": [
+            "machine_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "machine_output_unique": {
+          "name": "machine_output_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "machine_id",
+            "date"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.machine_status_log": {
+      "name": "machine_status_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "machine_id": {
+          "name": "machine_id",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "machine_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operator": {
+          "name": "operator",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shift": {
+          "name": "shift",
+          "type": "machine_shift",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "current_order_id": {
+          "name": "current_order_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "progress": {
+          "name": "progress",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "machine_status_log_machine_id_machines_id_fk": {
+          "name": "machine_status_log_machine_id_machines_id_fk",
+          "tableFrom": "machine_status_log",
+          "tableTo": "machines",
+          "columnsFrom": [
+            "machine_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.machines": {
+      "name": "machines",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(10)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "machine_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "daily_target": {
+          "name": "daily_target",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 500
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.monthly_snapshots": {
+      "name": "monthly_snapshots",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "year": {
+          "name": "year",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "month": {
+          "name": "month",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revenue": {
+          "name": "revenue",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "cost": {
+          "name": "cost",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "output_metres": {
+          "name": "output_metres",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "wages": {
+          "name": "wages",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "monthly_snapshot_unique": {
+          "name": "monthly_snapshot_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "year",
+            "month"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.order_costs": {
+      "name": "order_costs",
+      "schema": "",
+      "columns": {
+        "order_id": {
+          "name": "order_id",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "buyer": {
+          "name": "buyer",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "yarn_cost": {
+          "name": "yarn_cost",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "labour_cost": {
+          "name": "labour_cost",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "machine_cost": {
+          "name": "machine_cost",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "revenue": {
+          "name": "revenue",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "order_costs_order_id_sales_orders_id_fk": {
+          "name": "order_costs_order_id_sales_orders_id_fk",
+          "tableFrom": "order_costs",
+          "tableTo": "sales_orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.production_orders": {
+      "name": "production_orders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sales_order_id": {
+          "name": "sales_order_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "machine_id": {
+          "name": "machine_id",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expected_end_date": {
+          "name": "expected_end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "production_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "output_metres": {
+          "name": "output_metres",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "target_metres": {
+          "name": "target_metres",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "production_orders_sales_order_id_sales_orders_id_fk": {
+          "name": "production_orders_sales_order_id_sales_orders_id_fk",
+          "tableFrom": "production_orders",
+          "tableTo": "sales_orders",
+          "columnsFrom": [
+            "sales_order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "production_orders_machine_id_machines_id_fk": {
+          "name": "production_orders_machine_id_machines_id_fk",
+          "tableFrom": "production_orders",
+          "tableTo": "machines",
+          "columnsFrom": [
+            "machine_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "production_orders_sales_order_id_unique": {
+          "name": "production_orders_sales_order_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "sales_order_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sales_orders": {
+      "name": "sales_orders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "buyer": {
+          "name": "buyer",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fabric_type": {
+          "name": "fabric_type",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "colour": {
+          "name": "colour",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity_metres": {
+          "name": "quantity_metres",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_price": {
+          "name": "unit_price",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delivery_date": {
+          "name": "delivery_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_date": {
+          "name": "created_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_DATE"
+        },
+        "status": {
+          "name": "status",
+          "type": "order_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "machine_id": {
+          "name": "machine_id",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_metres": {
+          "name": "completed_metres",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sales_orders_machine_id_machines_id_fk": {
+          "name": "sales_orders_machine_id_machines_id_fk",
+          "tableFrom": "sales_orders",
+          "tableTo": "machines",
+          "columnsFrom": [
+            "machine_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.suppliers": {
+      "name": "suppliers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'viewer'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.yarn_receipts": {
+      "name": "yarn_receipts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(30)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "supplier_name": {
+          "name": "supplier_name",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "yarn_type": {
+          "name": "yarn_type",
+          "type": "yarn_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "colour": {
+          "name": "colour",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity_kg": {
+          "name": "quantity_kg",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "yarn_stock_id": {
+          "name": "yarn_stock_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "for_order_id": {
+          "name": "for_order_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "received_by": {
+          "name": "received_by",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invoice_no": {
+          "name": "invoice_no",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "yarn_receipts_supplier_id_suppliers_id_fk": {
+          "name": "yarn_receipts_supplier_id_suppliers_id_fk",
+          "tableFrom": "yarn_receipts",
+          "tableTo": "suppliers",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "yarn_receipts_yarn_stock_id_yarn_stock_id_fk": {
+          "name": "yarn_receipts_yarn_stock_id_yarn_stock_id_fk",
+          "tableFrom": "yarn_receipts",
+          "tableTo": "yarn_stock",
+          "columnsFrom": [
+            "yarn_stock_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "yarn_receipts_for_order_id_sales_orders_id_fk": {
+          "name": "yarn_receipts_for_order_id_sales_orders_id_fk",
+          "tableFrom": "yarn_receipts",
+          "tableTo": "sales_orders",
+          "columnsFrom": [
+            "for_order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.yarn_stock": {
+      "name": "yarn_stock",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "yarn_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "colour": {
+          "name": "colour",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity_kg": {
+          "name": "quantity_kg",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "reorder_level": {
+          "name": "reorder_level",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_updated": {
+          "name": "last_updated",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.yarn_type_suppliers": {
+      "name": "yarn_type_suppliers",
+      "schema": "",
+      "columns": {
+        "yarn_type": {
+          "name": "yarn_type",
+          "type": "yarn_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "yarn_type_suppliers_supplier_id_suppliers_id_fk": {
+          "name": "yarn_type_suppliers_supplier_id_suppliers_id_fk",
+          "tableFrom": "yarn_type_suppliers",
+          "tableTo": "suppliers",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "yarn_supplier_unique": {
+          "name": "yarn_supplier_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "yarn_type",
+            "supplier_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.dispatch_status": {
+      "name": "dispatch_status",
+      "schema": "public",
+      "values": [
+        "prepared",
+        "loaded",
+        "delivered"
+      ]
+    },
+    "public.machine_shift": {
+      "name": "machine_shift",
+      "schema": "public",
+      "values": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    "public.machine_status": {
+      "name": "machine_status",
+      "schema": "public",
+      "values": [
+        "running",
+        "idle",
+        "maintenance",
+        "breakdown"
+      ]
+    },
+    "public.machine_type": {
+      "name": "machine_type",
+      "schema": "public",
+      "values": [
+        "spinning",
+        "weaving",
+        "dyeing"
+      ]
+    },
+    "public.order_status": {
+      "name": "order_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "yarn_check",
+        "spinning",
+        "weaving",
+        "dyeing",
+        "quality_check",
+        "ready_to_ship",
+        "dispatched"
+      ]
+    },
+    "public.production_status": {
+      "name": "production_status",
+      "schema": "public",
+      "values": [
+        "queued",
+        "in_progress",
+        "paused",
+        "completed"
+      ]
+    },
+    "public.qc_result": {
+      "name": "qc_result",
+      "schema": "public",
+      "values": [
+        "passed",
+        "rework",
+        "rejected",
+        "pending"
+      ]
+    },
+    "public.user_role": {
+      "name": "user_role",
+      "schema": "public",
+      "values": [
+        "admin",
+        "manager",
+        "operator",
+        "qc_inspector",
+        "viewer"
+      ]
+    },
+    "public.yarn_type": {
+      "name": "yarn_type",
+      "schema": "public",
+      "values": [
+        "Cotton",
+        "Polyester",
+        "Wool",
+        "Silk",
+        "Blended"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

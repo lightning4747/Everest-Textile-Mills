@@ -1,0 +1,201 @@
+/**
+ * Seed script — maps frontend mockData.ts to DB rows.
+ * Idempotent: skips rows that already exist (ON CONFLICT DO NOTHING).
+ * Run: bun run seed
+ */
+import { db, pool } from './index.js';
+import { sql } from 'drizzle-orm';
+import {
+  appConfig, machines, machineStatusLog, machineOutputLog,
+  suppliers, yarnTypeSuppliers, yarnStock, yarnReceipts,
+  salesOrders, productionOrders, fabricRolls,
+  dispatches, dispatchRolls, orderCosts, monthlySnapshots, users,
+} from './schema.js';
+import bcrypt from 'bcrypt';
+
+async function seed() {
+  console.log('🌱 Starting seed...');
+
+  // ── App Config ────────────────────────────────────────────────────────────
+  await db.insert(appConfig).values([
+    { key: 'machine_daily_target_metres', value: '500' },
+    { key: 'monthly_wages_inr', value: '385000' },
+  ]).onConflictDoNothing();
+
+  // ── Default admin user ────────────────────────────────────────────────────
+  const passwordHash = await bcrypt.hash('changeme123', 12);
+  await db.insert(users).values({
+    name: 'Admin',
+    email: 'admin@everest.local',
+    passwordHash,
+    role: 'admin',
+  }).onConflictDoNothing();
+
+  // ── Machines ──────────────────────────────────────────────────────────────
+  await db.insert(machines).values([
+    { id: 'SP-01', name: 'Spinner Alpha', type: 'spinning' },
+    { id: 'SP-02', name: 'Spinner Beta',  type: 'spinning' },
+    { id: 'SP-03', name: 'Spinner Gamma', type: 'spinning' },
+    { id: 'WV-01', name: 'Weaver Prime',  type: 'weaving' },
+    { id: 'WV-02', name: 'Weaver Duo',    type: 'weaving' },
+    { id: 'WV-03', name: 'Weaver Trio',   type: 'weaving' },
+    { id: 'DY-01', name: 'Dyer One',      type: 'dyeing' },
+    { id: 'DY-02', name: 'Dyer Two',      type: 'dyeing' },
+    { id: 'DY-03', name: 'Dyer Three',    type: 'dyeing' },
+  ]).onConflictDoNothing();
+
+  // ── Machine status log (latest = current state) ───────────────────────────
+  const machineStatuses = [
+    { machineId: 'SP-01', status: 'running' as const, currentOrderId: 'ORD-1042', operator: 'Ravi Kumar', progress: 68, shift: 'A' as const },
+    { machineId: 'SP-02', status: 'running' as const, currentOrderId: 'ORD-1045', operator: 'Suresh M.',  progress: 32, shift: 'A' as const },
+    { machineId: 'SP-03', status: 'idle' as const,    currentOrderId: null,        operator: undefined,    progress: 0,  shift: 'B' as const },
+    { machineId: 'WV-01', status: 'running' as const, currentOrderId: 'ORD-1038', operator: 'Anil T.',    progress: 91, shift: 'A' as const },
+    { machineId: 'WV-02', status: 'breakdown' as const, currentOrderId: null,      operator: 'Maintenance', progress: 0, shift: 'A' as const },
+    { machineId: 'WV-03', status: 'running' as const, currentOrderId: 'ORD-1040', operator: 'Praveen R.', progress: 55, shift: 'B' as const },
+    { machineId: 'DY-01', status: 'running' as const, currentOrderId: 'ORD-1033', operator: 'Mohan L.',   progress: 77, shift: 'A' as const },
+    { machineId: 'DY-02', status: 'maintenance' as const, currentOrderId: null,    operator: 'Tech Team',  progress: 0,  shift: 'A' as const },
+    { machineId: 'DY-03', status: 'running' as const, currentOrderId: 'ORD-1041', operator: 'Kiran S.',   progress: 45, shift: 'C' as const },
+  ];
+  for (const s of machineStatuses) {
+    await db.insert(machineStatusLog).values({
+      machineId: s.machineId,
+      status: s.status,
+      operator: s.operator ?? null,
+      shift: s.shift,
+      currentOrderId: s.currentOrderId ?? null,
+      progress: s.progress,
+    });
+  }
+
+  // ── Machine output log (today) ────────────────────────────────────────────
+  const today = new Date().toISOString().split('T')[0];
+  const outputData = [
+    { machineId: 'SP-01', metres: 340 },
+    { machineId: 'SP-02', metres: 180 },
+    { machineId: 'SP-03', metres: 210 },
+    { machineId: 'WV-01', metres: 520 },
+    { machineId: 'WV-02', metres: 0 },
+    { machineId: 'WV-03', metres: 390 },
+    { machineId: 'DY-01', metres: 280 },
+    { machineId: 'DY-02', metres: 0 },
+    { machineId: 'DY-03', metres: 195 },
+  ];
+  await db.insert(machineOutputLog).values(
+    outputData.map(o => ({ ...o, date: today }))
+  ).onConflictDoNothing();
+
+  // ── Suppliers ─────────────────────────────────────────────────────────────
+  const [shreeSupplierId]   = await db.insert(suppliers).values({ name: 'Shree Yarns Pvt. Ltd.', phone: '+91 98765 43210' }).returning({ id: suppliers.id });
+  const [nationalFibresId]  = await db.insert(suppliers).values({ name: 'National Fibres',        phone: '+91 97654 32109' }).returning({ id: suppliers.id });
+  const [bombayTextilesId]  = await db.insert(suppliers).values({ name: 'Bombay Textiles',        phone: '+91 96543 21098' }).returning({ id: suppliers.id });
+  const [silkRouteTradersId]= await db.insert(suppliers).values({ name: 'Silk Route Traders',     phone: '+91 95432 10987' }).returning({ id: suppliers.id });
+
+  // Yarn type → supplier mapping (from LowStockAlerts.tsx hardcoded map)
+  await db.insert(yarnTypeSuppliers).values([
+    { yarnType: 'Cotton',    supplierId: shreeSupplierId!.id },
+    { yarnType: 'Blended',   supplierId: shreeSupplierId!.id },
+    { yarnType: 'Polyester', supplierId: nationalFibresId!.id },
+    { yarnType: 'Wool',      supplierId: bombayTextilesId!.id },
+    { yarnType: 'Silk',      supplierId: silkRouteTradersId!.id },
+  ]).onConflictDoNothing();
+
+  // ── Yarn Stock ────────────────────────────────────────────────────────────
+  await db.insert(yarnStock).values([
+    { id: 'YS-001', type: 'Cotton',    colour: 'White',       quantityKg: '4200', reorderLevel: '1000', location: 'Bay A-1', lastUpdated: new Date('2026-10-10') },
+    { id: 'YS-002', type: 'Cotton',    colour: 'Navy Blue',   quantityKg: '780',  reorderLevel: '1000', location: 'Bay A-2', lastUpdated: new Date('2026-10-09') },
+    { id: 'YS-003', type: 'Polyester', colour: 'Black',       quantityKg: '3100', reorderLevel: '800',  location: 'Bay B-1', lastUpdated: new Date('2026-10-10') },
+    { id: 'YS-004', type: 'Polyester', colour: 'Red',         quantityKg: '290',  reorderLevel: '500',  location: 'Bay B-2', lastUpdated: new Date('2026-10-08') },
+    { id: 'YS-005', type: 'Wool',      colour: 'Grey',        quantityKg: '1650', reorderLevel: '400',  location: 'Bay C-1', lastUpdated: new Date('2026-10-10') },
+    { id: 'YS-006', type: 'Silk',      colour: 'Ivory',       quantityKg: '450',  reorderLevel: '200',  location: 'Bay D-1', lastUpdated: new Date('2026-10-07') },
+    { id: 'YS-007', type: 'Blended',   colour: 'Khaki',       quantityKg: '2200', reorderLevel: '600',  location: 'Bay E-1', lastUpdated: new Date('2026-10-10') },
+    { id: 'YS-008', type: 'Cotton',    colour: 'Olive Green', quantityKg: '160',  reorderLevel: '500',  location: 'Bay A-3', lastUpdated: new Date('2026-10-06') },
+  ]).onConflictDoNothing();
+
+  // ── Sales Orders ──────────────────────────────────────────────────────────
+  await db.insert(salesOrders).values([
+    { id: 'ORD-1042', buyer: 'Fabindia Exports',    fabricType: 'Cotton Twill',    colour: 'White',    quantityMetres: '5000', deliveryDate: '2026-10-25', createdDate: '2026-10-01', status: 'spinning',       machineId: 'SP-01', completedMetres: '3400', unitPrice: '85' },
+    { id: 'ORD-1041', buyer: 'Mafatlal Industries', fabricType: 'Poly-blend',       colour: 'Khaki',    quantityMetres: '3500', deliveryDate: '2026-10-28', createdDate: '2026-10-03', status: 'dyeing',         machineId: 'DY-03', completedMetres: '1575', unitPrice: '72' },
+    { id: 'ORD-1040', buyer: 'Welspun Corp',         fabricType: 'Wool Tweed',       colour: 'Grey',     quantityMetres: '2000', deliveryDate: '2026-11-02', createdDate: '2026-10-04', status: 'weaving',        machineId: 'WV-03', completedMetres: '1100', unitPrice: '130' },
+    { id: 'ORD-1038', buyer: 'Arvind Ltd.',           fabricType: 'Cotton Denim',    colour: 'Navy Blue',quantityMetres: '8000', deliveryDate: '2026-11-10', createdDate: '2026-09-25', status: 'weaving',        machineId: 'WV-01', completedMetres: '7280', unitPrice: '95' },
+    { id: 'ORD-1045', buyer: 'Trident Group',         fabricType: 'Cotton Plain',    colour: 'White',    quantityMetres: '4500', deliveryDate: '2026-10-30', createdDate: '2026-10-07', status: 'spinning',       machineId: 'SP-02', completedMetres: '1440', unitPrice: '68' },
+    { id: 'ORD-1033', buyer: 'Bombay Dyeing',         fabricType: 'Silk Charmeuse', colour: 'Ivory',    quantityMetres: '1200', deliveryDate: '2026-10-20', createdDate: '2026-09-20', status: 'quality_check',  machineId: 'DY-01', completedMetres: '1200', unitPrice: '320' },
+    { id: 'ORD-1029', buyer: 'Raymond Ltd.',           fabricType: 'Wool Suiting',    colour: 'Charcoal', quantityMetres: '3000', deliveryDate: '2026-10-15', createdDate: '2026-09-15', status: 'ready_to_ship',  machineId: null,    completedMetres: '3000', unitPrice: '180' },
+    { id: 'ORD-1025', buyer: 'Grasim Industries',     fabricType: 'Viscose Blend',   colour: 'Teal',     quantityMetres: '2500', deliveryDate: '2026-10-05', createdDate: '2026-09-10', status: 'dispatched',     machineId: null,    completedMetres: '2500', unitPrice: '110' },
+  ]).onConflictDoNothing();
+
+  // ── Yarn Receipts ─────────────────────────────────────────────────────────
+  await db.insert(yarnReceipts).values([
+    { id: 'YR-2026-088', date: '2026-10-10', supplierName: 'Shree Yarns Pvt. Ltd.', yarnType: 'Cotton',    colour: 'White',     quantityKg: '1200', yarnStockId: 'YS-001', forOrderId: 'ORD-1045', receivedBy: 'Ganesh P.',  invoiceNo: 'SY-INV-4421' },
+    { id: 'YR-2026-087', date: '2026-10-09', supplierName: 'National Fibres',        yarnType: 'Polyester', colour: 'Black',     quantityKg: '800',  yarnStockId: 'YS-003', forOrderId: 'ORD-1044', receivedBy: 'Ganesh P.',  invoiceNo: 'NF-9032' },
+    { id: 'YR-2026-086', date: '2026-10-08', supplierName: 'Bombay Textiles',        yarnType: 'Wool',      colour: 'Grey',      quantityKg: '500',  yarnStockId: 'YS-005', forOrderId: 'ORD-1040', receivedBy: 'Ramesh K.',  invoiceNo: 'BT-7701' },
+    { id: 'YR-2026-085', date: '2026-10-07', supplierName: 'Shree Yarns Pvt. Ltd.', yarnType: 'Cotton',    colour: 'Navy Blue', quantityKg: '600',  yarnStockId: 'YS-002', forOrderId: 'ORD-1038', receivedBy: 'Ganesh P.',  invoiceNo: 'SY-INV-4398' },
+    { id: 'YR-2026-084', date: '2026-10-05', supplierName: 'Silk Route Traders',    yarnType: 'Silk',      colour: 'Ivory',     quantityKg: '150',  yarnStockId: 'YS-006', forOrderId: 'ORD-1033', receivedBy: 'Ramesh K.',  invoiceNo: 'SR-2210' },
+  ]).onConflictDoNothing();
+
+  // ── Production Orders (one per active sales order) ────────────────────────
+  await db.insert(productionOrders).values([
+    { salesOrderId: 'ORD-1042', machineId: 'SP-01', startDate: '2026-10-01', expectedEndDate: '2026-10-25', status: 'in_progress', outputMetres: '3400', targetMetres: '5000' },
+    { salesOrderId: 'ORD-1041', machineId: 'DY-03', startDate: '2026-10-03', expectedEndDate: '2026-10-28', status: 'in_progress', outputMetres: '1575', targetMetres: '3500' },
+    { salesOrderId: 'ORD-1040', machineId: 'WV-03', startDate: '2026-10-04', expectedEndDate: '2026-11-02', status: 'in_progress', outputMetres: '1100', targetMetres: '2000' },
+    { salesOrderId: 'ORD-1038', machineId: 'WV-01', startDate: '2026-09-25', expectedEndDate: '2026-11-10', status: 'in_progress', outputMetres: '7280', targetMetres: '8000' },
+    { salesOrderId: 'ORD-1045', machineId: 'SP-02', startDate: '2026-10-07', expectedEndDate: '2026-10-30', status: 'in_progress', outputMetres: '1440', targetMetres: '4500' },
+    { salesOrderId: 'ORD-1033', machineId: 'DY-01', startDate: '2026-09-20', expectedEndDate: '2026-10-20', status: 'completed',   outputMetres: '1200', targetMetres: '1200' },
+    { salesOrderId: 'ORD-1029', machineId: 'WV-03', startDate: '2026-09-15', expectedEndDate: '2026-10-15', status: 'completed',   outputMetres: '3000', targetMetres: '3000' },
+    { salesOrderId: 'ORD-1025', machineId: 'WV-01', startDate: '2026-09-10', expectedEndDate: '2026-10-05', status: 'completed',   outputMetres: '2500', targetMetres: '2500' },
+  ]).onConflictDoNothing();
+
+  // ── Fabric Rolls ──────────────────────────────────────────────────────────
+  await db.insert(fabricRolls).values([
+    { id: 'FR-5501', orderId: 'ORD-1033', machineId: 'DY-01', metres: '120', producedDate: '2026-10-09', qcResult: 'passed',   checkedBy: 'Vijay QC',  checkedAt: new Date('2026-10-10T09:15:00') },
+    { id: 'FR-5502', orderId: 'ORD-1033', machineId: 'DY-01', metres: '115', producedDate: '2026-10-09', qcResult: 'passed',   checkedBy: 'Vijay QC',  checkedAt: new Date('2026-10-10T09:30:00') },
+    { id: 'FR-5503', orderId: 'ORD-1033', machineId: 'DY-01', metres: '118', producedDate: '2026-10-09', qcResult: 'rework',   checkedBy: 'Vijay QC',  checkedAt: new Date('2026-10-10T09:45:00'), defects: ['Colour mismatch'] },
+    { id: 'FR-5504', orderId: 'ORD-1033', machineId: 'DY-01', metres: '122', producedDate: '2026-10-10', qcResult: 'pending' },
+    { id: 'FR-5505', orderId: 'ORD-1038', machineId: 'WV-01', metres: '200', producedDate: '2026-10-08', qcResult: 'passed',   checkedBy: 'Meena QC',  checkedAt: new Date('2026-10-09T14:00:00') },
+    { id: 'FR-5506', orderId: 'ORD-1038', machineId: 'WV-01', metres: '195', producedDate: '2026-10-08', qcResult: 'rejected', checkedBy: 'Meena QC',  checkedAt: new Date('2026-10-09T14:20:00'), defects: ['Holes', 'Uneven weaving'] },
+    { id: 'FR-5507', orderId: 'ORD-1029', machineId: 'WV-03', metres: '180', producedDate: '2026-10-06', qcResult: 'passed',   checkedBy: 'Suresh QC', checkedAt: new Date('2026-10-07T11:00:00') },
+    { id: 'FR-5508', orderId: 'ORD-1029', machineId: 'WV-03', metres: '175', producedDate: '2026-10-06', qcResult: 'passed',   checkedBy: 'Suresh QC', checkedAt: new Date('2026-10-07T11:15:00') },
+    { id: 'FR-5509', orderId: 'ORD-1040', machineId: 'WV-03', metres: '160', producedDate: '2026-10-10', qcResult: 'pending' },
+    { id: 'FR-5510', orderId: 'ORD-1040', machineId: 'WV-03', metres: '165', producedDate: '2026-10-10', qcResult: 'pending' },
+  ]).onConflictDoNothing();
+
+  // ── Dispatches ────────────────────────────────────────────────────────────
+  await db.insert(dispatches).values([
+    { id: 'DSP-301', orderId: 'ORD-1025', buyer: 'Grasim Industries', totalMetres: '2500', dispatchDate: '2026-10-06', invoiceNo: 'ETM-INV-1025', truckNo: 'KA-01-AB-4521', status: 'delivered' },
+    { id: 'DSP-302', orderId: 'ORD-1029', buyer: 'Raymond Ltd.',       totalMetres: '355',  dispatchDate: '2026-10-11', invoiceNo: 'ETM-INV-1029', truckNo: 'KA-05-CD-7890', status: 'prepared' },
+  ]).onConflictDoNothing();
+
+  // ── Dispatch Rolls junction ───────────────────────────────────────────────
+  // DSP-301: FR-5490, FR-5491, FR-5492 are not in fabric_rolls (from mock) — skipping
+  // DSP-302: FR-5507, FR-5508
+  await db.insert(dispatchRolls).values([
+    { dispatchId: 'DSP-302', rollId: 'FR-5507' },
+    { dispatchId: 'DSP-302', rollId: 'FR-5508' },
+  ]).onConflictDoNothing();
+
+  // ── Order Costs ───────────────────────────────────────────────────────────
+  await db.insert(orderCosts).values([
+    { orderId: 'ORD-1025', buyer: 'Grasim Industries', yarnCost: '62500',  labourCost: '18000', machineCost: '12000', revenue: '275000' },
+    { orderId: 'ORD-1029', buyer: 'Raymond Ltd.',       yarnCost: '108000', labourCost: '27000', machineCost: '18000', revenue: '540000' },
+    { orderId: 'ORD-1033', buyer: 'Bombay Dyeing',      yarnCost: '96000',  labourCost: '14400', machineCost: '9600',  revenue: '384000' },
+    { orderId: 'ORD-1038', buyer: 'Arvind Ltd.',         yarnCost: '240000', labourCost: '64000', machineCost: '48000', revenue: '760000' },
+    { orderId: 'ORD-1040', buyer: 'Welspun Corp',        yarnCost: '78000',  labourCost: '24000', machineCost: '16000', revenue: '260000' },
+  ]).onConflictDoNothing();
+
+  // ── Monthly Snapshots (May–Oct 2026) ──────────────────────────────────────
+  await db.insert(monthlySnapshots).values([
+    { year: 2026, month: 5,  revenue: '820000',  cost: '540000', outputMetres: '18400', wages: '385000' },
+    { year: 2026, month: 6,  revenue: '960000',  cost: '620000', outputMetres: '21200', wages: '385000' },
+    { year: 2026, month: 7,  revenue: '880000',  cost: '580000', outputMetres: '19800', wages: '385000' },
+    { year: 2026, month: 8,  revenue: '1120000', cost: '700000', outputMetres: '25000', wages: '385000' },
+    { year: 2026, month: 9,  revenue: '1050000', cost: '680000', outputMetres: '23500', wages: '385000' },
+    { year: 2026, month: 10, revenue: '1240000', cost: '760000', outputMetres: '27800', wages: '385000' },
+  ]).onConflictDoNothing();
+
+  console.log('✅ Seed complete.');
+  await pool.end();
+}
+
+seed().catch((err) => {
+  console.error('Seed failed:', err);
+  process.exit(1);
+});
