@@ -1,11 +1,14 @@
+import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ProgressBar from '../../components/ui/ProgressBar';
 import { machines } from '../../data/mockData';
+import { usePagination } from '../../hooks/usePagination';
+import Pagination from '../../components/ui/Pagination';
 
 const TARGET = 500;
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) => {
   if (active && payload?.length) {
     return (
       <div className="card p-3 text-xs shadow-md border border-[var(--border)]">
@@ -19,19 +22,23 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function MachinePerformance() {
-  const running     = machines.filter(m => m.status === 'running');
-  const totalOutput = machines.reduce((s, m) => s + m.outputToday, 0);
-  const avgEff      = Math.round((totalOutput / (machines.length * TARGET)) * 100);
+  const { running, totalOutput, avgEff, chartData } = useMemo(() => {
+    const running     = machines.filter(m => m.status === 'running');
+    const totalOutput = machines.reduce((s, m) => s + m.outputToday, 0);
+    const avgEff      = Math.round((totalOutput / (machines.length * TARGET)) * 100);
+    const chartData   = machines.map(m => ({ name: m.id, output: m.outputToday }));
+    return { running, totalOutput, avgEff, chartData };
+  }, []);
 
-  const chartData = machines.map(m => ({ name: m.id, output: m.outputToday }));
+  const { paginatedData, ...paginationProps } = usePagination(machines, 20);
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Output Today', value: `${totalOutput.toLocaleString()} m`, accent: 'text-[var(--text)]' },
-          { label: 'Machines Running',   value: `${running.length}/${machines.length}`, accent: 'text-[var(--ok)]' },
-          { label: 'Fleet Efficiency',   value: `${avgEff}%`,                           accent: avgEff >= 70 ? 'text-[var(--ok)]' : 'text-[var(--warn)]' },
+          { label: 'Total Output Today', value: `${totalOutput.toLocaleString()} m`,        accent: 'text-[var(--text)]' },
+          { label: 'Machines Running',   value: `${running.length}/${machines.length}`,     accent: 'text-[var(--ok)]' },
+          { label: 'Fleet Efficiency',   value: `${avgEff}%`,                               accent: avgEff >= 70 ? 'text-[var(--ok)]' : 'text-[var(--warn)]' },
           { label: 'Daily Fleet Target', value: `${(machines.length * TARGET).toLocaleString()} m`, accent: 'text-[var(--text-soft)]' },
         ].map(s => (
           <div key={s.label} className="card p-5">
@@ -78,35 +85,41 @@ export default function MachinePerformance() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
-                {['Machine ID','Type','Status','Current Order','Shift Output','Target','Efficiency %','Operator'].map(h=>(
-                  <th key={h} className="px-4 py-3 section-title whitespace-nowrap">{h}</th>
-                ))}
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left font-mono">Machine ID</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Type</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-center">Status</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left font-mono">Current Order</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Shift Output</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Target</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap">Efficiency %</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Operator</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {machines.map(m => {
+              {paginatedData.map(m => {
                 const eff = Math.round((m.outputToday / TARGET) * 100);
                 return (
                   <tr key={m.id} className="table-row-hover">
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3.5 text-left">
                       <p className="text-xs font-mono font-bold text-[var(--olive-dark)]">{m.id}</p>
                       <p className="text-[10px] text-[var(--text-soft)]">{m.name}</p>
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-[var(--text)] capitalize">{m.type}</td>
-                    <td className="px-4 py-3.5"><StatusBadge status={m.status} /></td>
-                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--olive-dark)]">{m.currentOrder ?? '—'}</td>
-                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)]">{m.outputToday} m</td>
-                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">{TARGET} m</td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text)] capitalize text-left">{m.type}</td>
+                    <td className="px-4 py-3.5 text-center"><StatusBadge status={m.status} /></td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--olive-dark)] text-left">{m.currentOrder ?? '—'}</td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)] text-right tabular-nums">{m.outputToday} m</td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right tabular-nums">{TARGET} m</td>
                     <td className="px-4 py-3.5 w-32">
                       <ProgressBar value={eff} color={eff >= 80 ? 'ok' : eff >= 50 ? 'warn' : 'bad'} showLabel />
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-[var(--text)]">{m.operator ?? '—'}</td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text)] text-left">{m.operator ?? '—'}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+        <Pagination {...paginationProps} />
       </div>
     </div>
   );

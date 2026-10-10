@@ -1,13 +1,16 @@
+import { useMemo } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { orderCosts, salesOrders } from '../../data/mockData';
+import { usePagination } from '../../hooks/usePagination';
+import Pagination from '../../components/ui/Pagination';
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
   if (active && payload?.length) {
     return (
       <div className="card p-3 text-xs shadow-md border border-[var(--border)]">
         <p className="text-[var(--text-soft)] mb-2 font-mono font-medium">{label}</p>
-        {payload.map((p: any) => (
+        {payload.map((p) => (
           <p key={p.name} style={{ color: p.color }} className="mb-0.5 font-mono">
             {p.name}: ₹{(p.value / 1000).toFixed(1)}K
           </p>
@@ -19,15 +22,19 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function OrderCosting() {
-  const totalRevenue = orderCosts.reduce((s, o) => s + o.revenue, 0);
-  const totalCost    = orderCosts.reduce((s, o) => s + o.totalCost, 0);
-  const totalProfit  = orderCosts.reduce((s, o) => s + o.profit, 0);
-  const margin       = Math.round((totalProfit / totalRevenue) * 100);
+  const { totalRevenue, totalCost, totalProfit, margin, chartData } = useMemo(() => {
+    const totalRevenue = orderCosts.reduce((s, o) => s + o.revenue, 0);
+    const totalCost    = orderCosts.reduce((s, o) => s + o.totalCost, 0);
+    const totalProfit  = orderCosts.reduce((s, o) => s + o.profit, 0);
+    const margin       = Math.round((totalProfit / totalRevenue) * 100);
+    const chartData    = orderCosts.map(o => {
+      const order = salesOrders.find(s => s.id === o.orderId);
+      return { name: o.orderId, buyer: order?.buyer ?? '', Revenue: o.revenue, 'Manufacturing Cost': o.totalCost, 'Gross Profit': o.profit };
+    });
+    return { totalRevenue, totalCost, totalProfit, margin, chartData };
+  }, []);
 
-  const chartData = orderCosts.map(o => {
-    const order = salesOrders.find(s => s.id === o.orderId);
-    return { name: o.orderId, buyer: order?.buyer ?? '', Revenue: o.revenue, 'Manufacturing Cost': o.totalCost, 'Gross Profit': o.profit };
-  });
+  const { paginatedData, ...paginationProps } = usePagination(orderCosts, 20);
 
   return (
     <div className="space-y-6">
@@ -69,26 +76,32 @@ export default function OrderCosting() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
-                {['Order ID','Buyer','Yarn Raw Cost','Labour Cost','Machine Power/Opex','Total Cost','Revenue','Profit','Margin'].map(h=>(
-                  <th key={h} className="px-4 py-3 section-title whitespace-nowrap">{h}</th>
-                ))}
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left font-mono">Order ID</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Buyer</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Yarn Raw Cost</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Labour Cost</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Machine Power/Opex</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Total Cost</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Revenue</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono tabular-nums">Profit</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right font-mono">Margin</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {orderCosts.map(o => {
+              {paginatedData.map(o => {
                 const m = Math.round((o.profit / o.revenue) * 100);
                 return (
                   <tr key={o.orderId} className="table-row-hover">
-                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)]">{o.orderId}</td>
-                    <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)]">{o.buyer}</td>
-                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">₹{(o.yarnCost/1000).toFixed(0)}K</td>
-                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">₹{(o.labourCost/1000).toFixed(0)}K</td>
-                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)]">₹{(o.machineCost/1000).toFixed(0)}K</td>
-                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)]">₹{(o.totalCost/1000).toFixed(0)}K</td>
-                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)]">₹{(o.revenue/1000).toFixed(0)}K</td>
-                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)]">₹{(o.profit/1000).toFixed(0)}K</td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1.5">
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{o.orderId}</td>
+                    <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{o.buyer}</td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right tabular-nums">₹{(o.yarnCost/1000).toFixed(0)}K</td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right tabular-nums">₹{(o.labourCost/1000).toFixed(0)}K</td>
+                    <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right tabular-nums">₹{(o.machineCost/1000).toFixed(0)}K</td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)] text-right tabular-nums">₹{(o.totalCost/1000).toFixed(0)}K</td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-right tabular-nums">₹{(o.revenue/1000).toFixed(0)}K</td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">₹{(o.profit/1000).toFixed(0)}K</td>
+                    <td className="px-4 py-3.5 text-right font-mono">
+                      <div className="flex items-center justify-end gap-1.5">
                         {m > 50 ? <TrendingUp size={13} className="text-[var(--ok)]" /> : <TrendingDown size={13} className="text-[var(--warn)]" />}
                         <span className={`text-xs font-mono font-bold ${m > 50 ? 'text-[var(--ok)]' : 'text-[var(--warn)]'}`}>{m}%</span>
                       </div>
@@ -99,6 +112,7 @@ export default function OrderCosting() {
             </tbody>
           </table>
         </div>
+        <Pagination {...paginationProps} />
       </div>
     </div>
   );

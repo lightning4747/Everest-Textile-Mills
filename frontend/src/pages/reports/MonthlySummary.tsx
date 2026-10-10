@@ -1,12 +1,13 @@
+import { useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { monthlyData, orderCosts } from '../../data/mockData';
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; stroke?: string; fill?: string }>; label?: string }) => {
   if (active && payload?.length) {
     return (
       <div className="card p-3 text-xs shadow-md border border-[var(--border)] space-y-1">
         <p className="text-[var(--text)] font-semibold font-mono">{label}</p>
-        {payload.map((p: any) => (
+        {payload.map((p) => (
           <p key={p.name} style={{ color: p.stroke || p.fill }} className="font-mono">
             {p.name}: {p.name === 'Output (m)' ? `${p.value.toLocaleString()} m` : `₹${(p.value/1000).toFixed(0)}K`}
           </p>
@@ -18,15 +19,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function MonthlySummary() {
-  const latest    = monthlyData[monthlyData.length - 1];
-  const prev      = monthlyData[monthlyData.length - 2];
-  const revGrowth = Math.round(((latest.revenue - prev.revenue) / prev.revenue) * 100);
-  const totalWages    = 385000;
-  const totalMatCost  = orderCosts.reduce((s, o) => s + o.yarnCost, 0);
+  const { latest, prev, revGrowth, totalMatCost, chartData } = useMemo(() => {
+    const latest       = monthlyData[monthlyData.length - 1];
+    const prev         = monthlyData[monthlyData.length - 2];
+    const revGrowth    = Math.round(((latest.revenue - prev.revenue) / prev.revenue) * 100);
+    const totalMatCost = orderCosts.reduce((s, o) => s + o.yarnCost, 0);
+    const chartData    = monthlyData.map(d => ({
+      month: d.month, Revenue: d.revenue, 'Manufacturing Cost': d.cost, 'Output (m)': d.output,
+    }));
+    return { latest, prev, revGrowth, totalMatCost, chartData };
+  }, []);
 
-  const chartData = monthlyData.map(d => ({
-    month: d.month, Revenue: d.revenue, 'Manufacturing Cost': d.cost, 'Output (m)': d.output,
-  }));
+  const totalWages = 385000;
 
   return (
     <div className="space-y-6">
@@ -41,7 +45,7 @@ export default function MonthlySummary() {
               ? 'bg-[color-mix(in_srgb,var(--ok)_15%,var(--surface))] text-[var(--ok)] border-[var(--ok)]'
               : 'bg-[color-mix(in_srgb,var(--bad)_15%,var(--surface))] text-[var(--bad)] border-[var(--bad)]'
           }`}>
-            {revGrowth >= 0 ? '↑ +' : '↓ '}{Math.abs(revGrowth)}% vs September
+            {revGrowth >= 0 ? '↑ +' : '↓ '}{Math.abs(revGrowth)}% vs {prev.month}
           </div>
         </div>
       </div>
