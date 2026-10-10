@@ -258,7 +258,7 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
     const date = body.date;
     const receivedBy = body.receivedBy ?? body.received_by ?? req.user?.name ?? 'Store Operator';
     const invoiceNo = body.invoiceNo ?? body.invoice_no ?? `INV-${Date.now().toString().slice(-6)}`;
-    const forOrderId = body.forOrderId ?? body.for_order_id ?? null;
+    const forOrderId = (body.forOrderId || body.for_order_id) || null;
 
     const newReceipt = await db.transaction(async (tx) => {
       // 1. Generate receipt ID if not provided
@@ -266,25 +266,13 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
       if (!receiptId) {
         const year = new Date(date).getFullYear();
         const prefix = `YR-${year}-`;
-        const [latest] = await tx
-          .select({ id: yarnReceipts.id })
-          .from(yarnReceipts)
-          .where(sql`${yarnReceipts.id} LIKE ${prefix + '%'}`)
-          .orderBy(sql`${yarnReceipts.id} DESC`)
-          .limit(1);
-
-        let nextNum = 1;
-        if (latest) {
-          const match = latest.id.match(/YR-\d{4}-(\d+)/);
-          if (match) {
-            nextNum = parseInt(match[1], 10) + 1;
-          }
-        }
+        const nextValRes = await tx.execute(sql<{ nextval: string }>`SELECT nextval('yarn_receipts_seq') as nextval;`);
+        const nextNum = nextValRes.rows[0]?.nextval ?? Date.now();
         receiptId = `${prefix}${String(nextNum).padStart(3, '0')}`;
       }
 
       // 2. Resolve supplier ID if not provided
-      let supplierId = body.supplierId ?? body.supplier_id ?? null;
+      let supplierId = (body.supplierId || body.supplier_id) || null;
       if (!supplierId && supplierName) {
         const [matchedSupplier] = await tx
           .select({ id: suppliers.id })
@@ -297,7 +285,7 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
       }
 
       // 3. Resolve yarn stock ID if not provided
-      let targetStockId = body.yarnStockId ?? body.yarn_stock_id ?? null;
+      let targetStockId = (body.yarnStockId || body.yarn_stock_id) || null;
       if (!targetStockId) {
         const [matchedStock] = await tx
           .select({ id: yarnStock.id })

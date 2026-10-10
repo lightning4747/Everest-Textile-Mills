@@ -382,7 +382,15 @@ After implementing the missing endpoints and executing tests and load runs, gene
 
 ---
 
-## 7. Quick Reference: Useful Commands
+## 7. Recent Bug Fixes & Edge Cases Resolved
+
+- **Yarn Receipt Empty Foreign Keys (`src/routes/yarn.ts`):** Client payloads passing empty strings (`""`) for `forOrderId`, `supplierId`, or `yarnStockId` were previously evaluated via nullish coalescing (`??`), passing empty strings to PostgreSQL foreign keys and triggering constraint violation 500 errors. Sanitized to `(body.field || ...) || null`.
+- **Bun Alpine Lockfile Compatibility:** Pinned Docker base image updated to `oven/bun:1-alpine` to support lockfile version 2.
+- **Type Checking Configuration:** Configured `"types": ["bun-types"]` and excluded test suites from standard build compilation in `tsconfig.json`.
+
+---
+
+## 8. Quick Reference: Useful Commands
 
 ```bash
 # Start background dependencies
