@@ -64,25 +64,7 @@ export default function LoginPage() {
       </div>
 
       {/* Top Header / Branding */}
-      <header className="relative z-10 w-full max-w-4xl flex items-center justify-between py-2">
-        <div className="flex items-center gap-3">
-          <img
-            src="/assets/logo.png"
-            alt="Everest Textile Mills"
-            className="h-9 w-auto object-contain"
-          />
-          <div className="hidden sm:block">
-            <h1 className="text-sm font-bold font-display text-[var(--cyprus)] tracking-tight">Everest Textile Mills</h1>
-            <p className="text-[10px] text-[var(--cyprus-muted)] font-mono">ERP Enterprise Terminal</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--cyprus)]/10 text-[var(--cyprus)] border border-[var(--cyprus)]/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--ok)] animate-pulse" />
-            Mill Online
-          </span>
-        </div>
-      </header>
+
 
       {/* Centered Login Card directly over the flowing aurora wave */}
       <main className="relative z-10 w-full max-w-[430px] my-auto py-4">
@@ -115,7 +97,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
-                  className="input-field pl-9.5 text-xs font-mono w-full h-10 rounded-lg bg-white/80 border-slate-200 focus:bg-white transition-colors"
+                  className="input-field !pl-10 text-xs font-mono w-full h-10 rounded-lg bg-white/80 border-slate-200 focus:bg-white transition-colors"
                   placeholder="name@everest.local"
                 />
               </div>
@@ -130,7 +112,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  className="input-field pl-9.5 text-xs font-mono w-full h-10 rounded-lg bg-white/80 border-slate-200 focus:bg-white transition-colors"
+                  className="input-field !pl-10 text-xs font-mono w-full h-10 rounded-lg bg-white/80 border-slate-200 focus:bg-white transition-colors"
                   placeholder="••••••••••••"
                 />
               </div>

@@ -35,6 +35,8 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
     ports:
       - "3000:3000"
+    volumes:
+      - ./backend/src:/app/src
 
   prometheus:
     image: prom/prometheus:v2.51.0
