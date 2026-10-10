@@ -1,3 +1,5 @@
+import React from 'react';
+
 interface Props {
   value: number;
   color?: 'default' | 'ok' | 'warn' | 'bad' | 'amber' | 'green' | 'red' | 'sky';
@@ -5,7 +7,7 @@ interface Props {
   thin?: boolean;
 }
 
-export default function ProgressBar({ value, color = 'default', showLabel = false, thin = false }: Props) {
+const ProgressBar = React.memo(function ProgressBar({ value, color = 'default', showLabel = false, thin = false }: Props) {
   const pct = Math.min(100, Math.max(0, value));
 
   const fillColorClass = (() => {
@@ -26,4 +28,6 @@ export default function ProgressBar({ value, color = 'default', showLabel = fals
       {showLabel && <span className="text-xs text-[var(--text-soft)] font-mono w-9 text-right font-medium">{pct}%</span>}
     </div>
   );
-}
+});
+
+export default ProgressBar;

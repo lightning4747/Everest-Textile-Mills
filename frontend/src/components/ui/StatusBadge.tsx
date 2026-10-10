@@ -1,3 +1,4 @@
+import React from 'react';
 import type { MachineStatus, OrderStatus, QCResult } from '../../types';
 
 type StatusValue = MachineStatus | OrderStatus | QCResult | string;
@@ -47,7 +48,7 @@ interface Props {
   showDot?: boolean;
 }
 
-export default function StatusBadge({ status, showDot = true }: Props) {
+const StatusBadge = React.memo(function StatusBadge({ status, showDot = true }: Props) {
   const normKey = (status || '').toString().toLowerCase();
   const cfg = statusTypeMap[normKey] ?? {
     label: (status || '').toString().replace(/_/g, ' '),
@@ -74,4 +75,6 @@ export default function StatusBadge({ status, showDot = true }: Props) {
       <span>{cfg.label}</span>
     </span>
   );
-}
+});
+
+export default StatusBadge;

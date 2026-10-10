@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { animateKpiCount } from '../../utils/motion';
 
 interface StatCardProps {
@@ -10,7 +10,7 @@ interface StatCardProps {
   trend?: { value: string; up: boolean };
 }
 
-export default function StatCard({ label, value, sub, accent = 'default', icon, trend }: StatCardProps) {
+const StatCard = React.memo(function StatCard({ label, value, sub, accent = 'default', icon, trend }: StatCardProps) {
   const valueRef = useRef<HTMLParagraphElement>(null);
 
   // Normalize accent tokens
@@ -74,4 +74,6 @@ export default function StatCard({ label, value, sub, accent = 'default', icon, 
       )}
     </div>
   );
-}
+});
+
+export default StatCard;
