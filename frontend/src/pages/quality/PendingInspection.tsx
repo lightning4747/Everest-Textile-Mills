@@ -45,7 +45,7 @@ export default function PendingInspection() {
               const machine = machines.find(m => m.id === roll.machineId);
 
               return (
-                <div key={roll.id} className="card p-6 border-l-4 border-l-[var(--warn)] space-y-5">
+                <div key={roll.id} className="card p-5 border-l-4 border-l-[var(--warn)] space-y-5">
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div>
                       <div className="flex items-center gap-3">

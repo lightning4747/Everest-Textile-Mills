@@ -19,7 +19,7 @@ export default function YarnReceipts() {
       </div>
 
       {showForm && (
-        <div className="card p-6 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
+        <div className="card p-5 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
           <h3 className="text-sm font-display font-semibold text-[var(--text)] mb-4">Record New Inward Yarn Consignment</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>

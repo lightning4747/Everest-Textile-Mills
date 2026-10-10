@@ -37,7 +37,7 @@ export default function OrderStatus() {
   return (
     <div className="space-y-6">
       {/* Search Header */}
-      <div className="card p-6">
+      <div className="card p-4">
         <h2 className="text-base font-display font-semibold text-[var(--text)] mb-1">Live Order Status Pipeline</h2>
         <p className="text-xs text-[var(--text-soft)] mb-4">
           Trace production status from yarn allocation to dispatch dock without floor visits.
@@ -77,7 +77,7 @@ export default function OrderStatus() {
 
               return (
                 <div key={order.id} className={`kanban-card overflow-hidden ${statusBorderColor}`}>
-                  <div className="p-5 border-b border-[var(--border)] bg-[var(--surface-2)]/25 flex items-center justify-between gap-4 flex-wrap">
+                  <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between gap-4 flex-wrap">
                     <div className="flex items-center gap-4 flex-wrap">
                       <div>
                         <span className="text-sm font-mono font-bold text-[var(--olive-dark)]">{order.id}</span>
@@ -116,7 +116,7 @@ export default function OrderStatus() {
                   </div>
 
                   {/* Pipeline Progression Timeline */}
-                  <div className="p-5">
+                  <div className="px-4 py-3">
                     <div className="flex items-center justify-between gap-1 overflow-x-auto py-2">
                       {stages.map((stage, idx) => {
                         const isDone    = idx < currentIdx;
@@ -125,16 +125,16 @@ export default function OrderStatus() {
                         return (
                           <div key={stage.key} className="flex items-center flex-1 min-w-[70px]">
                             <div className="flex flex-col items-center gap-1.5 flex-shrink-0 w-full text-center">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all ${
                                 isDone
                                   ? 'bg-[var(--ok)] border-[var(--ok)] text-[#FFFFFF]'
                                   : isCurrent
                                   ? 'bg-[var(--sand)] border-[var(--warn)] text-[var(--warn)] shadow-sm'
                                   : 'bg-[var(--surface)] border-[var(--border)] text-[var(--olive-grey)]'
                               }`}>
-                                {isDone    ? <CheckCircle size={15} /> :
-                                 isCurrent ? <Clock size={15} /> :
-                                             <Circle size={15} />}
+                                {isDone    ? <CheckCircle size={13} /> :
+                                 isCurrent ? <Clock size={13} /> :
+                                             <Circle size={13} />}
                               </div>
                               <span className={`text-[10px] font-medium leading-tight ${
                                 isDone    ? 'text-[var(--ok)] font-semibold' :

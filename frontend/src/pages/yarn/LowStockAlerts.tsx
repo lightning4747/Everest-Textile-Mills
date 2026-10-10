@@ -1,5 +1,6 @@
-import { AlertTriangle, ShoppingCart, Phone, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, ShoppingCart, Phone, CheckCircle2, TrendingDown, Package } from 'lucide-react';
 import { yarnStock } from '../../data/mockData';
+import ProgressBar from '../../components/ui/ProgressBar';
 
 const suppliers: Record<string, string> = {
   Cotton:    'Shree Yarns Pvt. Ltd. · +91 98765 43210',
@@ -10,93 +11,177 @@ const suppliers: Record<string, string> = {
 };
 
 export default function LowStockAlerts() {
-  const lowItems  = yarnStock.filter(y => y.quantityKg <= y.reorderLevel);
-  const critical  = lowItems.filter(y => y.quantityKg <= y.reorderLevel * 0.4);
-  const warning   = lowItems.filter(y => y.quantityKg > y.reorderLevel * 0.4);
+  const lowItems = yarnStock.filter(y => y.quantityKg <= y.reorderLevel);
+  const critical = lowItems.filter(y => y.quantityKg <= y.reorderLevel * 0.4);
+  const warning  = lowItems.filter(y => y.quantityKg >  y.reorderLevel * 0.4);
 
-  // Empty State - Requirement: olive-grey icon, one friendly line
   if (lowItems.length === 0) {
     return (
       <div className="card p-16 flex flex-col items-center justify-center text-center gap-3">
-        <CheckCircle2 size={40} className="text-[var(--olive-grey)]" />
-        <p className="text-sm font-semibold text-[var(--text)]">All yarn inventory and stock counts are healthy.</p>
+        <CheckCircle2 size={36} className="text-[var(--ok)]" />
+        <p className="font-display text-base font-semibold text-[var(--text)]">All yarn stock levels are healthy</p>
+        <p className="text-xs text-[var(--text-soft)]">No items are below their safety reorder threshold.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="card p-5 border-l-4 border-l-[var(--bad)] bg-[color-mix(in_srgb,var(--bad)_8%,var(--surface))]">
-          <p className="stat-label text-[var(--bad)] mb-1">Critical Stock</p>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="stat-label">Critical</p>
+            <div className="w-8 h-8 rounded-lg bg-[var(--panel-bg)] flex items-center justify-center">
+              <TrendingDown size={15} className="text-[var(--bad)]" />
+            </div>
+          </div>
           <p className="font-display text-4xl font-semibold text-[var(--bad)]">{critical.length}</p>
-          <p className="text-xs text-[var(--text-soft)] mt-1">Below 40% of standard safety buffer</p>
+          <p className="text-xs text-[var(--text-soft)] mt-1">Below 40% of safety buffer</p>
         </div>
-        <div className="card p-5 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))]">
-          <p className="stat-label text-[var(--warn)] mb-1">Warning Threshold</p>
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="stat-label">Warning</p>
+            <div className="w-8 h-8 rounded-lg bg-[var(--panel-bg)] flex items-center justify-center">
+              <AlertTriangle size={15} className="text-[var(--warn)]" />
+            </div>
+          </div>
           <p className="font-display text-4xl font-semibold text-[var(--warn)]">{warning.length}</p>
-          <p className="text-xs text-[var(--text-soft)] mt-1">At or near reorder trigger point</p>
+          <p className="text-xs text-[var(--text-soft)] mt-1">Near reorder trigger — plan next PO</p>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="stat-label">Total Affected</p>
+            <div className="w-8 h-8 rounded-lg bg-[var(--panel-bg)] flex items-center justify-center">
+              <Package size={15} className="text-[var(--text-soft)]" />
+            </div>
+          </div>
+          <p className="font-display text-4xl font-semibold text-[var(--text)]">{lowItems.length}</p>
+          <p className="text-xs text-[var(--text-soft)] mt-1">of {yarnStock.length} yarn varieties</p>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {critical.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="section-title text-[var(--bad)]">Critical — Immediate Procurement Requisition</h3>
+      {/* Alerts table */}
+      <div className="card overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[var(--border)] bg-[var(--panel-bg)]">
+              <th className="px-5 py-3 text-left section-title">Yarn</th>
+              <th className="px-5 py-3 text-left section-title">ID · Location</th>
+              <th className="px-5 py-3 text-right section-title">On Hand</th>
+              <th className="px-5 py-3 text-right section-title">Safety Level</th>
+              <th className="px-5 py-3 text-right section-title">Shortfall</th>
+              <th className="px-5 py-3 text-left section-title w-40">Stock Level</th>
+              <th className="px-5 py-3 text-left section-title">Supplier</th>
+              <th className="px-5 py-3 text-right section-title"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--border)]">
+            {critical.length > 0 && (
+              <tr>
+                <td colSpan={8} className="px-5 py-2 bg-[var(--panel-bg)]">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-[var(--bad)]">
+                    <AlertTriangle size={10} /> Critical — Immediate Action Required
+                  </span>
+                </td>
+              </tr>
+            )}
             {critical.map(yarn => (
-              <AlertCard key={yarn.id} yarn={yarn} severity="critical" supplier={suppliers[yarn.type]} />
+              <AlertRow key={yarn.id} yarn={yarn} severity="critical" supplier={suppliers[yarn.type] ?? '—'} />
             ))}
-          </div>
-        )}
 
-        {warning.length > 0 && (
-          <div className="space-y-3 pt-2">
-            <h3 className="section-title text-[var(--warn)]">Warning — Plan Next Batch PO</h3>
+            {warning.length > 0 && (
+              <tr>
+                <td colSpan={8} className="px-5 py-2 bg-[var(--panel-bg)]">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-[var(--warn)]">
+                    <AlertTriangle size={10} /> Warning — Plan Procurement
+                  </span>
+                </td>
+              </tr>
+            )}
             {warning.map(yarn => (
-              <AlertCard key={yarn.id} yarn={yarn} severity="warning" supplier={suppliers[yarn.type]} />
+              <AlertRow key={yarn.id} yarn={yarn} severity="warning" supplier={suppliers[yarn.type] ?? '—'} />
             ))}
-          </div>
-        )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-function AlertCard({ yarn, severity, supplier }: {
+function AlertRow({ yarn, severity, supplier }: {
   yarn: typeof yarnStock[0];
   severity: 'critical' | 'warning';
   supplier: string;
 }) {
-  const deficit    = yarn.reorderLevel - yarn.quantityKg;
-  const isCritical = severity === 'critical';
+  const isCritical  = severity === 'critical';
+  const deficit     = Math.max(0, yarn.reorderLevel - yarn.quantityKg);
+  const stockPct    = Math.min(100, Math.round((yarn.quantityKg / yarn.reorderLevel) * 100));
+  const accentColor = isCritical ? 'var(--bad)' : 'var(--warn)';
 
   return (
-    <div className={`kanban-card p-5 ${isCritical ? 'border-l-[var(--bad)] bg-[color-mix(in_srgb,var(--bad)_5%,var(--surface))]' : 'border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_5%,var(--surface))]'}`}>
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-3.5">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isCritical ? 'bg-[color-mix(in_srgb,var(--bad)_15%,var(--surface))] text-[var(--bad)]' : 'bg-[color-mix(in_srgb,var(--warn)_15%,var(--surface))] text-[var(--warn)]'}`}>
-            <AlertTriangle size={18} />
-          </div>
-          <div>
-            <h4 className="text-base font-display font-semibold text-[var(--text)]">{yarn.colour} {yarn.type}</h4>
-            <p className="text-xs font-mono text-[var(--text-soft)] mt-0.5">{yarn.id} · Storage: {yarn.location}</p>
-            <div className="flex items-center gap-4 mt-2.5 text-xs flex-wrap">
-              <span className="text-[var(--text-soft)]">Current On Hand: <strong className={`font-mono font-bold ${isCritical ? 'text-[var(--bad)]' : 'text-[var(--warn)]'}`}>{yarn.quantityKg.toLocaleString()} kg</strong></span>
-              <span className="text-[var(--text-soft)]">Safety Trigger: <strong className="font-mono text-[var(--text)]">{yarn.reorderLevel.toLocaleString()} kg</strong></span>
-              <span className="text-[var(--text-soft)]">Shortfall: <strong className="font-mono text-[var(--bad)]">{Math.max(0, deficit).toLocaleString()} kg</strong></span>
-            </div>
-          </div>
+    <tr className="table-row-hover" style={{ borderLeft: `3px solid ${accentColor}` }}>
+      {/* Yarn name */}
+      <td className="px-5 py-4">
+        <span className="text-sm font-display font-semibold text-[var(--text)]">
+          {yarn.colour} {yarn.type}
+        </span>
+      </td>
+
+      {/* ID + location */}
+      <td className="px-5 py-4">
+        <span className="text-xs font-mono text-[var(--text-soft)]">{yarn.id} · {yarn.location}</span>
+      </td>
+
+      {/* On hand */}
+      <td className="px-5 py-4 text-right">
+        <span className="text-sm font-mono font-bold tabular-nums" style={{ color: accentColor }}>
+          {yarn.quantityKg.toLocaleString()}
+        </span>
+        <span className="text-xs text-[var(--text-soft)] ml-1">kg</span>
+      </td>
+
+      {/* Safety level */}
+      <td className="px-5 py-4 text-right">
+        <span className="text-sm font-mono font-bold tabular-nums text-[var(--text)]">
+          {yarn.reorderLevel.toLocaleString()}
+        </span>
+        <span className="text-xs text-[var(--text-soft)] ml-1">kg</span>
+      </td>
+
+      {/* Shortfall */}
+      <td className="px-5 py-4 text-right">
+        <span className="text-sm font-mono font-bold tabular-nums text-[var(--bad)]">
+          {deficit.toLocaleString()}
+        </span>
+        <span className="text-xs text-[var(--text-soft)] ml-1">kg</span>
+      </td>
+
+      {/* Progress bar */}
+      <td className="px-5 py-4 w-40">
+        <div className="space-y-1">
+          <ProgressBar value={stockPct} color={isCritical ? 'bad' : 'warn'} />
+          <p className="text-[10px] font-mono tabular-nums text-right" style={{ color: accentColor }}>
+            {yarn.quantityKg.toLocaleString()} kg
+          </p>
         </div>
+      </td>
 
-        <button className="btn-primary text-xs h-10 flex-shrink-0">
-          <ShoppingCart size={13} /> Raise Purchase Order
+      {/* Supplier */}
+      <td className="px-5 py-4">
+        <div className="flex items-center gap-1.5">
+          <Phone size={11} className="text-[var(--text-soft)] flex-shrink-0" />
+          <span className="text-xs font-mono text-[var(--text-soft)] whitespace-nowrap">{supplier}</span>
+        </div>
+      </td>
+
+      {/* CTA */}
+      <td className="px-5 py-4 text-right">
+        <button className="btn-primary text-xs h-9 whitespace-nowrap">
+          <ShoppingCart size={12} /> Raise PO
         </button>
-      </div>
-
-      <div className="mt-3.5 pt-3 border-t border-[var(--border)] flex items-center gap-2 text-xs text-[var(--text-soft)]">
-        <Phone size={12} className="text-[var(--olive-grey)]" />
-        <span className="font-mono">{supplier}</span>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }

@@ -128,7 +128,7 @@ export default function Dashboard() {
 
         {/* Quick Summaries */}
         <div className="space-y-4">
-          <div className="card p-5">
+          <div className="card p-4">
             <h3 className="section-title mb-3">QC Batch Status</h3>
             <div className="space-y-2.5">
               {[
@@ -151,7 +151,7 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div className="card p-5">
+          <div className="card p-4">
             <h3 className="section-title mb-3">Shop Floor Machine Health</h3>
             <div className="space-y-2.5">
               {[
@@ -178,7 +178,7 @@ export default function Dashboard() {
 
       {/* Live Order Pipeline */}
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-2">
             <Clock size={16} className="text-[var(--warn)]" />
             <h2 className="text-sm font-display font-semibold text-[var(--text)]">Live Production & Order Pipeline</h2>

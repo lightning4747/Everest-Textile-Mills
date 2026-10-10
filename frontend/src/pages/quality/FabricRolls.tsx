@@ -39,7 +39,7 @@ export default function FabricRolls() {
           { label: 'QC Pass Rate',   value: `${passRate}%`,                accent: 'text-[var(--ok)]' },
           { label: 'Rejection Rate', value: `${rejectRate}%`,              accent: 'text-[var(--bad)]' },
         ].map(s => (
-          <div key={s.label} className="card p-5">
+          <div key={s.label} className="card p-4">
             <p className="stat-label mb-1.5">{s.label}</p>
             <p className={`font-display text-3xl md:text-4xl font-semibold ${s.accent}`}>{s.value}</p>
           </div>
@@ -61,7 +61,7 @@ export default function FabricRolls() {
 
       {/* Traceability List */}
       <div className="card overflow-hidden">
-        <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Package size={16} className="text-[var(--olive-dark)]" />
             <h2 className="text-sm font-display font-semibold text-[var(--text)]">Roll Lineage & Traceability Chain</h2>
@@ -82,7 +82,7 @@ export default function FabricRolls() {
                 const order   = salesOrders.find(o => o.id === roll.orderId);
                 const machine = machines.find(m => m.id === roll.machineId);
                 return (
-                  <div key={roll.id} className="p-5 table-row-hover">
+                  <div key={roll.id} className="p-4 table-row-hover">
                     <div className="flex items-start justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex items-center gap-2 bg-[var(--sand)]/50 px-2.5 py-1 rounded-lg border border-[var(--border)]">

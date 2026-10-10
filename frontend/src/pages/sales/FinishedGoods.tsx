@@ -15,19 +15,19 @@ export default function FinishedGoods() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card p-5">
+        <div className="card p-4">
           <p className="stat-label mb-1">Cleared Stock</p>
           <p className="font-display text-4xl font-semibold text-[var(--text)]">
             {totalFinished.toLocaleString()} <span className="text-sm font-sans font-normal text-[var(--text-soft)]">m</span>
           </p>
           <p className="text-xs text-[var(--text-soft)] mt-1">Ready for packing & dispatch</p>
         </div>
-        <div className="card p-5">
+        <div className="card p-4">
           <p className="stat-label mb-1">QC Cleared Rolls</p>
           <p className="font-display text-4xl font-semibold text-[var(--ok)]">{passedRolls.length}</p>
           <p className="text-xs text-[var(--text-soft)] font-mono mt-1">{totalPassedMetres} m inspected & tagged</p>
         </div>
-        <div className="card p-5 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))]">
+        <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))]">
           <p className="stat-label text-[var(--warn)] mb-1">Awaiting Dispatch Dock</p>
           <p className="font-display text-4xl font-semibold text-[var(--warn)]">
             {salesOrders.filter(o => o.status === 'ready_to_ship').length}
@@ -37,7 +37,7 @@ export default function FinishedGoods() {
       </div>
 
       <div className="card overflow-hidden">
-        <div className="px-5 py-4 border-b border-[var(--border)] flex items-center gap-2">
+        <div className="px-4 py-3 border-b border-[var(--border)] flex items-center gap-2">
           <Package size={16} className="text-[var(--olive-dark)]" />
           <h2 className="text-sm font-display font-semibold text-[var(--text)]">Finished Goods Vault & Staged Rolls</h2>
         </div>

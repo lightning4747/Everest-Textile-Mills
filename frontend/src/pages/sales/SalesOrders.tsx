@@ -31,7 +31,7 @@ export default function SalesOrders() {
           { label: 'Ready for Dispatch', value: salesOrders.filter(o => o.status === 'ready_to_ship').length,       accent: 'text-[var(--ok)]' },
           { label: 'Estimated Bookings', value: `₹${(totalRevenue / 100000).toFixed(1)}L`,                           accent: 'text-[var(--olive-dark)]' },
         ].map(s => (
-          <div key={s.label} className="card p-5">
+          <div key={s.label} className="card p-4">
             <p className="stat-label mb-1">{s.label}</p>
             <p className={`font-display text-3xl md:text-4xl font-semibold ${s.accent}`}>{s.value}</p>
           </div>
@@ -54,7 +54,7 @@ export default function SalesOrders() {
       </div>
 
       {showForm && (
-        <div className="card p-6 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
+        <div className="card p-5 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
           <h3 className="text-sm font-display font-semibold text-[var(--text)] mb-4">Book New Customer Sales Order</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {[

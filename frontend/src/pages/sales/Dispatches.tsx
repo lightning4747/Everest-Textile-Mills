@@ -14,17 +14,17 @@ export default function Dispatches() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card p-5">
+        <div className="card p-4">
           <p className="stat-label mb-1">Total Dispatches</p>
           <p className="font-display text-4xl font-semibold text-[var(--text)]">{dispatches.length}</p>
         </div>
-        <div className="card p-5">
+        <div className="card p-4">
           <p className="stat-label mb-1">Delivered to Buyer</p>
           <p className="font-display text-4xl font-semibold text-[var(--ok)]">
             {dispatches.filter(d => d.status === 'delivered').length}
           </p>
         </div>
-        <div className="card p-5 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))]">
+        <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))]">
           <p className="stat-label text-[var(--warn)] mb-1">Ready for Gate Pass</p>
           <p className="font-display text-4xl font-semibold text-[var(--warn)]">{readyOrders.length}</p>
           <p className="text-xs text-[var(--text-soft)] mt-1">orders staged</p>
@@ -39,7 +39,7 @@ export default function Dispatches() {
       </div>
 
       {showForm && (
-        <div className="card p-6 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
+        <div className="card p-5 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
           <h3 className="text-sm font-display font-semibold text-[var(--text)] mb-4">Generate Freight Dispatch & E-Way Gate Pass</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
