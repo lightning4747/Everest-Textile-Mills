@@ -7,8 +7,65 @@ import {
 import StatCard from '../../components/ui/StatCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ProgressBar from '../../components/ui/ProgressBar';
-import { machines, salesOrders, yarnStock, fabricRolls, monthlyData } from '../../data/mockData';
 import { fetchRevenueForecast, ForecastPoint } from '../../services/forecastApi';
+import { api } from '../../services/apiClient';
+import { useAuth } from '../../context/AuthContext';
+
+interface DashboardKPIs {
+  activeOrders: number;
+  readyToShip: number;
+  runningMachines: number;
+  totalMachines: number;
+  idleMachines: number;
+  downMachines: number;
+  outputToday: number;
+  lowStockCount: number;
+  pendingQC: number;
+}
+
+interface MonthlyChartPoint {
+  month: string;
+  revenue: number;
+  cost: number;
+  output: number;
+  wages?: number;
+}
+
+interface QCSummary {
+  passed: number;
+  rework: number;
+  rejected: number;
+  pending: number;
+}
+
+interface MachineHealth {
+  running: number;
+  idle: number;
+  maintenance: number;
+  breakdown: number;
+}
+
+interface RecentOrder {
+  id: string;
+  buyer: string;
+  fabric: string;
+  colour: string;
+  targetMetres: number;
+  completedMetres: number;
+  progressPct: number;
+  status: string;
+  deliveryDate: string;
+}
+
+interface LowStockItem {
+  id: string;
+  type: string;
+  colour: string;
+  quantityKg: number;
+  reorderLevel: number;
+  location: string;
+  supplier?: string | null;
+}
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; stroke?: string; color?: string }>; label?: string }) => {
   if (active && payload?.length) {
@@ -28,42 +85,69 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const [forecast, setForecast] = useState<ForecastPoint[]>([]);
-  const [loadingForecast, setLoadingForecast] = useState<boolean>(true);
+  const [, setLoadingForecast] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'historical' | 'forecast' | 'combined'>('combined');
 
-  useEffect(() => {
-    fetchRevenueForecast(11, 1240000, 6)
-      .then(res => setForecast(res.forecast))
-      .catch(err => console.error('Failed to load ONNX forecast:', err))
-      .finally(() => setLoadingForecast(false));
-  }, []);
+  // Dashboard API states with reasonable initial values
+  const [kpis, setKpis] = useState<DashboardKPIs>({
+    activeOrders: 0,
+    readyToShip: 0,
+    runningMachines: 0,
+    totalMachines: 0,
+    idleMachines: 0,
+    downMachines: 0,
+    outputToday: 0,
+    lowStockCount: 0,
+    pendingQC: 0,
+  });
 
-  const stats = useMemo(() => ({
-    runningMachines: machines.filter(m => m.status === 'running').length,
-    idleMachines: machines.filter(m => m.status === 'idle').length,
-    downMachines: machines.filter(m => m.status === 'breakdown' || m.status === 'maintenance').length,
-    lowStock: yarnStock.filter(y => y.quantityKg <= y.reorderLevel).length,
-    activeOrders: salesOrders.filter(o => !['dispatched'].includes(o.status)).length,
-    readyToShip: salesOrders.filter(o => o.status === 'ready_to_ship').length,
-    pendingQC: fabricRolls.filter(r => r.qcResult === 'pending').length,
-    totalOutputToday: machines.reduce((s, m) => s + m.outputToday, 0),
-    recentOrders: salesOrders.slice(0, 5),
-    qcCounts: {
-      passed: fabricRolls.filter(r => r.qcResult === 'passed').length,
-      pending: fabricRolls.filter(r => r.qcResult === 'pending').length,
-      rework: fabricRolls.filter(r => r.qcResult === 'rework').length,
-      rejected: fabricRolls.filter(r => r.qcResult === 'rejected').length,
-    },
-    machineHealth: {
-      running: machines.filter(m => m.status === 'running').length,
-      idle: machines.filter(m => m.status === 'idle').length,
-      maintenance: machines.filter(m => m.status === 'maintenance').length,
-      breakdown: machines.filter(m => m.status === 'breakdown').length,
-    },
-    lowStockItems: yarnStock.filter(y => y.quantityKg <= y.reorderLevel),
-  }), []);
+  const [monthlyTrend, setMonthlyTrend] = useState<MonthlyChartPoint[]>([]);
+  const [qcCounts, setQcCounts] = useState<QCSummary>({ passed: 0, rework: 0, rejected: 0, pending: 0 });
+  const [machineHealth, setMachineHealth] = useState<MachineHealth>({ running: 0, idle: 0, maintenance: 0, breakdown: 0 });
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
+
+  // Load Dashboard data from API
+  const loadDashboardData = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const [kpiRes, chartRes, qcRes, healthRes, ordersRes, lowStockRes] = await Promise.all([
+        api.get<DashboardKPIs>('/dashboard/kpis'),
+        api.get<MonthlyChartPoint[]>('/dashboard/monthly-chart'),
+        api.get<QCSummary>('/dashboard/qc-summary'),
+        api.get<MachineHealth>('/dashboard/machine-health'),
+        api.get<RecentOrder[]>('/dashboard/recent-orders'),
+        api.get<LowStockItem[]>('/dashboard/low-stock'),
+      ]);
+
+      setKpis(kpiRes.data);
+      setMonthlyTrend(chartRes.data || []);
+      setQcCounts(qcRes.data);
+      setMachineHealth(healthRes.data);
+      setRecentOrders(ordersRes.data || []);
+      setLowStockItems(lowStockRes.data || []);
+
+      // If monthly chart has data, update forecast lag
+      const lastMonth = chartRes.data && chartRes.data.length > 0 ? chartRes.data[chartRes.data.length - 1] : null;
+      const lastRev = lastMonth?.revenue ?? 1240000;
+      fetchRevenueForecast(11, lastRev, 6)
+        .then(res => setForecast(res.forecast))
+        .catch(err => console.error('Failed to load ONNX forecast:', err))
+        .finally(() => setLoadingForecast(false));
+    } catch (err) {
+      console.warn('Dashboard endpoints error, retaining current view state:', err);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadDashboardData();
+    // 15-second polling for live shopfloor and dashboard telemetry
+    const interval = setInterval(loadDashboardData, 15000);
+    return () => clearInterval(interval);
+  }, [loadDashboardData]);
 
   const handleOrderRowClick = useCallback(() => navigate('/sales/status'), [navigate]);
   const handleAllOrdersClick = useCallback(() => navigate('/sales/orders'), [navigate]);
@@ -72,20 +156,20 @@ export default function Dashboard() {
   const handleYarnAlertsClick = useCallback(() => navigate('/yarn/alerts'), [navigate]);
 
   // Combined chart data: Historical + ONNX predictions
-  const combinedChartData = [
-    ...monthlyData.map(d => ({
+  const combinedChartData = useMemo(() => [
+    ...monthlyTrend.map(d => ({
       month: d.month,
       historicalRevenue: d.revenue,
       cost: d.cost,
       predictedRevenue: undefined as number | undefined,
     })),
     // Link last historical month to first forecast point
-    ...(monthlyData.length > 0 && forecast.length > 0
+    ...(monthlyTrend.length > 0 && forecast.length > 0
       ? [{
-          month: monthlyData[monthlyData.length - 1].month,
-          historicalRevenue: monthlyData[monthlyData.length - 1].revenue,
-          cost: monthlyData[monthlyData.length - 1].cost,
-          predictedRevenue: monthlyData[monthlyData.length - 1].revenue,
+          month: monthlyTrend[monthlyTrend.length - 1].month,
+          historicalRevenue: monthlyTrend[monthlyTrend.length - 1].revenue,
+          cost: monthlyTrend[monthlyTrend.length - 1].cost,
+          predictedRevenue: monthlyTrend[monthlyTrend.length - 1].revenue,
         }]
       : []),
     ...forecast.map(f => ({
@@ -94,7 +178,7 @@ export default function Dashboard() {
       cost: undefined as number | undefined,
       predictedRevenue: f.predictedRevenue,
     })),
-  ];
+  ], [monthlyTrend, forecast]);
 
   return (
     <div className="space-y-6">
@@ -102,22 +186,22 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Active Orders"
-          value={stats.activeOrders}
-          sub={`${stats.readyToShip} ready for dispatch`}
+          value={kpis.activeOrders}
+          sub={`${kpis.readyToShip} ready for dispatch`}
           accent="warn"
           icon={<TrendingUp size={18} />}
           trend={{ value: '+3 this week', up: true }}
         />
         <StatCard
           label="Machines Running"
-          value={`${stats.runningMachines}/${machines.length}`}
-          sub={`${stats.idleMachines} idle · ${stats.downMachines} down`}
-          accent={stats.downMachines > 0 ? 'bad' : 'ok'}
+          value={`${kpis.runningMachines}/${kpis.totalMachines}`}
+          sub={`${kpis.idleMachines} idle · ${kpis.downMachines} down`}
+          accent={kpis.downMachines > 0 ? 'bad' : 'ok'}
           icon={<Factory size={18} />}
         />
         <StatCard
           label="Output Today"
-          value={`${stats.totalOutputToday.toLocaleString()} m`}
+          value={`${kpis.outputToday.toLocaleString()} m`}
           sub="metres of finished fabric"
           accent="default"
           icon={<Activity size={18} />}
@@ -125,9 +209,9 @@ export default function Dashboard() {
         />
         <StatCard
           label="Low Stock Alerts"
-          value={stats.lowStock}
+          value={kpis.lowStockCount}
           sub="yarn counts below reorder"
-          accent={stats.lowStock > 0 ? 'bad' : 'ok'}
+          accent={kpis.lowStockCount > 0 ? 'bad' : 'ok'}
           icon={<AlertTriangle size={18} />}
         />
       </div>
@@ -204,10 +288,10 @@ export default function Dashboard() {
             <h3 className="section-title mb-3">QC Batch Status</h3>
             <div className="space-y-2.5">
               {[
-                { label: 'Passed',   count: stats.qcCounts.passed,   dot: 'dot-ok' },
-                { label: 'Pending',  count: stats.pendingQC,          dot: 'dot-idle' },
-                { label: 'Rework',   count: stats.qcCounts.rework,   dot: 'dot-warn' },
-                { label: 'Rejected', count: stats.qcCounts.rejected, dot: 'dot-bad' },
+                { label: 'Passed',   count: qcCounts.passed,   dot: 'dot-ok' },
+                { label: 'Pending',  count: kpis.pendingQC || qcCounts.pending, dot: 'dot-idle' },
+                { label: 'Rework',   count: qcCounts.rework,   dot: 'dot-warn' },
+                { label: 'Rejected', count: qcCounts.rejected, dot: 'dot-bad' },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -227,10 +311,10 @@ export default function Dashboard() {
             <h3 className="section-title mb-3">Shop Floor Machine Health</h3>
             <div className="space-y-2.5">
               {[
-                { label: 'Running',     count: stats.machineHealth.running,     dot: 'dot-ok' },
-                { label: 'Idle',        count: stats.machineHealth.idle,        dot: 'dot-idle' },
-                { label: 'Maintenance', count: stats.machineHealth.maintenance, dot: 'dot-warn' },
-                { label: 'Breakdown',   count: stats.machineHealth.breakdown,   dot: 'dot-bad' },
+                { label: 'Running',     count: machineHealth.running,     dot: 'dot-ok' },
+                { label: 'Idle',        count: machineHealth.idle,        dot: 'dot-idle' },
+                { label: 'Maintenance', count: machineHealth.maintenance, dot: 'dot-warn' },
+                { label: 'Breakdown',   count: machineHealth.breakdown,   dot: 'dot-bad' },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -269,8 +353,8 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {stats.recentOrders.map(order => {
-                const pct = Math.round((order.completedMetres / order.quantityMetres) * 100);
+              {recentOrders.map(order => {
+                const pct = order.progressPct ?? Math.round((order.completedMetres / order.targetMetres) * 100);
                 return (
                   <tr
                     key={order.id}
@@ -279,8 +363,8 @@ export default function Dashboard() {
                   >
                     <td className="px-5 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)]">{order.id}</td>
                     <td className="px-5 py-3.5 text-xs font-semibold text-[var(--text)]">{order.buyer}</td>
-                    <td className="px-5 py-3.5 text-xs text-[var(--text-soft)]">{order.fabricType} · {order.colour}</td>
-                    <td className="px-5 py-3.5 text-xs font-mono text-[var(--text)]">{order.quantityMetres.toLocaleString()}</td>
+                    <td className="px-5 py-3.5 text-xs text-[var(--text-soft)]">{order.fabric} · {order.colour}</td>
+                    <td className="px-5 py-3.5 text-xs font-mono text-[var(--text)]">{order.targetMetres.toLocaleString()}</td>
                     <td className="px-5 py-3.5 text-xs font-mono text-[var(--text-soft)]">{order.deliveryDate}</td>
                     <td className="px-5 py-3.5 w-40">
                       <ProgressBar value={pct} color={pct >= 100 ? 'ok' : pct > 50 ? 'warn' : 'default'} showLabel />
@@ -297,16 +381,16 @@ export default function Dashboard() {
       </div>
 
       {/* Reorder Warnings */}
-      {stats.lowStock > 0 && (
+      {kpis.lowStockCount > 0 && (
         <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--surface))] flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <AlertTriangle size={18} className="text-[var(--warn)] flex-shrink-0" />
             <div>
               <p className="text-sm font-semibold text-[var(--text)]">
-                {stats.lowStock} yarn count{stats.lowStock > 1 ? 's' : ''} at or below reorder threshold
+                {kpis.lowStockCount} yarn count{kpis.lowStockCount > 1 ? 's' : ''} at or below reorder threshold
               </p>
               <p className="text-xs text-[var(--text-soft)] font-mono mt-0.5">
-                {stats.lowStockItems.map(y => `${y.colour} ${y.type}`).join(' · ')}
+                {lowStockItems.map(y => `${y.colour} ${y.type}`).join(' · ')}
               </p>
             </div>
           </div>

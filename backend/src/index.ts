@@ -23,15 +23,33 @@ import forecastRoutes from './routes/forecast.js';
 const app = express();
 
 // ── Security & Utility Middleware ──────────────────────────────────────────
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+);
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+];
+
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
       if (
-        config.NODE_ENV === 'development' ||
-        origin.includes('localhost') ||
-        origin.includes('127.0.0.1') ||
+        config.NODE_ENV !== 'production' ||
+        allowedOrigins.includes(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
         origin === config.CORS_ORIGIN
       ) {
         return callback(null, true);
@@ -39,9 +57,9 @@ app.use(
       return callback(null, true);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  })
+  }),
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

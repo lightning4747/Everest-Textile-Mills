@@ -1,13 +1,27 @@
 import { useMemo, useState } from 'react';
-import { Download, Printer, Search } from 'lucide-react';
+import { Download, Printer, Search, RefreshCw } from 'lucide-react';
 import { exportCsv } from '../../utils/exportCsv';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ProgressBar from '../../components/ui/ProgressBar';
-import { machines } from '../../data/mockData';
+import type { MachineStatus, MachineType } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useApi } from '../../hooks/useApi';
+import { api } from '../../services/apiClient';
+
+interface BackendMachinePerformance {
+  id: string;
+  name: string;
+  type: MachineType;
+  status: MachineStatus;
+  currentOrder: string | null;
+  operator: string | null;
+  outputToday: number;
+  target: number;
+  efficiencyPct: number;
+}
 
 const TARGET = 500;
 
@@ -32,6 +46,13 @@ export default function MachinePerformance() {
   const [statusFilter, setStatus] = useState(ALL);
   const debouncedSearch           = useDebounce(search, 300);
 
+  const { data: rawData, loading, error, refetch } = useApi<BackendMachinePerformance[]>(
+    () => api.get<BackendMachinePerformance[]>('/reports/machine-performance'),
+    [],
+    { autoPollMs: 15000 }
+  );
+
+  const machines = rawData || [];
   const types    = [...new Set(machines.map(m => m.type))];
   const statuses = [...new Set(machines.map(m => m.status))];
 
@@ -43,13 +64,13 @@ export default function MachinePerformance() {
       const matchStatus = statusFilter === ALL || m.status === statusFilter;
       return matchSearch && matchType && matchStatus;
     }),
-  [debouncedSearch, typeFilter, statusFilter]);
+  [machines, debouncedSearch, typeFilter, statusFilter]);
 
   const { running, totalOutput, avgEff, chartData } = useMemo(() => {
     const running     = filtered.filter(m => m.status === 'running');
-    const totalOutput = filtered.reduce((s, m) => s + m.outputToday, 0);
+    const totalOutput = filtered.reduce((s, m) => s + (m.outputToday || 0), 0);
     const avgEff      = filtered.length ? Math.round((totalOutput / (filtered.length * TARGET)) * 100) : 0;
-    const chartData   = filtered.map(m => ({ name: m.id, output: m.outputToday }));
+    const chartData   = filtered.map(m => ({ name: m.id, output: m.outputToday || 0 }));
     return { running, totalOutput, avgEff, chartData };
   }, [filtered]);
 
@@ -63,7 +84,7 @@ export default function MachinePerformance() {
         m.id, m.name, m.type, m.status,
         m.currentOrder ?? '',
         m.outputToday, TARGET,
-        Math.round((m.outputToday / TARGET) * 100),
+        m.efficiencyPct || Math.round(((m.outputToday || 0) / TARGET) * 100),
         m.operator ?? '',
       ]),
     );
@@ -76,6 +97,14 @@ export default function MachinePerformance() {
       <div className="flex items-center justify-between flex-wrap gap-3 print-hide">
         <h2 className="font-display text-lg font-semibold text-[var(--text)]">Machine Performance &amp; OEE Report</h2>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => refetch()}
+            className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors h-9 flex items-center gap-1.5 text-xs"
+            title="Refresh"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
           <button className="btn-secondary h-9 text-xs" onClick={handleExport}>
             <Download size={14} /> Export CSV ({filtered.length})
           </button>
@@ -84,6 +113,12 @@ export default function MachinePerformance() {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
+          {error}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap print-hide">
@@ -160,10 +195,14 @@ export default function MachinePerformance() {
       {/* Table */}
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
-          <h2 className="text-sm font-display font-semibold text-[var(--text)]">Machine Telemetry & Efficiency Log</h2>
+          <h2 className="text-sm font-display font-semibold text-[var(--text)]">Machine Telemetry &amp; Efficiency Log</h2>
           <span className="text-xs font-mono text-[var(--text-soft)]">{filtered.length} record{filtered.length !== 1 ? 's' : ''}</span>
         </div>
-        {filtered.length === 0 ? (
+        {loading && machines.length === 0 ? (
+          <div className="px-5 py-12 text-center text-xs text-[var(--text-soft)] font-mono animate-pulse">
+            Loading machine performance…
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="px-5 py-12 text-center">
             <p className="text-sm text-[var(--text-soft)]">No machines match the current filters.</p>
             <button className="btn-ghost mt-3 text-xs" onClick={() => { setSearch(''); setType(ALL); setStatus(ALL); }}>Reset Filters</button>
@@ -185,7 +224,7 @@ export default function MachinePerformance() {
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
                 {paginatedData.map(m => {
-                  const eff = Math.round((m.outputToday / TARGET) * 100);
+                  const eff = m.efficiencyPct ?? Math.round(((m.outputToday || 0) / TARGET) * 100);
                   return (
                     <tr key={m.id} className="table-row-hover">
                       <td className="px-4 py-3.5 text-left">
@@ -195,7 +234,7 @@ export default function MachinePerformance() {
                       <td className="px-4 py-3.5 text-xs text-[var(--text)] capitalize text-left">{m.type}</td>
                       <td className="px-4 py-3.5 text-center"><StatusBadge status={m.status} /></td>
                       <td className="px-4 py-3.5 text-xs font-mono text-[var(--olive-dark)] text-left">{m.currentOrder ?? '—'}</td>
-                      <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)] text-right tabular-nums">{m.outputToday} m</td>
+                      <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--text)] text-right tabular-nums">{m.outputToday || 0} m</td>
                       <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right tabular-nums">{TARGET} m</td>
                       <td className="px-4 py-3.5 w-32">
                         <ProgressBar value={eff} color={eff >= 80 ? 'ok' : eff >= 50 ? 'warn' : 'bad'} showLabel />
@@ -213,3 +252,4 @@ export default function MachinePerformance() {
     </div>
   );
 }
+

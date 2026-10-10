@@ -235,21 +235,9 @@ router.post(
 
       const totalMetres = selectedRolls.reduce((sum, r) => sum + Number(r.metres), 0);
 
-      // 3. Generate sequential DSP-NNN ID
-      const [latest] = await db
-        .select({ id: dispatches.id })
-        .from(dispatches)
-        .where(sql`${dispatches.id} ~ '^DSP-[0-9]+$'`)
-        .orderBy(desc(sql`CAST(SUBSTRING(${dispatches.id} FROM 5) AS INTEGER)`))
-        .limit(1);
-
-      let nextNum = 301;
-      if (latest?.id) {
-        const numPart = parseInt(latest.id.replace('DSP-', ''), 10);
-        if (!isNaN(numPart)) {
-          nextNum = numPart + 1;
-        }
-      }
+      // 3. Generate sequential DSP-NNN ID atomically via sequence
+      const nextValRes = await db.execute(sql<{ nextval: string }>`SELECT nextval('dispatches_seq') as nextval;`);
+      const nextNum = nextValRes.rows[0]?.nextval ?? Date.now();
       const newDispatchId = `DSP-${nextNum}`;
 
       // 4. Perform atomic transaction

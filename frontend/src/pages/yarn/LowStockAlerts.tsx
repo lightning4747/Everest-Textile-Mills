@@ -1,21 +1,40 @@
 import { AlertTriangle, ShoppingCart, Phone, CheckCircle2, TrendingDown, Package } from 'lucide-react';
-import { yarnStock } from '../../data/mockData';
 import ProgressBar from '../../components/ui/ProgressBar';
+import { api } from '../../services/apiClient';
+import { useApi } from '../../hooks/useApi';
 
-const suppliers: Record<string, string> = {
-  Cotton:    'Shree Yarns Pvt. Ltd. · +91 98765 43210',
-  Polyester: 'National Fibres · +91 97654 32109',
-  Wool:      'Bombay Textiles · +91 96543 21098',
-  Silk:      'Silk Route Traders · +91 95432 10987',
-  Blended:   'Shree Yarns Pvt. Ltd. · +91 98765 43210',
-};
+interface YarnAlertItem {
+  id: string;
+  type: string;
+  colour: string;
+  quantityKg: number;
+  reorderLevel: number;
+  location: string;
+  deficit: number;
+  severity: 'critical' | 'warning';
+  supplier: string;
+}
 
 export default function LowStockAlerts() {
-  const lowItems = yarnStock.filter(y => y.quantityKg <= y.reorderLevel);
-  const critical = lowItems.filter(y => y.quantityKg <= y.reorderLevel * 0.4);
-  const warning  = lowItems.filter(y => y.quantityKg >  y.reorderLevel * 0.4);
+  const { data, loading, error } = useApi<YarnAlertItem[]>(
+    () => api.get<YarnAlertItem[]>('/yarn/stock/alerts'),
+    []
+  );
 
-  if (lowItems.length === 0) {
+  const lowItems = data || [];
+  const critical = lowItems.filter(y => y.severity === 'critical');
+  const warning  = lowItems.filter(y => y.severity === 'warning');
+
+  if (loading && lowItems.length === 0) {
+    return (
+      <div className="card p-16 flex flex-col items-center justify-center text-center gap-3">
+        <Package size={36} className="text-[var(--olive-grey)] animate-pulse" />
+        <p className="font-display text-base font-semibold text-[var(--text)]">Loading warehouse safety buffers...</p>
+      </div>
+    );
+  }
+
+  if (lowItems.length === 0 && !error) {
     return (
       <div className="card p-16 flex flex-col items-center justify-center text-center gap-3">
         <CheckCircle2 size={36} className="text-[var(--ok)]" />
@@ -27,6 +46,11 @@ export default function LowStockAlerts() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600">
+          {error}
+        </div>
+      )}
 
       {/* KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -58,7 +82,7 @@ export default function LowStockAlerts() {
             </div>
           </div>
           <p className="font-display text-4xl font-semibold text-[var(--text)]">{lowItems.length}</p>
-          <p className="text-xs text-[var(--text-soft)] mt-1">of {yarnStock.length} yarn varieties</p>
+          <p className="text-xs text-[var(--text-soft)] mt-1">consignments flagged</p>
         </div>
       </div>
 
@@ -88,7 +112,7 @@ export default function LowStockAlerts() {
               </tr>
             )}
             {critical.map(yarn => (
-              <AlertRow key={yarn.id} yarn={yarn} severity="critical" supplier={suppliers[yarn.type] ?? '—'} />
+              <AlertRow key={yarn.id} yarn={yarn} severity="critical" supplier={yarn.supplier} />
             ))}
 
             {warning.length > 0 && (
@@ -101,7 +125,7 @@ export default function LowStockAlerts() {
               </tr>
             )}
             {warning.map(yarn => (
-              <AlertRow key={yarn.id} yarn={yarn} severity="warning" supplier={suppliers[yarn.type] ?? '—'} />
+              <AlertRow key={yarn.id} yarn={yarn} severity="warning" supplier={yarn.supplier} />
             ))}
           </tbody>
         </table>
@@ -111,12 +135,12 @@ export default function LowStockAlerts() {
 }
 
 function AlertRow({ yarn, severity, supplier }: {
-  yarn: typeof yarnStock[0];
+  yarn: YarnAlertItem;
   severity: 'critical' | 'warning';
   supplier: string;
 }) {
   const isCritical  = severity === 'critical';
-  const deficit     = Math.max(0, yarn.reorderLevel - yarn.quantityKg);
+  const deficit     = yarn.deficit;
   const stockPct    = Math.min(100, Math.round((yarn.quantityKg / yarn.reorderLevel) * 100));
   const accentColor = isCritical ? 'var(--bad)' : 'var(--warn)';
 
@@ -172,7 +196,7 @@ function AlertRow({ yarn, severity, supplier }: {
       <td className="px-5 py-4">
         <div className="flex items-center gap-1.5">
           <Phone size={11} className="text-[var(--text-soft)] flex-shrink-0" />
-          <span className="text-xs font-mono text-[var(--text-soft)] whitespace-nowrap">{supplier}</span>
+          <span className="text-xs font-mono text-[var(--text-soft)] whitespace-nowrap">{supplier || '—'}</span>
         </div>
       </td>
 
