@@ -62,75 +62,74 @@ export default function LoginPage() {
       </div>
 
       {/* 2. Right side: Luminous Filaments background with centered login form card */}
-      <div className="relative w-full lg:w-1/2 h-full flex flex-col justify-between items-center px-4 py-4 sm:px-8 overflow-hidden bg-[#0a0e14]">
+      <div className="relative w-full lg:w-1/2 h-full flex flex-col justify-center items-center px-4 py-6 sm:px-8 overflow-y-auto bg-[#0a0e14]">
         {/* React Bits Pro: Luminous Filaments glowing background */}
         <LuminousFilaments
-          colors={['#004643', '#1C7C54']}
+          colors={['#00E5FF', '#10B981']}
           backgroundColor="#0a0e14"
           mode="glow"
-          fibers={84}
-          lineWidth={1.6}
-          glow={0.7}
-          intensity={1.3}
-          speed={0.7}
-          flare={1.4}
-          twist={0.3}
-          sway={0.8}
+          fibers={96}
+          lineWidth={2.2}
+          glow={1.4}
+          intensity={2.2}
+          speed={0.8}
+          flare={1.6}
+          twist={0.4}
+          sway={1.0}
+          originX={0.5}
+          originY={0.5}
           interactive={true}
           hoverPulses={true}
           clickSurge={true}
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0 w-full h-full pointer-events-none z-0"
         />
 
-        {/* Top spacer */}
-        <div className="w-full h-0 sm:h-1 relative z-10" />
-
         {/* 3. Form card */}
-        <div className="relative z-10 w-full max-w-[400px] p-5 sm:p-6 bg-white/95 backdrop-blur-md border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-[20px] space-y-3.5 my-auto">
+        <div className="relative z-10 w-full max-w-[420px] p-5 sm:p-6 bg-white/95 backdrop-blur-xl border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.6)] rounded-[24px] space-y-3.5 my-auto">
           {/* Above form: logo, short heading ("Welcome back"), subtext */}
           <div className="text-center pb-1">
             <img
               src="/assets/logo.png"
               alt="Everest Textile Mills"
-              className="h-8 w-auto mx-auto mb-2 object-contain"
+              className="h-9 w-auto mx-auto mb-2 object-contain"
             />
-            <h2 className="text-lg font-display font-semibold text-[var(--cyprus)] leading-tight">Welcome back</h2>
-            <p className="text-[11px] text-[var(--text-soft)] mt-0.5">Sign in to Everest Mills Terminal</p>
+            <h2 className="text-xl font-display font-bold text-[var(--cyprus)] leading-tight">Welcome back</h2>
+            <p className="text-xs text-[var(--text-soft)] mt-0.5">Sign in to Everest Mills Terminal</p>
           </div>
 
           {error && (
-            <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 flex items-center gap-2">
-              <AlertCircle size={14} className="flex-shrink-0" />
+            <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 flex items-center gap-2">
+              <AlertCircle size={15} className="flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-3">
             <div>
-              <label className="section-title block mb-1 text-[11px]">Email Address</label>
+              <label className="section-title block mb-1 text-xs font-medium">Email Address</label>
               <div className="relative">
-                <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
-                  className="input-field pl-8 text-xs font-mono w-full h-9"
+                  className="input-field pl-9 text-xs font-mono w-full h-9.5 rounded-lg"
                   placeholder="name@everest.local"
                 />
               </div>
             </div>
 
             <div>
-              <label className="section-title block mb-1 text-[11px]">Password</label>
+              <label className="section-title block mb-1 text-xs font-medium">Password</label>
               <div className="relative">
-                <KeyRound size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+                <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
                 <input
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  className="input-field pl-8 text-xs font-mono w-full h-9"
+                  className="input-field pl-9 text-xs font-mono w-full h-9.5 rounded-lg"
                   placeholder="••••••••••••"
                 />
               </div>
@@ -139,18 +138,18 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full justify-center h-9 text-xs font-semibold"
+              className="btn-primary w-full justify-center h-10 text-xs font-semibold rounded-lg shadow-md transition-all active:scale-[0.99]"
             >
-              <LogIn size={13} />
+              <LogIn size={14} />
               {loading ? 'Authenticating...' : 'Sign In to Mill Terminal'}
             </button>
           </form>
 
-          <div className="pt-2 border-t border-[var(--border)]">
+          <div className="pt-2.5 border-t border-[var(--border)]">
             <p className="text-[10px] font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-1.5">
               One-Click Demo Profiles (password: changeme123)
             </p>
-            <div className="grid grid-cols-1 gap-1">
+            <div className="grid grid-cols-1 gap-1 max-h-[160px] overflow-y-auto pr-0.5 custom-scrollbar">
               {DEMO_ACCOUNTS.map(acc => (
                 <button
                   key={acc.email}
@@ -168,7 +167,7 @@ export default function LoginPage() {
                     </p>
                     <p className="text-[9.5px] text-[var(--text-soft)] leading-tight">{acc.email} · {acc.desc}</p>
                   </div>
-                  {email === acc.email && <ShieldCheck size={13} className="text-[var(--ok)]" />}
+                  {email === acc.email && <ShieldCheck size={14} className="text-[var(--ok)] flex-shrink-0" />}
                 </button>
               ))}
             </div>
@@ -176,7 +175,7 @@ export default function LoginPage() {
         </div>
 
         {/* Small footer at bottom of right side */}
-        <footer className="relative z-10 pt-2 pb-1 text-center text-[10.5px] text-white/70">
+        <footer className="relative z-10 pt-3 pb-1 text-center text-[11px] text-white/70">
           © {new Date().getFullYear()} Everest Textile Mills. All rights reserved.
         </footer>
       </div>

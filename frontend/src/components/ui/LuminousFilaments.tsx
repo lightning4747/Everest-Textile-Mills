@@ -115,8 +115,10 @@ vec4 lightAt(float s, float row) {
   float k0 = floor(k);
   float f = k - k0;
   int y = int(row + 0.5);
-  vec4 a = texelFetch(uLight, ivec2(int(mod(k0, 168.0)), y), 0);
-  vec4 b = texelFetch(uLight, ivec2(int(mod(k0 + 1.0, 168.0)), y), 0);
+  float idx0 = mod(mod(k0, 168.0) + 168.0, 168.0);
+  float idx1 = mod(idx0 + 1.0, 168.0);
+  vec4 a = texelFetch(uLight, ivec2(int(idx0), y), 0);
+  vec4 b = texelFetch(uLight, ivec2(int(idx1), y), 0);
   return mix(a, b, f);
 }
 
@@ -889,7 +891,7 @@ export const LuminousFilaments = forwardRef<LuminousFilamentsRef, LuminousFilame
         }
       };
 
-      container.addEventListener('pointerdown', handlePointerDown);
+      window.addEventListener('pointerdown', handlePointerDown);
 
       const resizeObserver = new ResizeObserver(handleResize);
       resizeObserver.observe(container);
@@ -910,7 +912,7 @@ export const LuminousFilaments = forwardRef<LuminousFilamentsRef, LuminousFilame
         destroy: () => {
           isDisposed = true;
           if (animId) cancelAnimationFrame(animId);
-          container.removeEventListener('pointerdown', handlePointerDown);
+          window.removeEventListener('pointerdown', handlePointerDown);
           resizeObserver.disconnect();
           intersectionObserver.disconnect();
           cleanupRTs();
