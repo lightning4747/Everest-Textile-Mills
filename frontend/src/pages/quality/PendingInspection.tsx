@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, RefreshCw, FlaskConical } from 'lucide-react';
+import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, RefreshCw, FlaskConical, Search } from 'lucide-react';
 import type { QCResult } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
+import { useDebounce } from '../../hooks/useDebounce';
 import Pagination from '../../components/ui/Pagination';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../services/apiClient';
@@ -24,6 +25,8 @@ interface BackendPendingRoll {
 export default function PendingInspection() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
 
   const { data: rawRolls, loading, error, refetch } = useApi<BackendPendingRoll[]>(
     () => api.get<BackendPendingRoll[]>('/fabric-rolls/pending'),
@@ -32,7 +35,20 @@ export default function PendingInspection() {
   );
 
   const pending = rawRolls || [];
-  const { paginatedData, ...paginationProps } = usePagination(pending, 10);
+
+  const filtered = pending.filter(roll => {
+    if (!debouncedSearch.trim()) return true;
+    const q = debouncedSearch.toLowerCase();
+    return (
+      roll.id.toLowerCase().includes(q) ||
+      roll.orderId.toLowerCase().includes(q) ||
+      (roll.buyer && roll.buyer.toLowerCase().includes(q)) ||
+      (roll.machineId && roll.machineId.toLowerCase().includes(q)) ||
+      (roll.machineType && roll.machineType.toLowerCase().includes(q))
+    );
+  });
+
+  const { paginatedData, ...paginationProps } = usePagination(filtered, 10);
 
   const handleAction = async (rollId: string, result: QCResult) => {
     setUpdatingId(rollId);
@@ -54,11 +70,11 @@ export default function PendingInspection() {
   return (
     <div className="space-y-6">
       {/* Alert Header */}
-      <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_10%,var(--surface))] flex items-center justify-between gap-3">
+      <div className="card p-4 border-l-4 border-l-[var(--warn)] bg-[var(--surface-2)] flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Clock size={20} className="text-[var(--warn)] flex-shrink-0" />
           <div>
-            <h2 className="text-sm font-display font-semibold text-[var(--text)]">
+            <h2 className="text-sm font-display font-semibold text-[var(--cyprus)]">
               {pending.length} fabric roll{pending.length !== 1 ? 's' : ''} awaiting laboratory inspection
             </h2>
             <p className="text-xs text-[var(--text-soft)]">
@@ -76,13 +92,27 @@ export default function PendingInspection() {
         </button>
       </div>
 
+      {/* Filter and Search Bar */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="relative flex-1 max-w-md">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by roll ID, order ID, buyer, machine..."
+            className="input-field h-10 pl-9 text-xs font-mono w-full"
+          />
+        </div>
+      </div>
+
       {/* Threshold Info Banner */}
-      <div className="card p-3 flex items-center gap-3 border-l-4 border-l-[var(--warn)]">
-        <FlaskConical size={15} className="text-[var(--warn)] flex-shrink-0" />
+      <div className="card p-3.5 flex items-center gap-3 border-l-4 border-l-[var(--warn)] bg-[var(--surface)]">
+        <FlaskConical size={16} className="text-[var(--warn)] flex-shrink-0" />
         <p className="text-xs text-[var(--text-soft)]">
           Inspection criteria: Yarn irregularity &lt; 5%, Warp/weft defect density &lt; 2 per metre,
-          Dye consistency ΔE &lt; 1.5. Rolls failing any criterion are flagged for rework or rejection.
-          <strong className="text-[var(--text)]"> Threshold: pass ≥ 60%, rework 40–59%, reject &lt; 40% quality score.</strong>
+          Dye consistency ΔE &lt; 1.5. Rolls failing any criterion are flagged for rejection.
+          <strong className="text-[var(--text)] ml-1"> Threshold: pass ≥ 60%, reject &lt; 60% quality score.</strong>
         </p>
       </div>
 
@@ -98,11 +128,18 @@ export default function PendingInspection() {
           <div className="card p-12 text-center text-xs text-[var(--text-soft)] font-mono animate-pulse">
             Checking inspection queue…
           </div>
-        ) : pending.length === 0 ? (
+        ) : filtered.length === 0 ? (
           /* Empty State */
           <div className="card p-16 flex flex-col items-center justify-center text-center gap-3">
             <ShieldAlert size={40} className="text-[var(--olive-grey)]" />
-            <p className="text-sm font-semibold text-[var(--text)]">All produced fabric rolls have been inspected and cleared.</p>
+            <p className="text-sm font-semibold text-[var(--text)]">
+              {search ? 'No rolls match your search filter.' : 'All produced fabric rolls have been inspected and cleared.'}
+            </p>
+            {search && (
+              <button className="btn-secondary text-xs" onClick={() => setSearch('')}>
+                Clear Search
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -114,13 +151,13 @@ export default function PendingInspection() {
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div>
                       <div className="flex items-center gap-3">
-                        <span className="font-mono text-base font-bold text-[var(--olive-dark)]">{roll.id}</span>
+                        <span className="font-mono text-base font-bold text-[var(--cyprus)]">{roll.id}</span>
                         <span className="badge-status-warn">Pending Inspection</span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3 text-xs">
                         <div>
                           <span className="text-[var(--text-soft)] block uppercase text-[10px] font-semibold">Order Ref</span>
-                          <span className="font-mono font-bold text-[var(--olive-dark)]">{roll.orderId}</span>
+                          <span className="font-mono font-bold text-[var(--cyprus)]">{roll.orderId}</span>
                         </div>
                         <div>
                           <span className="text-[var(--text-soft)] block uppercase text-[10px] font-semibold">Buyer</span>
@@ -144,7 +181,7 @@ export default function PendingInspection() {
                   </div>
 
                   {/* Pending Reason */}
-                  <div className="mt-2 p-3 rounded-lg bg-[var(--panel-bg)] text-xs text-[var(--text-soft)]">
+                  <div className="mt-2 p-3 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-xs text-[var(--text-soft)]">
                     <p className="font-semibold text-[var(--text)] mb-1">Pending reason:</p>
                     <p>Roll produced on {roll.producedDate}. Awaiting lab grading table inspection for weave density,
                     colour fastness (ISO 105-C06), and tensile elongation test. No inspector assigned yet.</p>
@@ -155,7 +192,7 @@ export default function PendingInspection() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-soft)] mb-2.5">
                       Inspection Verdict:
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <button
                         onClick={() => handleAction(roll.id, 'passed')}
                         disabled={isUpdating}
@@ -163,14 +200,6 @@ export default function PendingInspection() {
                       >
                         <CheckCircle2 size={20} />
                         <span>Pass Roll (Ready)</span>
-                      </button>
-                      <button
-                        onClick={() => handleAction(roll.id, 'rework')}
-                        disabled={isUpdating}
-                        className="btn-quality-rework disabled:opacity-50"
-                      >
-                        <RotateCcw size={20} />
-                        <span>Mark Rework (Scouring/Re-dye)</span>
                       </button>
                       <button
                         onClick={() => handleAction(roll.id, 'rejected')}
@@ -192,3 +221,4 @@ export default function PendingInspection() {
     </div>
   );
 }
+
