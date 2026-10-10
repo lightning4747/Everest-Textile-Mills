@@ -98,8 +98,12 @@ export default function Sidebar() {
     >
       {/* Brand Header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-[rgba(250,250,250,0.15)] min-h-[64px]">
-        <div className="w-8 h-8 rounded-lg bg-[#FFFFFF] text-[#004643] flex items-center justify-center flex-shrink-0 font-display font-bold text-base shadow-sm">
-          E
+        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0 p-1 shadow-sm overflow-hidden">
+          <img
+            src="/assets/logo.png"
+            alt="Everest Logo"
+            className="w-full h-full object-contain"
+          />
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
