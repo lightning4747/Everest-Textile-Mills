@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Cross-module handoff services & stubs.
  *

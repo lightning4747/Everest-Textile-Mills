@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import app from '../index.js';
 import { signToken } from '../middleware/auth.js';

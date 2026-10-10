@@ -39,9 +39,23 @@ export interface YarnReceipt {
   invoiceNo: string;
 }
 
+// ─── Products (New) ────────────────────────────────────────────────────────
+export interface Product {
+  id: string;
+  sku: string;
+  fabricType: string;
+  gsm: number;
+  width: number;
+  yarnType: string;
+  yarnKgPerMetre: number;
+  price: number;
+  isActive: boolean;
+}
+
 // ─── Orders ────────────────────────────────────────────────────────────────
 export type OrderStatus =
   | 'pending'
+  | 'awaiting_yarn'
   | 'yarn_check'
   | 'spinning'
   | 'weaving'
@@ -50,18 +64,31 @@ export type OrderStatus =
   | 'ready_to_ship'
   | 'dispatched';
 
+export interface SalesOrderItem {
+  id: string;
+  orderId: string;
+  productId: string;
+  product?: Product; // Expanded by backend
+  fabricType?: string; // Fallback
+  colour?: string; // Fallback
+  sequence: number;
+  quantityMetres: number;
+  completedMetres: number;
+  dispatchedMetres: number;
+  unitPrice: number;
+  status: OrderStatus;
+  yarnRequiredKg: number;
+}
+
 export interface SalesOrder {
   id: string;
+  clientId?: string;
   buyer: string;
-  fabricType: string;
-  colour: string;
-  quantityMetres: number;
   deliveryDate: string;
   createdDate: string;
   status: OrderStatus;
-  machineId?: string;
-  completedMetres: number;
-  unitPrice: number;
+  totalAmount: number;
+  items: SalesOrderItem[];
 }
 
 // ─── Production ────────────────────────────────────────────────────────────
@@ -92,16 +119,25 @@ export interface FabricRoll {
 }
 
 // ─── Dispatch ─────────────────────────────────────────────────────────────
+export interface DispatchItem {
+  id: string;
+  dispatchId: string;
+  orderItemId: string;
+  metres: number;
+  item?: SalesOrderItem; // Expanded
+}
+
 export interface Dispatch {
   id: string;
   orderId: string;
   buyer: string;
-  rollIds: string[];
-  totalMetres: number;
-  dispatchDate: string;
-  invoiceNo: string;
   truckNo: string;
+  invoiceNo: string;
   status: 'prepared' | 'loaded' | 'delivered';
+  dispatchDate: string;
+  totalMetres: number;
+  rollIds?: string[];
+  items?: DispatchItem[];
 }
 
 // ─── Reports ──────────────────────────────────────────────────────────────

@@ -1,30 +1,17 @@
-import { useState } from 'react';
-import { Truck, Plus, FileText, Package, RefreshCw } from 'lucide-react';
+import { useState, Fragment } from 'react';
+import { Truck, Plus, FileText, Package, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
-import type { SalesOrder } from '../../types';
+import type { SalesOrder, Dispatch } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../services/apiClient';
 
-interface BackendDispatch {
-  id: string;
-  orderId: string;
-  buyer: string;
-  rollIds: string[];
-  totalMetres: number;
-  dispatchDate: string;
-  invoiceNo: string;
-  truckNo: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export default function Dispatches() {
   const [showForm, setShowForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
     orderId: '',
@@ -33,8 +20,8 @@ export default function Dispatches() {
     invoiceNo: '',
   });
 
-  const { data: rawDispatches, loading: dispatchesLoading, error: dispatchesError, refetch: refetchDispatches } = useApi<BackendDispatch[]>(
-    () => api.get<BackendDispatch[]>('/dispatches'),
+  const { data: rawDispatches, loading: dispatchesLoading, error: dispatchesError, refetch: refetchDispatches } = useApi<Dispatch[]>(
+    () => api.get<Dispatch[]>('/dispatches'),
     [],
     { autoPollMs: 15000 }
   );
@@ -53,6 +40,15 @@ export default function Dispatches() {
   const handleRefresh = () => {
     refetchDispatches();
     refetchOrders();
+  };
+
+  const toggleDispatch = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,11 +146,14 @@ export default function Dispatches() {
                   {readyOrders.length === 0 ? (
                     <option disabled value="">No orders in ready_to_ship status</option>
                   ) : (
-                    readyOrders.map(o => (
-                      <option key={o.id} value={o.id}>
-                        {o.id} — {o.buyer} ({o.completedMetres}m)
-                      </option>
-                    ))
+                    readyOrders.map(o => {
+                      const totalCompleted = (o.items || []).reduce((sum, item) => sum + (item.completedMetres || 0), 0);
+                      return (
+                        <option key={o.id} value={o.id}>
+                          {o.id} — {o.buyer} ({totalCompleted}m)
+                        </option>
+                      )
+                    })
                   )}
                 </select>
               </div>
@@ -214,6 +213,7 @@ export default function Dispatches() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
+                    <th className="w-8 px-2 py-3"></th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-left font-mono">Challan ID</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-left font-mono">Order Ref</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-left">Buyer</th>
@@ -226,36 +226,74 @@ export default function Dispatches() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {paginatedData.map(d => (
-                    <tr key={d.id} className="table-row-hover">
-                      <td className="px-4 py-3.5 text-left">
-                        <div className="flex items-center gap-1.5">
-                          <Truck size={14} className="text-[var(--olive-grey)]" />
-                          <span className="text-xs font-mono font-bold text-[var(--olive-dark)]">{d.id}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{d.orderId}</td>
-                      <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{d.buyer}</td>
-                      <td className="px-4 py-3.5 text-right tabular-nums">
-                        <div className="flex items-center justify-end gap-1.5 text-xs font-mono text-[var(--text)]">
-                          <Package size={12} className="text-[var(--olive-grey)]" />
-                          <span>{d.rollIds ? d.rollIds.length : 0}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">
-                        {(Number(d.totalMetres) || 0).toLocaleString()} m
-                      </td>
-                      <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right">{d.dispatchDate}</td>
-                      <td className="px-4 py-3.5 text-left">
-                        <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-soft)]">
-                          <FileText size={12} />
-                          <span>{d.invoiceNo}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-xs font-mono text-[var(--text)] text-left">{d.truckNo}</td>
-                      <td className="px-4 py-3.5 text-center"><StatusBadge status={d.status} /></td>
-                    </tr>
-                  ))}
+                  {paginatedData.map(d => {
+                    const isExpanded = expandedIds.has(d.id);
+                    return (
+                    <Fragment key={d.id}>
+                      <tr className="table-row-hover cursor-pointer" onClick={() => toggleDispatch(d.id)}>
+                        <td className="px-2 py-3.5 text-center text-[var(--olive-grey)]">
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </td>
+                        <td className="px-4 py-3.5 text-left">
+                          <div className="flex items-center gap-1.5">
+                            <Truck size={14} className="text-[var(--olive-grey)]" />
+                            <span className="text-xs font-mono font-bold text-[var(--olive-dark)]">{d.id}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{d.orderId}</td>
+                        <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{d.buyer}</td>
+                        <td className="px-4 py-3.5 text-right tabular-nums">
+                          <div className="flex items-center justify-end gap-1.5 text-xs font-mono text-[var(--text)]">
+                            <Package size={12} className="text-[var(--olive-grey)]" />
+                            <span>{d.rollIds ? d.rollIds.length : 0}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">
+                          {(Number(d.totalMetres) || 0).toLocaleString()} m
+                        </td>
+                        <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right">{d.dispatchDate}</td>
+                        <td className="px-4 py-3.5 text-left">
+                          <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-soft)]">
+                            <FileText size={12} />
+                            <span>{d.invoiceNo}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-xs font-mono text-[var(--text)] text-left">{d.truckNo}</td>
+                        <td className="px-4 py-3.5 text-center"><StatusBadge status={d.status} /></td>
+                      </tr>
+                      {isExpanded && d.items && d.items.length > 0 && (
+                        <tr className="bg-[var(--surface-2)]/10">
+                          <td colSpan={10} className="p-0 border-b border-[var(--border)]">
+                            <div className="px-10 py-3">
+                              <h4 className="text-xs font-semibold text-[var(--text)] mb-2">Line Items Dispatch</h4>
+                              <table className="w-full text-left">
+                                <thead>
+                                  <tr className="border-b border-[var(--border)]/50 text-[var(--text-soft)]">
+                                    <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider">Order Item ID</th>
+                                    <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider">Product</th>
+                                    <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-right">Dispatched Metres</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--border)]/50">
+                                  {d.items.map(item => {
+                                    const productName = item.item?.product?.fabricType || item.item?.fabricType || 'N/A';
+                                    const color = item.item?.colour || '';
+                                    return (
+                                      <tr key={item.id} className="hover:bg-[var(--surface-2)]/30">
+                                        <td className="px-3 py-2 text-xs font-mono text-[var(--olive-dark)]">{item.orderItemId}</td>
+                                        <td className="px-3 py-2 text-xs text-[var(--text)]">{productName} {color && `· ${color}`}</td>
+                                        <td className="px-3 py-2 text-xs font-mono text-right tabular-nums">{item.metres.toLocaleString()} m</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )})}
                 </tbody>
               </table>
             </div>
@@ -266,4 +304,3 @@ export default function Dispatches() {
     </div>
   );
 }
-
