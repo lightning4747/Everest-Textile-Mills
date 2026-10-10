@@ -45,7 +45,7 @@ export default function NewOrder() {
   const totalAmount = useMemo(() => {
     return items.reduce((sum, item) => {
       const product = activeProducts.find(p => p.id === item.productId);
-      const price = product?.price || 0;
+      const price = Number(product?.pricePerMetre) || 0;
       return sum + price * (item.quantityMetres || 0);
     }, 0);
   }, [items, activeProducts]);
@@ -107,7 +107,7 @@ export default function NewOrder() {
             
             {items.map((item, index) => {
               const product = activeProducts.find(p => p.id === item.productId);
-              const price = product?.price || 0;
+              const price = Number(product?.pricePerMetre) || 0;
               const lineTotal = price * (item.quantityMetres || 0);
 
               return (
@@ -123,7 +123,7 @@ export default function NewOrder() {
                       <option value="">-- Select Fabric --</option>
                       {activeProducts.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.sku} - {p.fabricType} ({p.gsm} GSM)
+                          {p.id} - {p.name} ({p.gsm} GSM)
                         </option>
                       ))}
                     </select>

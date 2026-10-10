@@ -42,13 +42,13 @@ export interface YarnReceipt {
 // ─── Products (New) ────────────────────────────────────────────────────────
 export interface Product {
   id: string;
-  sku: string;
+  name: string;
   fabricType: string;
   gsm: number;
-  width: number;
+  widthInches: number;
   yarnType: string;
   yarnKgPerMetre: number;
-  price: number;
+  pricePerMetre: number;
   isActive: boolean;
 }
 
