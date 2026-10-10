@@ -7,6 +7,11 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 // Auth page
 const LoginPage        = React.lazy(() => import('./pages/auth/LoginPage'));
 
+// Portal pages
+const PortalLayout     = React.lazy(() => import('./pages/portal/PortalLayout'));
+const ClientOrders     = React.lazy(() => import('./pages/portal/ClientOrders'));
+const NewOrder         = React.lazy(() => import('./pages/portal/NewOrder'));
+
 // Pages — lazy loaded for route-level code splitting
 const Dashboard        = React.lazy(() => import('./pages/dashboard/Dashboard'));
 const ShopFloorBoard   = React.lazy(() => import('./pages/shopfloor/ShopFloorBoard'));
@@ -47,6 +52,20 @@ export default function App() {
           <Routes>
             {/* Dedicated full-page login route without AppLayout */}
             <Route path="/login" element={<LoginPage />} />
+
+            {/* Client Portal Routes */}
+            <Route
+              path="/portal"
+              element={
+                <ProtectedRoute>
+                  <PortalLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="orders" replace />} />
+              <Route path="orders" element={<ClientOrders />} />
+              <Route path="new-order" element={<NewOrder />} />
+            </Route>
 
             {/* Protected mill operations routes inside AppLayout */}
             <Route
@@ -97,4 +116,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-
