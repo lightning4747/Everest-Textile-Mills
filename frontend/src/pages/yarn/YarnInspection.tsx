@@ -1,12 +1,14 @@
-import { useState, useMemo } from 'react';
-import { CheckCircle2, XCircle, Clock, FlaskConical, User, AlertTriangle, ShieldCheck, ShieldX, RotateCcw, RefreshCw } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import {
+  CheckCircle2, XCircle, Clock, FlaskConical, User, AlertTriangle,
+  ShieldCheck, ShieldX, RotateCcw, RefreshCw, SlidersHorizontal, X, Loader2, Settings
+} from 'lucide-react';
 import type { YarnInspectionVerdict } from '../../types';
 import ProgressBar from '../../components/ui/ProgressBar';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../services/apiClient';
+import { useAuth } from '../../context/AuthContext';
 
-const DAMAGE_WARN  = 30;
-const DAMAGE_LIMIT = 40;
 const INSPECTOR_NAME = 'Ramesh K.';
 
 interface BackendYarnReceipt {
@@ -47,6 +49,12 @@ interface InspectionItem {
   rejectionReason?: string;
 }
 
+interface InspectionConfig {
+  damageWarningPct: number;
+  damageRejectionPct: number;
+  moistureMaxPct: number;
+}
+
 function VerdictBadge({ verdict }: { verdict: YarnInspectionVerdict }) {
   if (verdict === 'accepted') return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--panel-bg)] text-[var(--ok)] border border-[var(--ok)]">
@@ -66,6 +74,27 @@ function VerdictBadge({ verdict }: { verdict: YarnInspectionVerdict }) {
 }
 
 export default function YarnInspection() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
+  const [config, setConfig] = useState<InspectionConfig>({
+    damageWarningPct: 30,
+    damageRejectionPct: 40,
+    moistureMaxPct: 8.5,
+  });
+  const [showConfigModal, setShowConfigModal] = useState(false);
+
+  // Fetch dynamic thresholds from backend
+  useEffect(() => {
+    api.get<InspectionConfig>('/yarn/inspection/config')
+      .then(res => {
+        if (res?.data) {
+          setConfig(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const { data: rawReceipts, loading, refetch } = useApi<BackendYarnReceipt[]>(
     () => api.get<BackendYarnReceipt[]>('/yarn/receipts'),
     [],
@@ -77,7 +106,11 @@ export default function YarnInspection() {
     return rawReceipts.map((r, i) => {
       const damagePct = r.damagePct ?? (i % 3 === 0 ? 35 : i % 4 === 0 ? 45 : 12);
       const verdict: YarnInspectionVerdict =
-        damagePct >= DAMAGE_LIMIT ? 'rejected' : damagePct >= DAMAGE_WARN ? 'pending' : 'accepted';
+        damagePct >= config.damageRejectionPct
+          ? 'rejected'
+          : damagePct >= config.damageWarningPct
+          ? 'pending'
+          : 'accepted';
 
       return {
         id: r.id,
@@ -98,12 +131,12 @@ export default function YarnInspection() {
         inspectedAt: r.receivedDate,
       };
     });
-  }, [rawReceipts]);
+  }, [rawReceipts, config]);
 
   const [records, setRecords] = useState<InspectionItem[]>([]);
 
-  useMemo(() => {
-    if (records.length === 0 && initialItems.length > 0) {
+  useEffect(() => {
+    if (initialItems.length > 0 && records.length === 0) {
       setRecords(initialItems);
     }
   }, [initialItems]);
@@ -137,8 +170,8 @@ export default function YarnInspection() {
   }
 
   function openReject(record: InspectionItem) {
-    setRejectReason(record.damagePct >= DAMAGE_LIMIT
-      ? `Damage at ${record.damagePct}% exceeds the ${DAMAGE_LIMIT}% rejection threshold`
+    setRejectReason(record.damagePct >= config.damageRejectionPct
+      ? `Damage at ${record.damagePct}% exceeds the ${config.damageRejectionPct}% rejection threshold`
       : '');
     setRejectModal(record);
   }
@@ -156,6 +189,24 @@ export default function YarnInspection() {
     setRejectModal(null);
     setRejectReason('');
   }
+
+  const handleConfigSaved = (newConfig: InspectionConfig) => {
+    setConfig(newConfig);
+    // Recalculate verdicts immediately for records
+    setRecords(prev => {
+      const list = prev.length > 0 ? prev : [...initialItems];
+      return list.map(r => {
+        const newVerdict: YarnInspectionVerdict =
+          r.damagePct >= newConfig.damageRejectionPct
+            ? 'rejected'
+            : r.damagePct >= newConfig.damageWarningPct
+            ? 'pending'
+            : 'accepted';
+        return { ...r, verdict: newVerdict };
+      });
+    });
+    setShowConfigModal(false);
+  };
 
   return (
     <div className="space-y-5">
@@ -184,18 +235,31 @@ export default function YarnInspection() {
         <div className="flex items-center gap-3">
           <FlaskConical size={16} className="text-[var(--warn)] flex-shrink-0" />
           <p className="text-xs text-[var(--text-soft)]">
-            Quality threshold: <strong className="text-[var(--warn)] font-mono">{DAMAGE_WARN}%–{DAMAGE_LIMIT}% damage</strong> triggers warning.
-            Above <strong className="text-[var(--bad)] font-mono">{DAMAGE_LIMIT}%</strong> auto-flags for rejection.
+            Quality threshold: <strong className="text-[var(--warn)] font-mono">{config.damageWarningPct}%–{config.damageRejectionPct}% damage</strong> triggers warning.
+            Above <strong className="text-[var(--bad)] font-mono">{config.damageRejectionPct}%</strong> auto-flags for rejection.
+            Max moisture tolerance: <strong className="text-[var(--text)] font-mono">{config.moistureMaxPct}%</strong>.
             Inspector on duty: <strong className="text-[var(--text)] font-mono">{INSPECTOR_NAME}</strong>
           </p>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => setShowConfigModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-xs font-semibold text-[var(--text)] transition-colors"
+              title="Configure QC Tolerances"
+            >
+              <SlidersHorizontal size={13} className="text-[var(--olive-dark)]" />
+              <span>Configure Tolerances</span>
+            </button>
+          )}
+          <button
+            onClick={() => refetch()}
+            className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -226,8 +290,10 @@ export default function YarnInspection() {
           <div className="card p-10 text-center text-sm text-[var(--text-soft)]">No records in this category.</div>
         ) : (
           filtered.map(record => {
-            const isAboveLimit = record.damagePct >= DAMAGE_LIMIT;
-            const isWarning    = record.damagePct >= DAMAGE_WARN && record.damagePct < DAMAGE_LIMIT;
+            const isAboveLimit = record.damagePct >= config.damageRejectionPct;
+            const isWarning    = record.damagePct >= config.damageWarningPct && record.damagePct < config.damageRejectionPct;
+            const isHighMoisture = record.moisture > config.moistureMaxPct;
+
             const accentBorder = record.verdict === 'rejected' ? 'border-l-[var(--bad)]'
               : record.verdict === 'accepted' ? 'border-l-[var(--ok)]'
               : isAboveLimit ? 'border-l-[var(--bad)]'
@@ -246,6 +312,11 @@ export default function YarnInspection() {
                       {isAboveLimit && record.verdict === 'pending' && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[var(--bad)]">
                           <AlertTriangle size={10} /> AUTO-FLAG: EXCEEDS LIMIT
+                        </span>
+                      )}
+                      {isHighMoisture && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[var(--warn)]">
+                          <AlertTriangle size={10} /> HIGH MOISTURE
                         </span>
                       )}
                     </div>
@@ -276,16 +347,18 @@ export default function YarnInspection() {
                       </div>
                       <div>
                         <p className="text-[10px] text-[var(--text-soft)] uppercase tracking-wide mb-0.5">Moisture</p>
-                        <p className="text-xs font-mono font-bold tabular-nums text-[var(--text)]">{record.moisture}%</p>
+                        <p className={`text-xs font-mono font-bold tabular-nums ${isHighMoisture ? 'text-[var(--bad)]' : 'text-[var(--text)]'}`}>
+                          {record.moisture}% {isHighMoisture ? `(max ${config.moistureMaxPct}%)` : ''}
+                        </p>
                       </div>
                       <div className="col-span-2 sm:col-span-3">
                         <p className="text-[10px] text-[var(--text-soft)] uppercase tracking-wide mb-1">
                           Damage — <span className={`font-bold font-mono ${
                             isAboveLimit ? 'text-[var(--bad)]' : isWarning ? 'text-[var(--warn)]' : 'text-[var(--ok)]'
                           }`}>{record.damagePct}%</span>
-                          <span className="text-[var(--text-soft)]"> (limit: {DAMAGE_LIMIT}%)</span>
+                          <span className="text-[var(--text-soft)]"> (limit: {config.damageRejectionPct}%)</span>
                         </p>
-                        <ProgressBar value={record.damagePct} color={record.damagePct >= DAMAGE_LIMIT ? 'bad' : record.damagePct >= DAMAGE_WARN ? 'warn' : 'ok'} />
+                        <ProgressBar value={record.damagePct} color={record.damagePct >= config.damageRejectionPct ? 'bad' : record.damagePct >= config.damageWarningPct ? 'warn' : 'ok'} />
                       </div>
                     </div>
 
@@ -336,6 +409,7 @@ export default function YarnInspection() {
         )}
       </div>
 
+      {/* Reject Modal */}
       {rejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="card p-6 w-full max-w-md mx-4 shadow-2xl">
@@ -346,10 +420,10 @@ export default function YarnInspection() {
             <p className="text-xs text-[var(--text-soft)] mb-1 font-mono">{rejectModal.receiptId} · {rejectModal.batchLot}</p>
             <p className="text-sm font-semibold text-[var(--text)] mb-4">{rejectModal.colour} {rejectModal.yarnType} — {rejectModal.damagePct}% damage</p>
 
-            {rejectModal.damagePct >= DAMAGE_LIMIT && (
+            {rejectModal.damagePct >= config.damageRejectionPct && (
               <div className="flex items-center gap-2 mb-3 p-3 rounded-lg bg-[var(--panel-bg)] border border-[var(--border)]">
                 <AlertTriangle size={13} className="text-[var(--bad)] flex-shrink-0" />
-                <p className="text-xs text-[var(--bad)] font-mono">Damage exceeds {DAMAGE_LIMIT}% — rejection recommended</p>
+                <p className="text-xs text-[var(--bad)] font-mono">Damage exceeds {config.damageRejectionPct}% — rejection recommended</p>
               </div>
             )}
 
@@ -379,6 +453,169 @@ export default function YarnInspection() {
           </div>
         </div>
       )}
+
+      {/* Admin QC Config Modal */}
+      {showConfigModal && (
+        <AdminConfigModal
+          currentConfig={config}
+          onClose={() => setShowConfigModal(false)}
+          onSave={handleConfigSaved}
+        />
+      )}
+    </div>
+  );
+}
+
+function AdminConfigModal({
+  currentConfig,
+  onClose,
+  onSave,
+}: {
+  currentConfig: InspectionConfig;
+  onClose: () => void;
+  onSave: (saved: InspectionConfig) => void;
+}) {
+  const [warningPct, setWarningPct] = useState(currentConfig.damageWarningPct);
+  const [rejectionPct, setRejectionPct] = useState(currentConfig.damageRejectionPct);
+  const [moistureMaxPct, setMoistureMaxPct] = useState(currentConfig.moistureMaxPct);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (warningPct > rejectionPct) {
+      setError('Warning threshold (%) cannot exceed rejection threshold (%).');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await api.put<InspectionConfig>('/yarn/inspection/config', {
+        damageWarningPct: warningPct,
+        damageRejectionPct: rejectionPct,
+        moistureMaxPct: moistureMaxPct,
+      });
+
+      onSave(res?.data || {
+        damageWarningPct: warningPct,
+        damageRejectionPct: rejectionPct,
+        moistureMaxPct: moistureMaxPct,
+      });
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update inspection tolerances.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-xl max-w-md w-full p-6 shadow-2xl animate-in fade-in duration-200">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border)]">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[var(--olive-dark)]/10 text-[var(--olive-dark)] flex items-center justify-center">
+              <Settings size={16} />
+            </div>
+            <div>
+              <h3 className="font-syne font-bold text-base text-[var(--text)]">QC Inspection Tolerances</h3>
+              <p className="text-xs text-[var(--text-soft)]">Admin Quality Control Settings</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="p-1 hover:bg-[var(--surface-2)] rounded text-[var(--text-soft)] transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-2.5 rounded bg-red-500/10 border border-red-500/20 text-red-600 text-xs">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-mono text-[var(--text-soft)] mb-1">
+              Warning Threshold (% Damage)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="any"
+              required
+              value={warningPct}
+              onChange={e => setWarningPct(Number(e.target.value))}
+              className="input-field text-xs font-mono w-full font-bold"
+            />
+            <p className="text-[10px] text-[var(--text-soft)] mt-1">Batches at or above this percentage trigger review warnings.</p>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-mono text-[var(--text-soft)] mb-1">
+              Rejection Threshold (% Damage)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="any"
+              required
+              value={rejectionPct}
+              onChange={e => setRejectionPct(Number(e.target.value))}
+              className="input-field text-xs font-mono w-full font-bold"
+            />
+            <p className="text-[10px] text-[var(--text-soft)] mt-1">Batches at or above this percentage auto-flag for rejection.</p>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-mono text-[var(--text-soft)] mb-1">
+              Max Moisture Tolerance (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="any"
+              required
+              value={moistureMaxPct}
+              onChange={e => setMoistureMaxPct(Number(e.target.value))}
+              className="input-field text-xs font-mono w-full font-bold"
+            />
+            <p className="text-[10px] text-[var(--text-soft)] mt-1">Moisture content above this percentage flags as high moisture.</p>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--border)]">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onClose}
+              className="btn-ghost text-xs h-9 px-4"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary text-xs h-9 px-4 inline-flex items-center gap-1.5"
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Saving Tolerances...</span>
+                </>
+              ) : (
+                <span>Save Tolerances</span>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

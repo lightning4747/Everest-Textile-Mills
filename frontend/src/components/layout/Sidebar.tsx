@@ -27,6 +27,7 @@ const navItems: NavItem[] = [
       { label: 'Yarn Receipts',      path: '/yarn/receipts',    icon: <Receipt size={14} /> },
       { label: 'Raw Material Stock', path: '/yarn/stock',       icon: <Boxes size={14} /> },
       { label: 'Yarn Inspection',    path: '/yarn/inspection',  icon: <FlaskConical size={14} /> },
+      { label: 'Low Stock Alerts',   path: '/yarn/alerts',      icon: <AlertTriangle size={14} /> },
     ],
   },
   {

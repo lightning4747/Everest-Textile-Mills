@@ -4,8 +4,8 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ok, created, notFound, badRequest } from '../lib/response.js';
 import { db } from '../db/index.js';
-import { yarnStock, yarnReceipts, yarnTypeSuppliers, suppliers } from '../db/schema.js';
-import { eq, sql, and } from 'drizzle-orm';
+import { yarnStock, yarnReceipts, yarnTypeSuppliers, suppliers, appConfig } from '../db/schema.js';
+import { eq, sql, and, inArray } from 'drizzle-orm';
 import { updateYarnLowStockGauge } from '../services/stubs.js';
 
 const router = Router();
@@ -297,7 +297,7 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
         }
       }
 
-      // 4. Update yarn_stock if stock bin resolved
+      // 4. Update yarn_stock if stock bin resolved, OR automatically create new stock bin if none exists
       if (targetStockId) {
         const [stock] = await tx
           .select()
@@ -315,6 +315,27 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
             })
             .where(eq(yarnStock.id, targetStockId));
         }
+      } else {
+        // Automatically create a new yarn_stock record so inventory is never lost
+        const maxIdRes = await tx.execute(sql<{ max_num: number }>`
+          SELECT COALESCE(MAX(CAST(SUBSTRING(id FROM 4) AS INTEGER)), 0) as max_num
+          FROM yarn_stock
+          WHERE id ~ '^YS-[0-9]+$'
+        `);
+        const nextNum = Number(maxIdRes.rows[0]?.max_num ?? 0) + 1;
+        const newStockId = `YS-${String(nextNum).padStart(3, '0')}`;
+
+        await tx.insert(yarnStock).values({
+          id: newStockId,
+          type: yarnType,
+          colour: body.colour,
+          quantityKg: quantityKg.toFixed(2),
+          reorderLevel: '500.00',
+          location: 'Staging Bay',
+          lastUpdated: new Date(),
+        });
+
+        targetStockId = newStockId;
       }
 
       // 5. Insert yarn_receipts record
@@ -354,6 +375,83 @@ router.post('/receipts', authorize('admin', 'manager', 'operator'), validate(cre
       receivedBy: newReceipt.receivedBy,
       invoiceNo: newReceipt.invoiceNo,
       createdAt: newReceipt.createdAt.toISOString(),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const updateInspectionConfigSchema = z.object({
+  damageWarningPct: z.number().nonnegative().max(100).optional(),
+  damageRejectionPct: z.number().nonnegative().max(100).optional(),
+  moistureMaxPct: z.number().nonnegative().max(100).optional(),
+  damage_warning_pct: z.number().nonnegative().max(100).optional(),
+  damage_rejection_pct: z.number().nonnegative().max(100).optional(),
+  moisture_max_pct: z.number().nonnegative().max(100).optional(),
+}).refine(data => {
+  const warn = data.damageWarningPct ?? data.damage_warning_pct;
+  const reject = data.damageRejectionPct ?? data.damage_rejection_pct;
+  if (warn !== undefined && reject !== undefined) {
+    return warn <= reject;
+  }
+  return true;
+}, {
+  message: 'Warning threshold cannot exceed rejection threshold',
+  path: ['damageWarningPct'],
+});
+
+/** GET /api/v1/yarn/inspection/config — Get admin-configurable inspection thresholds */
+router.get('/inspection/config', async (_req, res, next) => {
+  try {
+    const keys = ['yarn_qc_damage_warning_pct', 'yarn_qc_damage_rejection_pct', 'yarn_qc_moisture_max_pct'];
+    const rows = await db.select().from(appConfig).where(inArray(appConfig.key, keys));
+    const configMap = new Map(rows.map(r => [r.key, r.value]));
+
+    const damageWarningPct = Number(configMap.get('yarn_qc_damage_warning_pct') ?? '30');
+    const damageRejectionPct = Number(configMap.get('yarn_qc_damage_rejection_pct') ?? '40');
+    const moistureMaxPct = Number(configMap.get('yarn_qc_moisture_max_pct') ?? '8.5');
+
+    ok(res, {
+      damageWarningPct,
+      damageRejectionPct,
+      moistureMaxPct,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** PUT /api/v1/yarn/inspection/config — Update inspection thresholds (admin only) */
+router.put('/inspection/config', authorize('admin'), validate(updateInspectionConfigSchema), async (req, res, next) => {
+  try {
+    const body = req.body;
+    const warn = body.damageWarningPct ?? body.damage_warning_pct;
+    const reject = body.damageRejectionPct ?? body.damage_rejection_pct;
+    const moisture = body.moistureMaxPct ?? body.moisture_max_pct;
+
+    const entries: { key: string; value: string }[] = [];
+    if (warn !== undefined) entries.push({ key: 'yarn_qc_damage_warning_pct', value: String(warn) });
+    if (reject !== undefined) entries.push({ key: 'yarn_qc_damage_rejection_pct', value: String(reject) });
+    if (moisture !== undefined) entries.push({ key: 'yarn_qc_moisture_max_pct', value: String(moisture) });
+
+    for (const entry of entries) {
+      await db
+        .insert(appConfig)
+        .values(entry)
+        .onConflictDoUpdate({
+          target: appConfig.key,
+          set: { value: entry.value },
+        });
+    }
+
+    const keys = ['yarn_qc_damage_warning_pct', 'yarn_qc_damage_rejection_pct', 'yarn_qc_moisture_max_pct'];
+    const rows = await db.select().from(appConfig).where(inArray(appConfig.key, keys));
+    const configMap = new Map(rows.map(r => [r.key, r.value]));
+
+    ok(res, {
+      damageWarningPct: Number(configMap.get('yarn_qc_damage_warning_pct') ?? '30'),
+      damageRejectionPct: Number(configMap.get('yarn_qc_damage_rejection_pct') ?? '40'),
+      moistureMaxPct: Number(configMap.get('yarn_qc_moisture_max_pct') ?? '8.5'),
     });
   } catch (err) {
     next(err);

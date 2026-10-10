@@ -34,6 +34,9 @@ async function seed() {
   await db.insert(appConfig).values([
     { key: 'machine_daily_target_metres', value: '500' },
     { key: 'monthly_wages_inr', value: '385000' },
+    { key: 'yarn_qc_damage_warning_pct', value: '30' },
+    { key: 'yarn_qc_damage_rejection_pct', value: '40' },
+    { key: 'yarn_qc_moisture_max_pct', value: '8.5' },
   ]).onConflictDoNothing();
 
   // ── Default users for all roles ──────────────────────────────────────────

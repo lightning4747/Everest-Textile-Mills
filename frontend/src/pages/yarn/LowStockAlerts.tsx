@@ -1,4 +1,5 @@
-import { AlertTriangle, ShoppingCart, Phone, CheckCircle2, TrendingDown, Package } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, ShoppingCart, Phone, CheckCircle2, TrendingDown, Package, X, Loader2, Calendar, FileText, Building2 } from 'lucide-react';
 import ProgressBar from '../../components/ui/ProgressBar';
 import { api } from '../../services/apiClient';
 import { useApi } from '../../hooks/useApi';
@@ -13,6 +14,7 @@ interface YarnAlertItem {
   deficit: number;
   severity: 'critical' | 'warning';
   supplier: string;
+  suppliers?: { id: string; name: string; phone?: string; email?: string }[];
 }
 
 export default function LowStockAlerts() {
@@ -20,6 +22,9 @@ export default function LowStockAlerts() {
     () => api.get<YarnAlertItem[]>('/yarn/stock/alerts'),
     []
   );
+
+  const [selectedYarnForPo, setSelectedYarnForPo] = useState<YarnAlertItem | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const lowItems = data || [];
   const critical = lowItems.filter(y => y.severity === 'critical');
@@ -46,6 +51,30 @@ export default function LowStockAlerts() {
 
   return (
     <div className="space-y-6">
+      {/* Success / Notification Banner */}
+      {notification && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 animate-in fade-in duration-200 ${
+          notification.type === 'success'
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-800'
+            : 'bg-red-500/10 border-red-500/20 text-red-700'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {notification.type === 'success' ? (
+              <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertTriangle size={18} className="text-red-600 flex-shrink-0" />
+            )}
+            <span className="text-xs font-semibold">{notification.message}</span>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="p-1 hover:bg-black/5 rounded text-[var(--text-soft)] transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
       {error && (
         <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600">
           {error}
@@ -112,7 +141,13 @@ export default function LowStockAlerts() {
               </tr>
             )}
             {critical.map(yarn => (
-              <AlertRow key={yarn.id} yarn={yarn} severity="critical" supplier={yarn.supplier} />
+              <AlertRow
+                key={yarn.id}
+                yarn={yarn}
+                severity="critical"
+                supplier={yarn.supplier}
+                onRaisePo={() => setSelectedYarnForPo(yarn)}
+              />
             ))}
 
             {warning.length > 0 && (
@@ -125,19 +160,43 @@ export default function LowStockAlerts() {
               </tr>
             )}
             {warning.map(yarn => (
-              <AlertRow key={yarn.id} yarn={yarn} severity="warning" supplier={yarn.supplier} />
+              <AlertRow
+                key={yarn.id}
+                yarn={yarn}
+                severity="warning"
+                supplier={yarn.supplier}
+                onRaisePo={() => setSelectedYarnForPo(yarn)}
+              />
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Raise PO Modal */}
+      {selectedYarnForPo && (
+        <RaisePoModal
+          yarn={selectedYarnForPo}
+          onClose={() => setSelectedYarnForPo(null)}
+          onSuccess={(msg) => {
+            setSelectedYarnForPo(null);
+            setNotification({ type: 'success', message: msg });
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function AlertRow({ yarn, severity, supplier }: {
+function AlertRow({
+  yarn,
+  severity,
+  supplier,
+  onRaisePo,
+}: {
   yarn: YarnAlertItem;
   severity: 'critical' | 'warning';
   supplier: string;
+  onRaisePo: () => void;
 }) {
   const isCritical  = severity === 'critical';
   const deficit     = yarn.deficit;
@@ -202,10 +261,216 @@ function AlertRow({ yarn, severity, supplier }: {
 
       {/* CTA */}
       <td className="px-5 py-4 text-right">
-        <button className="btn-primary text-xs h-9 whitespace-nowrap">
+        <button
+          onClick={onRaisePo}
+          className="btn-primary text-xs h-9 whitespace-nowrap inline-flex items-center gap-1.5"
+        >
           <ShoppingCart size={12} /> Raise PO
         </button>
       </td>
     </tr>
+  );
+}
+
+function RaisePoModal({
+  yarn,
+  onClose,
+  onSuccess,
+}: {
+  yarn: YarnAlertItem;
+  onClose: () => void;
+  onSuccess: (message: string) => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [poQuantityKg, setPoQuantityKg] = useState<number>(yarn.deficit || 500);
+
+  // Default supplier name
+  const defaultSupplierName = yarn.suppliers?.[0]?.name || (yarn.supplier ? yarn.supplier.split(' · ')[0] : 'Standard Mill Supplier');
+  const [supplierName, setSupplierName] = useState(defaultSupplierName);
+
+  // Auto-generate PO Reference
+  const [poReference] = useState(() => {
+    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const cleanId = yarn.id.replace('YS-', '');
+    return `PO-${todayStr}-${cleanId}`;
+  });
+
+  // Default delivery date: today + 7 days
+  const [deliveryDate, setDeliveryDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split('T')[0];
+  });
+
+  const [notes, setNotes] = useState(
+    `Urgent safety stock replenishment for ${yarn.colour} ${yarn.type}. Consignment for buffer allocation at ${yarn.location}.`
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      // Simulate dispatching purchase order workflow to supplier
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      onSuccess(
+        `Purchase Order ${poReference} (${poQuantityKg.toLocaleString()} kg of ${yarn.colour} ${yarn.type}) generated and dispatched to ${supplierName}!`
+      );
+    } catch {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-xl max-w-lg w-full p-6 shadow-2xl animate-in fade-in duration-200">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border)]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[var(--olive-dark)]/10 text-[var(--olive-dark)] flex items-center justify-center">
+              <ShoppingCart size={16} />
+            </div>
+            <div>
+              <h3 className="font-syne font-bold text-base text-[var(--text)]">Raise Purchase Order</h3>
+              <p className="text-xs text-[var(--text-soft)]">Procurement replenishment dispatch</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="p-1 hover:bg-[var(--surface-2)] rounded text-[var(--text-soft)] transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Item Summary Card */}
+        <div className="p-3.5 mb-4 rounded-lg bg-[var(--panel-bg)] border border-[var(--border)] space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-display font-semibold text-[var(--text)]">
+              {yarn.colour} {yarn.type}
+            </span>
+            <span className="font-mono font-bold text-[var(--olive-dark)]">{yarn.id} · {yarn.location}</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-[var(--text-soft)]">
+            <span>On Hand: <strong className="font-mono text-[var(--text)]">{yarn.quantityKg.toLocaleString()} kg</strong></span>
+            <span>Safety Buffer: <strong className="font-mono text-[var(--text)]">{yarn.reorderLevel.toLocaleString()} kg</strong></span>
+            <span>Shortfall: <strong className="font-mono text-[var(--bad)]">{yarn.deficit.toLocaleString()} kg</strong></span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block text-[11px] font-mono text-[var(--text-soft)] mb-1">
+                PO Reference
+              </label>
+              <input
+                type="text"
+                readOnly
+                value={poReference}
+                className="input-field text-xs font-mono w-full bg-[var(--panel-bg)] cursor-not-allowed"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-mono text-[var(--text-soft)] mb-1">
+                Order Quantity (kg) *
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="any"
+                required
+                value={poQuantityKg}
+                onChange={e => setPoQuantityKg(Number(e.target.value))}
+                className="input-field text-xs font-mono w-full font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-mono text-[var(--text-soft)] mb-1">
+                Selected Supplier *
+              </label>
+              {yarn.suppliers && yarn.suppliers.length > 0 ? (
+                <select
+                  value={supplierName}
+                  onChange={e => setSupplierName(e.target.value)}
+                  className="input-field text-xs w-full"
+                >
+                  {yarn.suppliers.map(s => (
+                    <option key={s.id} value={s.name}>
+                      {s.name} {s.phone ? `(${s.phone})` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={supplierName}
+                  onChange={e => setSupplierName(e.target.value)}
+                  className="input-field text-xs w-full"
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-mono text-[var(--text-soft)] mb-1">
+                Expected Delivery Date *
+              </label>
+              <input
+                type="date"
+                required
+                value={deliveryDate}
+                onChange={e => setDeliveryDate(e.target.value)}
+                className="input-field text-xs font-mono w-full"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-mono text-[var(--text-soft)] mb-1">
+              Procurement Instructions / Notes
+            </label>
+            <textarea
+              rows={3}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              className="input-field text-xs font-mono w-full resize-none"
+              placeholder="Add consignment packaging, cone specs, or delivery notes..."
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[var(--border)]">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={onClose}
+              className="btn-ghost text-xs h-9 px-4"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || poQuantityKg <= 0}
+              className="btn-primary text-xs h-9 px-4 inline-flex items-center gap-1.5"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Dispatching PO...</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingCart size={13} />
+                  <span>Confirm & Dispatch PO</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

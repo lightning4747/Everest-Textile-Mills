@@ -245,6 +245,87 @@ describe('Person A: Domain Suite', () => {
       const qtyAfter = Number(afterStock.quantityKg);
       expect(qtyAfter).toBe(qtyBefore + 350);
     });
+
+    it('POST /api/v1/yarn/receipts auto-creates a new stock bin when no matching bin exists', async () => {
+      const res = await fetch(`${baseUrl}/yarn/receipts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${operatorToken}`,
+        },
+        body: JSON.stringify({
+          date: '2026-10-10',
+          supplierName: 'Silk Route Traders',
+          yarnType: 'Silk',
+          colour: 'Royal Blue',
+          quantityKg: 200,
+          receivedBy: 'Integration Test Clerk',
+          invoiceNo: 'TEST-NEW-BIN-01',
+        }),
+      });
+
+      expect(res.status).toBe(201);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.yarnStockId).toMatch(/^YS-\d+$/);
+
+      // Verify the new stock row exists in DB
+      const [newStock] = await db.select().from(yarnStock).where(eq(yarnStock.id, body.data.yarnStockId)).limit(1);
+      expect(newStock).toBeDefined();
+      expect(newStock.type).toBe('Silk');
+      expect(newStock.colour).toBe('Royal Blue');
+      expect(Number(newStock.quantityKg)).toBe(200);
+      expect(newStock.location).toBe('Staging Bay');
+    });
+
+    it('GET /api/v1/yarn/inspection/config returns thresholds', async () => {
+      const res = await fetch(`${baseUrl}/yarn/inspection/config`, {
+        headers: { Authorization: `Bearer ${operatorToken}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toHaveProperty('damageWarningPct');
+      expect(body.data).toHaveProperty('damageRejectionPct');
+      expect(body.data).toHaveProperty('moistureMaxPct');
+    });
+
+    it('PUT /api/v1/yarn/inspection/config updates tolerances as admin and enforces authorization', async () => {
+      // Forbidden for operator
+      const forbiddenRes = await fetch(`${baseUrl}/yarn/inspection/config`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${operatorToken}`,
+        },
+        body: JSON.stringify({
+          damageWarningPct: 25,
+          damageRejectionPct: 35,
+          moistureMaxPct: 9.0,
+        }),
+      });
+      expect(forbiddenRes.status).toBe(403);
+
+      // Allowed for admin
+      const okRes = await fetch(`${baseUrl}/yarn/inspection/config`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          damageWarningPct: 25,
+          damageRejectionPct: 35,
+          moistureMaxPct: 9.0,
+        }),
+      });
+      expect(okRes.status).toBe(200);
+      const okBody = await okRes.json();
+      expect(okBody.success).toBe(true);
+      expect(okBody.data.damageWarningPct).toBe(25);
+      expect(okBody.data.damageRejectionPct).toBe(35);
+      expect(okBody.data.moistureMaxPct).toBe(9.0);
+    });
   });
 
   // ─── 4. Machines & Shop Floor API ─────────────────────────────────────────
