@@ -8,6 +8,7 @@ import ProgressBar from '../../components/ui/ProgressBar';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import DetailModal from '../../components/ui/DetailModal';
 
 const INSPECTOR_NAME = 'Ramesh K.';
 
@@ -144,6 +145,7 @@ export default function YarnInspection() {
   const [activeTab, setActiveTab] = useState<'all' | YarnInspectionVerdict>('all');
   const [rejectModal, setRejectModal] = useState<InspectionItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [detailRecord, setDetailRecord] = useState<InspectionItem | null>(null);
 
   const displayRecords = records.length > 0 ? records : initialItems;
 
@@ -301,7 +303,7 @@ export default function YarnInspection() {
               : 'border-l-[var(--cyprus)]';
 
             return (
-              <div key={record.id} className={`card p-4 border-l-4 ${accentBorder}`}>
+              <div key={record.id} className={`card p-4 border-l-4 ${accentBorder} cursor-pointer`} onClick={() => setDetailRecord(record)}>
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -377,7 +379,7 @@ export default function YarnInspection() {
                   </div>
 
                   {record.verdict === 'pending' && (
-                    <div className="flex flex-col gap-2 flex-shrink-0 self-start">
+                    <div className="flex flex-col gap-2 flex-shrink-0 self-start" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => handleAccept(record.id)}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--ok)] text-white hover:opacity-90 transition-opacity"
@@ -395,7 +397,7 @@ export default function YarnInspection() {
 
                   {record.verdict !== 'pending' && (
                     <button
-                      onClick={() => setRecords(prev => prev.map(r => r.id === record.id ? { ...r, verdict: 'pending' } : r))}
+                      onClick={e => { e.stopPropagation(); setRecords(prev => prev.map(r => r.id === record.id ? { ...r, verdict: 'pending' } : r)); }}
                       className="flex-shrink-0 self-start inline-flex items-center gap-1 text-[10px] font-mono text-[var(--text-soft)] hover:text-[var(--text)] transition-colors"
                       title="Undo decision"
                     >
@@ -462,6 +464,47 @@ export default function YarnInspection() {
           onSave={handleConfigSaved}
         />
       )}
+
+      {/* Inspection Detail Modal */}
+      <DetailModal
+        open={!!detailRecord}
+        onClose={() => setDetailRecord(null)}
+        title={detailRecord ? `${detailRecord.colour} ${detailRecord.yarnType}` : ''}
+        subtitle={detailRecord ? `${detailRecord.receiptId} · ${detailRecord.batchLot}` : ''}
+        badge={detailRecord ? <VerdictBadge verdict={detailRecord.verdict} /> : undefined}
+        sections={detailRecord ? [
+          {
+            title: 'Batch Identity',
+            fields: [
+              { label: 'Receipt ID',        value: detailRecord.receiptId,              mono: true, accent: 'text-[var(--olive-dark)]' },
+              { label: 'Batch Lot',         value: detailRecord.batchLot,               mono: true },
+              { label: 'Supplier',          value: detailRecord.supplier },
+              { label: 'Inspection Date',   value: detailRecord.date,                   mono: true },
+            ],
+          },
+          {
+            title: 'Yarn Specification',
+            fields: [
+              { label: 'Yarn Type',         value: detailRecord.yarnType },
+              { label: 'Colour',            value: detailRecord.colour },
+              { label: 'Batch Qty',         value: `${detailRecord.quantityKg.toLocaleString()} kg`, mono: true },
+              { label: 'Sampled',           value: `${detailRecord.sampledKg} kg`,      mono: true },
+              { label: 'Yarn Count',        value: `${detailRecord.countNe} Ne`,         mono: true },
+              { label: 'Tensile Strength',  value: `${detailRecord.tensileStrength} N/tex`, mono: true },
+            ],
+          },
+          {
+            title: 'Quality Measurements',
+            fields: [
+              { label: 'Damage %',          value: `${detailRecord.damagePct}%`,         mono: true, accent: detailRecord.damagePct >= config.damageRejectionPct ? 'text-[var(--bad)] font-bold' : detailRecord.damagePct >= config.damageWarningPct ? 'text-[var(--warn)] font-bold' : 'text-[var(--ok)]' },
+              { label: 'Moisture %',        value: `${detailRecord.moisture}%`,           mono: true, accent: detailRecord.moisture > config.moistureMaxPct ? 'text-[var(--bad)] font-bold' : 'text-[var(--text)]' },
+              { label: 'Inspector',         value: detailRecord.inspector },
+              { label: 'Inspected At',      value: detailRecord.inspectedAt,              mono: true },
+              ...(detailRecord.rejectionReason ? [{ label: 'Rejection Reason', value: detailRecord.rejectionReason, accent: 'text-[var(--bad)]', span: true as const }] : []),
+            ],
+          },
+        ] : []}
+      />
     </div>
   );
 }

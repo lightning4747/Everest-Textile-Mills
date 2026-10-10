@@ -7,12 +7,14 @@ import Pagination from '../../components/ui/Pagination';
 import { api } from '../../services/apiClient';
 import { useApi } from '../../hooks/useApi';
 import type { YarnStock } from '../../types';
+import DetailModal from '../../components/ui/DetailModal';
 
 export default function RawMaterialStock() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const debouncedSearch = useDebounce(search, 300);
+  const [selectedStock, setSelectedStock] = useState<YarnStock | null>(null);
 
   const { data: stockItems, loading, error } = useApi<YarnStock[]>(
     () => api.get<YarnStock[]>('/yarn/stock'),
@@ -150,7 +152,7 @@ export default function RawMaterialStock() {
                   const isLow      = yarn.quantityKg <= yarn.reorderLevel;
                   const isCritical = yarn.quantityKg <= yarn.reorderLevel * 0.4;
                   return (
-                    <tr key={yarn.id} className="table-row-hover">
+                    <tr key={yarn.id} className="table-row-hover cursor-pointer" onClick={() => setSelectedStock(yarn)}>
                       <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{yarn.id}</td>
                       <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{yarn.type}</td>
                       <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{yarn.colour}</td>
@@ -196,6 +198,40 @@ export default function RawMaterialStock() {
           />
         </div>
       </div>
+
+      {/* Stock Detail Modal */}
+      <DetailModal
+        open={!!selectedStock}
+        onClose={() => setSelectedStock(null)}
+        title={selectedStock ? `${selectedStock.type} — ${selectedStock.colour}` : ''}
+        subtitle={selectedStock?.id}
+        sections={selectedStock ? (() => {
+          const isCritical = selectedStock.quantityKg <= selectedStock.reorderLevel * 0.4;
+          const isLow = selectedStock.quantityKg <= selectedStock.reorderLevel;
+          const pct = Math.min(100, Math.round((selectedStock.quantityKg / (selectedStock.reorderLevel * 4)) * 100));
+          return [
+            {
+              title: 'Stock Identity',
+              fields: [
+                { label: 'Stock ID',        value: selectedStock.id,                    mono: true, accent: 'text-[var(--olive-dark)]' },
+                { label: 'Fiber Type',      value: selectedStock.type },
+                { label: 'Colour / Shade',  value: selectedStock.colour },
+                { label: 'Warehouse Bin',   value: selectedStock.location,              mono: true },
+              ],
+            },
+            {
+              title: 'Inventory Levels',
+              fields: [
+                { label: 'Current Qty',     value: `${selectedStock.quantityKg.toLocaleString()} kg`, mono: true, accent: isCritical ? 'text-[var(--bad)]' : isLow ? 'text-[var(--warn)]' : 'text-[var(--ok)]' },
+                { label: 'Reorder Level',   value: `${selectedStock.reorderLevel.toLocaleString()} kg`, mono: true },
+                { label: 'Stock Fill',      value: `${pct}% of capacity`,              mono: true, accent: isCritical ? 'text-[var(--bad)]' : isLow ? 'text-[var(--warn)]' : 'text-[var(--ok)]' },
+                { label: 'Status',          value: isCritical ? 'Critical Deficit' : isLow ? 'Low Stock Alert' : 'Healthy Stock', accent: isCritical ? 'text-[var(--bad)] font-bold' : isLow ? 'text-[var(--warn)] font-bold' : 'text-[var(--ok)]' },
+                { label: 'Last Verified',   value: selectedStock.lastUpdated,           mono: true },
+              ],
+            },
+          ];
+        })() : []}
+      />
     </div>
   );
 }
