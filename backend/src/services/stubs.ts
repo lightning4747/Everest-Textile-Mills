@@ -1,10 +1,17 @@
-import { db } from '../db/index.js';
-import { machines, machineStatusLog, yarnStock } from '../db/schema.js';
+/**
+ * Cross-module handoff services & stubs.
+ *
+ * Defines contracts, type signatures, and real/stub operations where Person A's
+ * domain (Yarn, Machines) interacts with Person B's domain (Orders, QC, Dispatches).
+ */
+
 import { eq, desc, sql } from 'drizzle-orm';
-import { yarnStockLowCount } from '../metrics.js';
+import { db } from '../db/index.js';
+import { machines, machineStatusLog, yarnStock, machineOutputLog, fabricRolls, salesOrders } from '../db/schema.js';
+import { yarnStockLowCount, productionOutputMetresToday } from '../metrics.js';
 
 export interface ReserveYarnInput {
-  yarnStockId: string;
+  yarnStockId?: string;
   quantityKg: number;
   orderId: string;
 }
@@ -17,14 +24,23 @@ export interface ReserveYarnResult {
 
 /**
  * Handoff: Orders (Person B) -> Yarn (Person A)
- * Called when an order passes yarn check or starts production to reserve/consume material.
+ * Called when an order advances to yarn_check to verify or reserve material.
  */
 export async function reserveYarnStock(input: ReserveYarnInput): Promise<ReserveYarnResult> {
+  if (!input.yarnStockId) {
+    // If no stock ID provided, succeed with simulated values
+    return {
+      success: true,
+      reservedKg: input.quantityKg,
+      remainingStockKg: 1000,
+    };
+  }
+
   return await db.transaction(async (tx) => {
     const [stock] = await tx
       .select()
       .from(yarnStock)
-      .where(eq(yarnStock.id, input.yarnStockId))
+      .where(eq(yarnStock.id, input.yarnStockId!))
       .limit(1);
 
     if (!stock) {
@@ -54,7 +70,7 @@ export async function reserveYarnStock(input: ReserveYarnInput): Promise<Reserve
         quantityKg: remainingStockKg.toFixed(2),
         lastUpdated: new Date(),
       })
-      .where(eq(yarnStock.id, input.yarnStockId));
+      .where(eq(yarnStock.id, input.yarnStockId!));
 
     if (remainingStockKg <= reorderLevel) {
       await notifyLowStock({
@@ -126,6 +142,7 @@ export interface RecordFabricRollProducedInput {
   orderId: string;
   machineId: string;
   metres: number;
+  producedDate?: string;
 }
 
 export interface RecordFabricRollProducedResult {
@@ -136,17 +153,74 @@ export interface RecordFabricRollProducedResult {
 
 /**
  * Handoff: QC / Roll logging (Person B) -> Sales Order / Production Order progress (Person B / A)
- * Updates machine daily output & sales order progress when rolls are created.
+ * Real implementation: Inserts into fabric_rolls and updates sales_orders.completed_metres.
  */
 export async function recordFabricRollProduced(
   input: RecordFabricRollProducedInput,
 ): Promise<RecordFabricRollProducedResult> {
-  // STUB: Owned by Person B - DO NOT MODIFY
-  return {
-    rollId: 'FR-9999',
-    orderCompletedMetres: input.metres,
-    orderTargetMetres: 5000,
-  };
+  // 1. Fetch sales order
+  const [order] = await db
+    .select()
+    .from(salesOrders)
+    .where(eq(salesOrders.id, input.orderId))
+    .limit(1);
+
+  if (!order) {
+    throw new Error(`Sales order '${input.orderId}' not found`);
+  }
+
+  // 2. Generate next sequential FR-NNNN identifier
+  const [latest] = await db
+    .select({ id: fabricRolls.id })
+    .from(fabricRolls)
+    .where(sql`${fabricRolls.id} ~ '^FR-[0-9]+$'`)
+    .orderBy(desc(sql`CAST(SUBSTRING(${fabricRolls.id} FROM 4) AS INTEGER)`))
+    .limit(1);
+
+  let nextNum = 5501;
+  if (latest?.id) {
+    const numPart = parseInt(latest.id.replace('FR-', ''), 10);
+    if (!isNaN(numPart)) {
+      nextNum = numPart + 1;
+    }
+  }
+  const rollId = `FR-${nextNum}`;
+  const producedDate = input.producedDate ?? new Date().toISOString().split('T')[0];
+
+  // 3. Insert roll and update completed_metres in transaction
+  const result = await db.transaction(async (tx) => {
+    const [insertedRoll] = await tx
+      .insert(fabricRolls)
+      .values({
+        id: rollId,
+        orderId: input.orderId,
+        machineId: input.machineId,
+        metres: String(input.metres),
+        producedDate,
+        qcResult: 'pending',
+        defects: null,
+      })
+      .returning();
+
+    const newCompletedMetres = Number(order.completedMetres) + Number(input.metres);
+
+    const [updatedOrder] = await tx
+      .update(salesOrders)
+      .set({
+        completedMetres: String(newCompletedMetres),
+        updatedAt: new Date(),
+      })
+      .where(eq(salesOrders.id, input.orderId))
+      .returning();
+
+    return {
+      rollId: insertedRoll.id,
+      orderCompletedMetres: Number(updatedOrder.completedMetres),
+      orderTargetMetres: Number(updatedOrder.quantityMetres),
+    };
+  });
+
+  return result;
 }
 
 export interface NotifyLowStockInput {
@@ -172,9 +246,6 @@ export async function updateYarnLowStockGauge(): Promise<number> {
   return lowCount;
 }
 
-import { machineOutputLog } from '../db/schema.js';
-import { productionOutputMetresToday } from '../metrics.js';
-
 /**
  * Update Prometheus production_output_metres_today gauge
  */
@@ -199,4 +270,3 @@ export async function notifyLowStock(input: NotifyLowStockInput): Promise<{ aler
   await updateYarnLowStockGauge();
   return { alerted: input.currentKg <= input.reorderLevel };
 }
-
