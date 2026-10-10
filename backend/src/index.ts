@@ -23,8 +23,26 @@ import forecastRoutes from './routes/forecast.js';
 const app = express();
 
 // ── Security & Utility Middleware ──────────────────────────────────────────
-app.use(helmet());
-app.use(cors({ origin: config.CORS_ORIGIN, credentials: true }));
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        config.NODE_ENV === 'development' ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1') ||
+        origin === config.CORS_ORIGIN
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(httpLogger);
