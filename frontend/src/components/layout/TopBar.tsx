@@ -19,6 +19,7 @@ const pageTitles: Record<string, string> = {
   '/sales/status':          'Live Order Status Pipeline',
   '/sales/finished':        'Finished Goods Inventory',
   '/sales/dispatches':      'Dispatch Logistics',
+  '/sales/delivery':        'Delivery Status',
   '/reports/costing':       'Order Costing & Margins',
   '/reports/machines':      'Machine Performance & OEE',
   '/reports/monthly':       'Monthly Production & P&L Summary',

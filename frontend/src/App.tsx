@@ -19,6 +19,7 @@ const SalesOrders      = React.lazy(() => import('./pages/sales/SalesOrders'));
 const OrderStatus      = React.lazy(() => import('./pages/sales/OrderStatus'));
 const FinishedGoods    = React.lazy(() => import('./pages/sales/FinishedGoods'));
 const Dispatches       = React.lazy(() => import('./pages/sales/Dispatches'));
+const DeliveryStatus   = React.lazy(() => import('./pages/sales/DeliveryStatus'));
 const OrderCosting     = React.lazy(() => import('./pages/reports/OrderCosting'));
 const MachinePerformance = React.lazy(() => import('./pages/reports/MachinePerformance'));
 const MonthlySummary   = React.lazy(() => import('./pages/reports/MonthlySummary'));
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="sales/status"     element={<OrderStatus />} />
             <Route path="sales/finished"   element={<FinishedGoods />} />
             <Route path="sales/dispatches" element={<Dispatches />} />
+            <Route path="sales/delivery"   element={<DeliveryStatus />} />
 
             {/* Reports */}
             <Route path="reports/costing"  element={<OrderCosting />} />

@@ -176,7 +176,7 @@ export default function MonthlySummary() {
             {[
               { label: 'Raw Fiber / Yarn',     amount: totalMatCost,                              color: 'bg-[var(--olive-dark)]', pct: 52 },
               { label: 'Worker & Staff Wages', amount: totalWages,                                color: 'bg-[var(--warn)]',       pct: 28 },
-              { label: 'Power, Steam & Opex',  amount: latest.cost - totalMatCost - totalWages,   color: 'bg-[var(--panel-border)]', pct: 20 },
+              { label: 'Power, Steam & Opex',  amount: Math.abs(latest.cost - totalMatCost - totalWages),   color: 'bg-[var(--panel-border)]', pct: 20 },
             ].map(item => (
               <div key={item.label}>
                 <div className="flex justify-between text-xs mb-1.5 font-medium">
@@ -198,7 +198,7 @@ export default function MonthlySummary() {
               { label: 'Gross Invoiced Revenue',   value: latest.revenue,                              accent: 'text-[var(--olive-dark)]', border: '' },
               { label: 'Less: Material Consumed',  value: -totalMatCost,                               accent: 'text-[var(--bad)]',        border: '' },
               { label: 'Less: Plant Wages',        value: -totalWages,                                 accent: 'text-[var(--bad)]',        border: '' },
-              { label: 'Less: Machine Opex',       value: -(latest.cost - totalMatCost - totalWages),  accent: 'text-[var(--bad)]',        border: '' },
+              { label: 'Less: Machine Opex',       value: -(Math.abs(latest.cost - totalMatCost - totalWages)),  accent: 'text-[var(--bad)]',        border: '' },
               { label: 'Net Mill Operating Profit',value: latest.revenue - latest.cost,               accent: 'text-[var(--ok)] font-bold text-sm', border: 'border-t border-[var(--border)] pt-2.5 mt-2.5' },
             ].map(row => (
               <div key={row.label} className={`flex justify-between text-xs ${row.border}`}>

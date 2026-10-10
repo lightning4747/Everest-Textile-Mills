@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ShieldCheck, Plus, Search, SearchX } from 'lucide-react';
+import { ShieldCheck, Search, SearchX } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { fabricRolls, salesOrders, machines } from '../../data/mockData';
 import type { QCResult } from '../../types';
@@ -18,6 +18,7 @@ const filters: { label: string; value: QCResult | 'all' }[] = [
 export default function QualityChecks() {
   const [filter, setFilter]       = useState<QCResult | 'all'>('all');
   const [rollSearch, setRollSearch] = useState('');
+  const [machineType, setMachineType] = useState('all');
   const debouncedRollSearch       = useDebounce(rollSearch, 300);
 
   const counts = {
@@ -30,17 +31,23 @@ export default function QualityChecks() {
 
   const filtered = useMemo(() => {
     const base = filter === 'all' ? fabricRolls : fabricRolls.filter(r => r.qcResult === filter);
-    return base.filter(r =>
-      r.id.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
-      r.orderId.toLowerCase().includes(debouncedRollSearch.toLowerCase())
-    );
-  }, [filter, debouncedRollSearch]);
+    return base.filter(r => {
+      const textMatch =
+        r.id.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
+        r.orderId.toLowerCase().includes(debouncedRollSearch.toLowerCase());
+      const typeMatch =
+        machineType === 'all' ||
+        machines.find(m => m.id === r.machineId)?.type === machineType;
+      return textMatch && typeMatch;
+    });
+  }, [filter, debouncedRollSearch, machineType]);
 
   const { paginatedData, ...paginationProps } = usePagination(filtered, 20);
 
   const handleReset = () => {
     setFilter('all');
     setRollSearch('');
+    setMachineType('all');
   };
 
   return (
@@ -75,9 +82,17 @@ export default function QualityChecks() {
               className="input-field h-10 pl-9 text-xs font-mono max-w-xs"
             />
           </div>
-          <button className="btn-primary text-xs h-10">
-            <Plus size={14} /> Log Quality Inspection
-          </button>
+          <select
+            value={machineType}
+            onChange={e => setMachineType(e.target.value)}
+            className="input-field h-10 text-xs font-mono w-36"
+            aria-label="Filter by machine type"
+          >
+            <option value="all">All Machines</option>
+            <option value="spinning">Spinning</option>
+            <option value="weaving">Weaving</option>
+            <option value="dyeing">Dyeing</option>
+          </select>
         </div>
       </div>
 

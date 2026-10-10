@@ -9,6 +9,7 @@ import Pagination from '../../components/ui/Pagination';
 
 export default function ProductionOrders() {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const debouncedSearch = useDebounce(search, 300);
 
   const activeOrders = salesOrders.filter(o =>
@@ -19,10 +20,11 @@ export default function ProductionOrders() {
     () =>
       activeOrders.filter(
         o =>
-          o.id.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-          o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase()),
+          (o.id.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase())) &&
+          (statusFilter === 'all' || o.status === statusFilter),
       ),
-    [activeOrders, debouncedSearch],
+    [activeOrders, debouncedSearch, statusFilter],
   );
 
   const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(filteredOrders, 20);
@@ -42,6 +44,17 @@ export default function ProductionOrders() {
             aria-label="Search production orders"
           />
         </div>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="input-field h-10 text-xs font-mono w-36"
+          aria-label="Filter by stage"
+        >
+          <option value="all">All Stages</option>
+          <option value="spinning">Spinning</option>
+          <option value="weaving">Weaving</option>
+          <option value="dyeing">Dyeing</option>
+        </select>
         <button className="btn-primary text-xs h-10 flex-shrink-0">
           <Plus size={14} /> New Production Order
         </button>
@@ -52,7 +65,7 @@ export default function ProductionOrders() {
           <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
             <SearchX size={36} className="text-[var(--olive-grey)]" />
             <p className="text-sm font-semibold text-[var(--text)]">No production orders match the current filters</p>
-            <button className="btn-secondary text-xs" onClick={() => setSearch('')}>Reset Filters</button>
+            <button className="btn-secondary text-xs" onClick={() => { setSearch(''); setStatusFilter('all'); }}>Reset Filters</button>
           </div>
         ) : (
           <>

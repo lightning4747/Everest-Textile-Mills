@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert } from 'lucide-react';
+import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, FlaskConical } from 'lucide-react';
 import { fabricRolls as initialRolls, salesOrders, machines } from '../../data/mockData';
 import type { QCResult } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
@@ -28,6 +28,16 @@ export default function PendingInspection() {
             Examine rolls on grading table for yarn irregularities, warp/weft defects, and dye consistency.
           </p>
         </div>
+      </div>
+
+      {/* Threshold Info Banner */}
+      <div className="card p-3 flex items-center gap-3 border-l-4 border-l-[var(--warn)]">
+        <FlaskConical size={15} className="text-[var(--warn)] flex-shrink-0" />
+        <p className="text-xs text-[var(--text-soft)]">
+          Inspection criteria: Yarn irregularity &lt; 5%, Warp/weft defect density &lt; 2 per metre,
+          Dye consistency ΔE &lt; 1.5. Rolls failing any criterion are flagged for rework or rejection.
+          <strong className="text-[var(--text)]"> Threshold: pass ≥ 60%, rework 40–59%, reject &lt; 40% quality score.</strong>
+        </p>
       </div>
 
       {/* Rolls Queue */}
@@ -74,6 +84,13 @@ export default function PendingInspection() {
                     <div className="text-right text-xs text-[var(--text-soft)] font-mono">
                       <span>Produced: {roll.producedDate}</span>
                     </div>
+                  </div>
+
+                  {/* Pending Reason */}
+                  <div className="mt-2 p-3 rounded-lg bg-[var(--panel-bg)] text-xs text-[var(--text-soft)]">
+                    <p className="font-semibold text-[var(--text)] mb-1">Pending reason:</p>
+                    <p>Roll produced on {roll.producedDate}. Awaiting lab grading table inspection for weave density,
+                    colour fastness (ISO 105-C06), and tensile elongation test. No inspector assigned yet.</p>
                   </div>
 
                   {/* Quality Action Buttons */}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, PackageSearch } from 'lucide-react';
+import { Search, PackageSearch } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ProgressBar from '../../components/ui/ProgressBar';
 import { salesOrders } from '../../data/mockData';
@@ -9,14 +9,17 @@ import Pagination from '../../components/ui/Pagination';
 
 export default function SalesOrders() {
   const [search, setSearch]     = useState('');
-  const [showForm, setShowForm] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
   const debouncedSearch         = useDebounce(search, 300);
 
-  const filtered = salesOrders.filter(o =>
-    o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-    o.id.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-    o.fabricType.toLowerCase().includes(debouncedSearch.toLowerCase())
-  );
+  const filtered = salesOrders.filter(o => {
+    const textMatch =
+      o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      o.id.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      o.fabricType.toLowerCase().includes(debouncedSearch.toLowerCase());
+    const statusMatch = statusFilter === 'all' || o.status === statusFilter;
+    return textMatch && statusMatch;
+  });
 
   const { paginatedData, ...paginationProps } = usePagination(filtered, 20);
 
@@ -48,35 +51,22 @@ export default function SalesOrders() {
             className="input-field h-10 pl-9 text-xs font-mono"
           />
         </div>
-        <button className="btn-primary text-xs h-10" onClick={() => setShowForm(!showForm)}>
-          <Plus size={14} /> New Sales Order
-        </button>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="input-field h-10 text-xs font-mono w-44"
+          aria-label="Filter by status"
+        >
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="spinning">Spinning</option>
+          <option value="weaving">Weaving</option>
+          <option value="dyeing">Dyeing</option>
+          <option value="quality_check">Quality Check</option>
+          <option value="ready_to_ship">Ready to Ship</option>
+          <option value="dispatched">Dispatched</option>
+        </select>
       </div>
-
-      {showForm && (
-        <div className="card p-5 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
-          <h3 className="text-sm font-display font-semibold text-[var(--text)] mb-4">Book New Customer Sales Order</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {[
-              { label: 'Buyer Entity', type: 'text', placeholder: 'e.g. Arvind Mills Ltd.' },
-              { label: 'Fabric Quality', type: 'text', placeholder: 'e.g. Cotton 60s Twill' },
-              { label: 'Colourway', type: 'text', placeholder: 'e.g. Vintage Indigo' },
-              { label: 'Quantity (metres)', type: 'number', placeholder: '0' },
-              { label: 'Rate (₹/metre)', type: 'number', placeholder: '0' },
-              { label: 'Target Delivery', type: 'date', placeholder: '' },
-            ].map(f => (
-              <div key={f.label}>
-                <label className="section-title block mb-1.5">{f.label}</label>
-                <input type={f.type} placeholder={f.placeholder} className="input-field text-xs" />
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-3 mt-5">
-            <button className="btn-primary text-xs">Create & Commit Order</button>
-            <button className="btn-secondary text-xs" onClick={() => setShowForm(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
@@ -124,7 +114,7 @@ export default function SalesOrders() {
           <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
             <PackageSearch size={36} className="text-[var(--olive-grey)]" />
             <p className="text-sm font-semibold text-[var(--text)]">No orders match the current filters</p>
-            <button className="btn-secondary text-xs" onClick={() => setSearch('')}>Reset Filters</button>
+            <button className="btn-secondary text-xs" onClick={() => { setSearch(''); setStatusFilter('all'); }}>Reset Filters</button>
           </div>
         ) : (
           <Pagination {...paginationProps} />

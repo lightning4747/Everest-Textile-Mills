@@ -58,6 +58,7 @@ const navItems: NavItem[] = [
       { label: 'Order Status',    path: '/sales/status',     icon: <TrendingUp size={14} /> },
       { label: 'Finished Goods',  path: '/sales/finished',   icon: <Boxes size={14} /> },
       { label: 'Dispatches',      path: '/sales/dispatches', icon: <Truck size={14} /> },
+      { label: 'Delivery Status', path: '/sales/delivery',   icon: <Truck size={14} /> },
     ],
   },
   {
