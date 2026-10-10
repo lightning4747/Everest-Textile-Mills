@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+import { Download, Printer } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { monthlyData, orderCosts } from '../../data/mockData';
+import { exportCsv } from '../../utils/exportCsv';
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; stroke?: string; fill?: string }>; label?: string }) => {
   if (active && payload?.length) {
@@ -34,6 +36,35 @@ export default function MonthlySummary() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between print-hide">
+        <h2 className="font-display text-lg font-semibold text-[var(--text)]">Monthly Production &amp; P&amp;L Summary</h2>
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary h-9 text-xs"
+            onClick={() =>
+              exportCsv(
+                'monthly-summary.csv',
+                ['Month', 'Revenue (₹)', 'Mill Cost (₹)', 'Output (m)', 'Gross Profit (₹)', 'Margin (%)'],
+                monthlyData.map(d => [
+                  d.month,
+                  d.revenue,
+                  d.cost,
+                  d.output,
+                  d.revenue - d.cost,
+                  Math.round(((d.revenue - d.cost) / d.revenue) * 100),
+                ]),
+              )
+            }
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+          <button className="btn-primary h-9 text-xs" onClick={() => window.print()}>
+            <Printer size={14} />
+            Print Report
+          </button>
+        </div>
+      </div>
       <div className="card p-6 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/25">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>

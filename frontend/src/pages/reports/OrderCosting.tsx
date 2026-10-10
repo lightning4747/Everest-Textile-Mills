@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Download, Printer } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { orderCosts, salesOrders } from '../../data/mockData';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
+import { exportCsv } from '../../utils/exportCsv';
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
   if (active && payload?.length) {
@@ -38,6 +39,38 @@ export default function OrderCosting() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between print-hide">
+        <h2 className="font-display text-lg font-semibold text-[var(--text)]">Order Costing &amp; Margins Report</h2>
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary h-9 text-xs"
+            onClick={() =>
+              exportCsv(
+                'order-costing.csv',
+                ['Order ID', 'Buyer', 'Yarn Cost (₹)', 'Labour Cost (₹)', 'Machine Cost (₹)', 'Total Cost (₹)', 'Revenue (₹)', 'Profit (₹)', 'Margin (%)'],
+                orderCosts.map(o => [
+                  o.orderId,
+                  o.buyer,
+                  o.yarnCost,
+                  o.labourCost,
+                  o.machineCost,
+                  o.totalCost,
+                  o.revenue,
+                  o.profit,
+                  Math.round((o.profit / o.revenue) * 100),
+                ]),
+              )
+            }
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+          <button className="btn-primary h-9 text-xs" onClick={() => window.print()}>
+            <Printer size={14} />
+            Print Report
+          </button>
+        </div>
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Revenue', value: `₹${(totalRevenue/100000).toFixed(1)}L`, accent: 'text-[var(--olive-dark)]' },

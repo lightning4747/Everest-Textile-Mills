@@ -1,4 +1,6 @@
 import { useMemo } from 'react';
+import { Download, Printer } from 'lucide-react';
+import { exportCsv } from '../../utils/exportCsv';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ProgressBar from '../../components/ui/ProgressBar';
@@ -34,6 +36,38 @@ export default function MachinePerformance() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between print-hide">
+        <h2 className="font-display text-lg font-semibold text-[var(--text)]">Machine Performance &amp; OEE Report</h2>
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary h-9 text-xs"
+            onClick={() => {
+              exportCsv(
+                'machine-performance.csv',
+                ['Machine ID', 'Name', 'Type', 'Status', 'Current Order', 'Shift Output (m)', 'Target (m)', 'Efficiency (%)', 'Operator'],
+                machines.map(m => [
+                  m.id,
+                  m.name,
+                  m.type,
+                  m.status,
+                  m.currentOrder ?? '',
+                  m.outputToday,
+                  TARGET,
+                  Math.round((m.outputToday / TARGET) * 100),
+                  m.operator ?? '',
+                ]),
+              );
+            }}
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+          <button className="btn-primary h-9 text-xs" onClick={() => window.print()}>
+            <Printer size={14} />
+            Print Report
+          </button>
+        </div>
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Output Today', value: `${totalOutput.toLocaleString()} m`,        accent: 'text-[var(--text)]' },
