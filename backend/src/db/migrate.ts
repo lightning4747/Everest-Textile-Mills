@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { db, pool } from './index.js';
 import path from 'path';

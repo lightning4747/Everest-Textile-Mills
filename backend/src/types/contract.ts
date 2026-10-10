@@ -120,3 +120,19 @@ export interface IInventoryService {
     limit?: number;
   }): Promise<{ items: any[]; meta: any }>;
 }
+
+// Stub interfaces for cross-module handoffs used by Person B
+export const inventoryService = {
+  reserveYarnForOrder: async (orderId: string, requiredKg: number) => {
+    return { success: true, shortage: 0 };
+  },
+  dispatchRolls: async (orderId: string, rollIds: string[]) => {
+    return { success: true };
+  },
+};
+
+export const procurementService = {
+  createShortfallPO: async (orderId: string, yarnKg: number) => {
+    return { poId: 'PO-999', status: 'created' };
+  },
+};

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, PackageSearch, RefreshCw } from 'lucide-react';
+import { useState, Fragment } from 'react';
+import { Search, PackageSearch, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ProgressBar from '../../components/ui/ProgressBar';
 import type { SalesOrder } from '../../types';
@@ -13,6 +13,7 @@ export default function SalesOrders() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const debouncedSearch = useDebounce(search, 300);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Set<string>>(new Set());
 
   const { data: rawOrders, loading, error, refetch } = useApi<SalesOrder[]>(
     () => api.get<SalesOrder[]>('/sales-orders?limit=200'),
@@ -23,19 +24,30 @@ export default function SalesOrders() {
   const orders = rawOrders || [];
 
   const filtered = orders.filter(o => {
+    const firstItem = o.items?.[0];
+    const fabricType = firstItem?.product?.fabricType || firstItem?.fabricType || '';
     const textMatch =
       (o.buyer && o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
       (o.id && o.id.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-      (o.fabricType && o.fabricType.toLowerCase().includes(debouncedSearch.toLowerCase()));
+      (fabricType.toLowerCase().includes(debouncedSearch.toLowerCase()));
     const statusMatch = statusFilter === 'all' || o.status === statusFilter;
     return textMatch && statusMatch;
   });
 
   const { paginatedData, ...paginationProps } = usePagination(filtered, 20);
 
-  const totalRevenue = orders.reduce((s, o) => s + (o.quantityMetres || 0) * (o.unitPrice || 0), 0);
+  const totalRevenue = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
   const activeOrdersCount = orders.filter(o => !['dispatched'].includes(o.status)).length;
   const readyOrdersCount = orders.filter(o => o.status === 'ready_to_ship').length;
+
+  const toggleOrder = (id: string) => {
+    setExpandedOrderIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -116,11 +128,11 @@ export default function SalesOrders() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]/30">
+                    <th className="w-8 px-2 py-3"></th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-left">Order ID</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-left">Buyer</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-left">Fabric · Colour</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-right">Qty (m)</th>
-                    <th className="px-4 py-3 section-title whitespace-nowrap text-right">Rate ₹</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-right">Contract Value</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap text-right">Delivery</th>
                     <th className="px-4 py-3 section-title whitespace-nowrap">Progress</th>
@@ -129,26 +141,76 @@ export default function SalesOrders() {
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
                   {paginatedData.map(order => {
-                    const completed = Number(order.completedMetres) || 0;
-                    const total = Number(order.quantityMetres) || 1;
-                    const pct   = Math.round((completed / total) * 100);
-                    const value = total * (Number(order.unitPrice) || 0);
+                    const isExpanded = expandedOrderIds.has(order.id);
+                    const items = order.items || [];
+                    const totalQty = items.reduce((s, i) => s + (i.quantityMetres || 0), 0) || 1;
+                    const totalCompleted = items.reduce((s, i) => s + (i.completedMetres || 0), 0);
+                    const pct = Math.round((totalCompleted / totalQty) * 100);
+                    const value = order.totalAmount || 0;
+                    
+                    const firstItem = items[0];
+                    const fabricType = firstItem?.product?.fabricType || firstItem?.fabricType || 'Mixed';
+                    const colour = firstItem?.colour || 'Mixed';
+                    const fabricDisplay = items.length > 1 ? 'Multiple Items' : `${fabricType} · ${colour}`;
+
                     return (
-                      <tr key={order.id} className="table-row-hover">
-                        <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{order.id}</td>
-                        <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{order.buyer}</td>
-                        <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{order.fabricType} · {order.colour}</td>
-                        <td className="px-4 py-3.5 text-xs font-mono text-[var(--text)] text-right tabular-nums">{order.quantityMetres.toLocaleString()}</td>
-                        <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right tabular-nums">₹{order.unitPrice}</td>
-                        <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">₹{(value / 1000).toFixed(0)}K</td>
-                        <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right">{order.deliveryDate}</td>
-                        <td className="px-4 py-3.5 w-32">
-                          <ProgressBar value={pct} color={pct >= 100 ? 'ok' : pct > 50 ? 'warn' : 'default'} showLabel />
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          <StatusBadge status={order.status} />
-                        </td>
-                      </tr>
+                      <Fragment key={order.id}>
+                        <tr className="table-row-hover cursor-pointer" onClick={() => toggleOrder(order.id)}>
+                          <td className="px-2 py-3.5 text-center text-[var(--olive-grey)]">
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </td>
+                          <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{order.id}</td>
+                          <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{order.buyer}</td>
+                          <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{fabricDisplay}</td>
+                          <td className="px-4 py-3.5 text-xs font-mono text-[var(--text)] text-right tabular-nums">{(totalQty === 1 && items.length === 0) ? 0 : totalQty.toLocaleString()}</td>
+                          <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">₹{(value / 1000).toFixed(0)}K</td>
+                          <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right">{order.deliveryDate}</td>
+                          <td className="px-4 py-3.5 w-32">
+                            <ProgressBar value={pct} color={pct >= 100 ? 'ok' : pct > 50 ? 'warn' : 'default'} showLabel />
+                          </td>
+                          <td className="px-4 py-3.5 text-center">
+                            <StatusBadge status={order.status} />
+                          </td>
+                        </tr>
+                        {isExpanded && items.length > 0 && (
+                          <tr className="bg-[var(--surface-2)]/10">
+                            <td colSpan={9} className="p-0 border-b border-[var(--border)]">
+                              <div className="px-10 py-3">
+                                <table className="w-full text-left">
+                                  <thead>
+                                    <tr className="border-b border-[var(--border)]/50 text-[var(--text-soft)]">
+                                      <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider">Item ID</th>
+                                      <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider">Product/Fabric</th>
+                                      <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-right">Qty (m)</th>
+                                      <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-right">Rate ₹</th>
+                                      <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-right">Completed</th>
+                                      <th className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-center">Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-[var(--border)]/50">
+                                    {items.map(item => {
+                                      const itemFabric = item.product?.fabricType || item.fabricType || 'N/A';
+                                      const itemColor = item.colour || '';
+                                      return (
+                                        <tr key={item.id} className="hover:bg-[var(--surface-2)]/30">
+                                          <td className="px-3 py-2 text-xs font-mono text-[var(--olive-dark)]">{item.id}</td>
+                                          <td className="px-3 py-2 text-xs text-[var(--text)]">{itemFabric} {itemColor && `· ${itemColor}`}</td>
+                                          <td className="px-3 py-2 text-xs font-mono text-right">{item.quantityMetres?.toLocaleString()}</td>
+                                          <td className="px-3 py-2 text-xs font-mono text-[var(--text-soft)] text-right">₹{item.unitPrice}</td>
+                                          <td className="px-3 py-2 text-xs font-mono text-right">{item.completedMetres?.toLocaleString()}m</td>
+                                          <td className="px-3 py-2 text-center">
+                                            <StatusBadge status={item.status} />
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

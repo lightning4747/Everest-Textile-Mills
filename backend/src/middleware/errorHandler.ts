@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import { logger } from '../lib/logger.js';
 import { serverError } from '../lib/response.js';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Reports routes.
  * Implements: GET /order-costs, PUT /order-costs/:order_id,

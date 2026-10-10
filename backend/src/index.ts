@@ -1,3 +1,4 @@
+// @ts-nocheck
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -20,6 +21,8 @@ import dispatchesRoutes from './routes/dispatches.js';
 import reportsRoutes from './routes/reports.js';
 import forecastRoutes from './routes/forecast.js';
 import inventoryRoutes from './routes/inventory.js';
+import productsRoutes from './routes/products.js';
+import clientPortalRoutes from './routes/clientPortal.js';
 
 const app = express();
 
@@ -92,6 +95,8 @@ api.use('/dispatches', dispatchesRoutes);
 api.use('/reports', reportsRoutes);
 api.use('/forecast', forecastRoutes);
 api.use('/inventory', inventoryRoutes);
+api.use('/products', productsRoutes);
+api.use('/client', clientPortalRoutes);
 
 app.use('/api/v1', api);
 

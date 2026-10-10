@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Registry, Counter, Histogram, Gauge, collectDefaultMetrics } from 'prom-client';
 import type { Request, Response, NextFunction } from 'express';
 

@@ -7,6 +7,11 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 // Auth page
 const LoginPage        = React.lazy(() => import('./pages/auth/LoginPage'));
 
+// Portal pages
+const PortalLayout     = React.lazy(() => import('./pages/portal/PortalLayout'));
+const ClientOrders     = React.lazy(() => import('./pages/portal/ClientOrders'));
+const NewOrder         = React.lazy(() => import('./pages/portal/NewOrder'));
+
 // Pages — lazy loaded for route-level code splitting
 const Dashboard        = React.lazy(() => import('./pages/dashboard/Dashboard'));
 const ShopFloorBoard   = React.lazy(() => import('./pages/shopfloor/ShopFloorBoard'));
@@ -29,12 +34,26 @@ const MachinePerformance = React.lazy(() => import('./pages/reports/MachinePerfo
 const MonthlySummary   = React.lazy(() => import('./pages/reports/MonthlySummary'));
 const AuditLedger      = React.lazy(() => import('./pages/inventory/AuditLedger'));
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: import('./context/AuthContext').UserRole[] }) {
+  const { isAuthenticated, user, isAuthorized } = useAuth();
   const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (allowedRoles && !isAuthorized(...allowedRoles)) {
+    // If the user is a client, redirect them to the client portal
+    if (user?.role === 'client') {
+      return <Navigate to="/portal/orders" replace />;
+    }
+    // Otherwise redirect unauthorized users to dashboard or a not-authorized page
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // If a client tries to access the root '/', redirect them to portal
+  if (user?.role === 'client' && location.pathname === '/dashboard') {
+      return <Navigate to="/portal/orders" replace />;
   }
 
   return <>{children}</>;
@@ -49,11 +68,25 @@ export default function App() {
             {/* Dedicated full-page login route without AppLayout */}
             <Route path="/login" element={<LoginPage />} />
 
+            {/* Client Portal Routes */}
+            <Route
+              path="/portal"
+              element={
+                <ProtectedRoute>
+                  <PortalLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="orders" replace />} />
+              <Route path="orders" element={<ClientOrders />} />
+              <Route path="new-order" element={<NewOrder />} />
+            </Route>
+
             {/* Protected mill operations routes inside AppLayout */}
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'qc_inspector', 'viewer']}>
                   <AppLayout />
                 </ProtectedRoute>
               }
@@ -101,4 +134,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

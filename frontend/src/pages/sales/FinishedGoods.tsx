@@ -30,7 +30,7 @@ export default function FinishedGoods() {
   const fabricRolls = rawRolls || [];
 
   const readyOrders     = salesOrders.filter(o => ['quality_check', 'ready_to_ship', 'dispatched'].includes(o.status));
-  const totalFinished   = readyOrders.filter(o => o.status === 'ready_to_ship').reduce((s, o) => s + (Number(o.completedMetres) || 0), 0);
+  const totalFinished   = readyOrders.filter(o => o.status === 'ready_to_ship').reduce((s, o) => s + ((o.items || []).reduce((sum, item) => sum + (item.completedMetres || 0), 0)), 0);
   const passedRolls     = fabricRolls.filter(r => r.qcResult === 'passed');
   const totalPassedMetres = passedRolls.reduce((s, r) => s + (Number(r.metres) || 0), 0);
 
@@ -104,14 +104,17 @@ export default function FinishedGoods() {
             <tbody className="divide-y divide-[var(--border)]">
               {paginatedData.map(order => {
                 const orderRolls = fabricRolls.filter(r => r.orderId === order.id && r.qcResult === 'passed');
+                const firstItem = order.items?.[0];
+                const totalCompleted = (order.items || []).reduce((sum, item) => sum + (item.completedMetres || 0), 0);
+                
                 return (
                   <tr key={order.id} className="table-row-hover">
                     <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{order.id}</td>
                     <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{order.buyer}</td>
-                    <td className="px-4 py-3.5 text-xs text-[var(--text)] text-left">{order.fabricType}</td>
-                    <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{order.colour}</td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text)] text-left">{order.items?.length > 1 ? 'Multiple Items' : (firstItem?.product?.fabricType || firstItem?.fabricType || '')}</td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{order.items?.length > 1 ? 'Mixed' : (firstItem?.colour || '')}</td>
                     <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--ok)] text-right tabular-nums">
-                      {(Number(order.completedMetres) || 0).toLocaleString()} m
+                      {totalCompleted.toLocaleString()} m
                     </td>
                     <td className="px-4 py-3.5 text-right tabular-nums">
                       <div className="flex items-center justify-end gap-1.5 text-xs font-mono text-[var(--text)]">
@@ -134,4 +137,3 @@ export default function FinishedGoods() {
     </div>
   );
 }
-
