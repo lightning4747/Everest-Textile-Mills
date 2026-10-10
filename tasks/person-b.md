@@ -101,11 +101,11 @@ File: `k6/scenarios/person_b_order_lifecycle.js`
 ---
 
 ## Done Checklist
-- [ ] Implement `sales-orders` routes and lifecycle validations.
-- [ ] Implement `production-orders` endpoints.
-- [ ] Implement `fabric-rolls` inspection and QC decision logic with concurrency guard.
-- [ ] Implement `dispatches` creation transaction with roll junction.
-- [ ] Replace `recordFabricRollProduced` stub with real DB operations.
-- [ ] Seed sales orders, production orders, fabric rolls, and dispatches.
-- [ ] Instrument counters for orders created, dispatched, and QC decisions.
-- [ ] Verify test suite and k6 scenario run clean.
+- [x] Implement `sales-orders` routes and lifecycle validations.
+- [x] Implement `production-orders` endpoints.
+- [x] Implement `fabric-rolls` inspection and QC decision logic with concurrency guard.
+- [x] Implement `dispatches` creation transaction with roll junction.
+- [x] Replace `recordFabricRollProduced` stub with real DB operations.
+- [x] Seed sales orders, production orders, fabric rolls, and dispatches.
+- [x] Instrument counters for orders created, dispatched, and QC decisions.
+- [x] Verify test suite and k6 scenario run clean.
