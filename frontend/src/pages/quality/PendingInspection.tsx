@@ -1,10 +1,5 @@
 import { useState } from 'react';
-<<<<<<< HEAD
-import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, FlaskConical } from 'lucide-react';
-import { fabricRolls as initialRolls, salesOrders, machines } from '../../data/mockData';
-=======
-import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, RefreshCw } from 'lucide-react';
->>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
+import { Clock, CheckCircle2, RotateCcw, XCircle, ShieldAlert, RefreshCw, FlaskConical } from 'lucide-react';
 import type { QCResult } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
@@ -81,7 +76,6 @@ export default function PendingInspection() {
         </button>
       </div>
 
-<<<<<<< HEAD
       {/* Threshold Info Banner */}
       <div className="card p-3 flex items-center gap-3 border-l-4 border-l-[var(--warn)]">
         <FlaskConical size={15} className="text-[var(--warn)] flex-shrink-0" />
@@ -91,13 +85,12 @@ export default function PendingInspection() {
           <strong className="text-[var(--text)]"> Threshold: pass ≥ 60%, rework 40–59%, reject &lt; 40% quality score.</strong>
         </p>
       </div>
-=======
+
       {(error || actionError) && (
         <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
           {error || actionError}
         </div>
       )}
->>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
 
       {/* Rolls Queue */}
       <div className="space-y-5">
@@ -199,4 +192,3 @@ export default function PendingInspection() {
     </div>
   );
 }
-

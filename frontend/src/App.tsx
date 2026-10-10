@@ -53,20 +53,12 @@ export default function App() {
               <Route path="quality/rolls"   element={<FabricRolls />} />
               <Route path="quality/pending" element={<PendingInspection />} />
 
-<<<<<<< HEAD
-            {/* Sales */}
-            <Route path="sales/orders"     element={<SalesOrders />} />
-            <Route path="sales/status"     element={<OrderStatus />} />
-            <Route path="sales/finished"   element={<FinishedGoods />} />
-            <Route path="sales/dispatches" element={<Dispatches />} />
-            <Route path="sales/delivery"   element={<DeliveryStatus />} />
-=======
               {/* Sales */}
               <Route path="sales/orders"     element={<SalesOrders />} />
               <Route path="sales/status"     element={<OrderStatus />} />
               <Route path="sales/finished"   element={<FinishedGoods />} />
               <Route path="sales/dispatches" element={<Dispatches />} />
->>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
+              <Route path="sales/delivery"   element={<DeliveryStatus />} />
 
               {/* Reports */}
               <Route path="reports/costing"  element={<OrderCosting />} />

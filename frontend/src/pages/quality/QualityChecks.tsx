@@ -1,9 +1,5 @@
 import { useState, useMemo } from 'react';
-<<<<<<< HEAD
-import { ShieldCheck, Search, SearchX } from 'lucide-react';
-=======
 import { ShieldCheck, Plus, Search, SearchX, X, RefreshCw } from 'lucide-react';
->>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
 import StatusBadge from '../../components/ui/StatusBadge';
 import type { QCResult } from '../../types';
 import { usePagination } from '../../hooks/usePagination';
@@ -74,27 +70,18 @@ export default function QualityChecks() {
   };
 
   const filtered = useMemo(() => {
-<<<<<<< HEAD
-    const base = filter === 'all' ? fabricRolls : fabricRolls.filter(r => r.qcResult === filter);
+    const base = filter === 'all' ? rolls : rolls.filter(r => r.qcResult === filter);
     return base.filter(r => {
       const textMatch =
         r.id.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
-        r.orderId.toLowerCase().includes(debouncedRollSearch.toLowerCase());
+        r.orderId.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
+        (r.buyer && r.buyer.toLowerCase().includes(debouncedRollSearch.toLowerCase()));
       const typeMatch =
         machineType === 'all' ||
-        machines.find(m => m.id === r.machineId)?.type === machineType;
+        (r.machineType && r.machineType.toLowerCase() === machineType.toLowerCase());
       return textMatch && typeMatch;
     });
-  }, [filter, debouncedRollSearch, machineType]);
-=======
-    const base = filter === 'all' ? rolls : rolls.filter(r => r.qcResult === filter);
-    return base.filter(r =>
-      r.id.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
-      r.orderId.toLowerCase().includes(debouncedRollSearch.toLowerCase()) ||
-      (r.buyer && r.buyer.toLowerCase().includes(debouncedRollSearch.toLowerCase()))
-    );
-  }, [rolls, filter, debouncedRollSearch]);
->>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
+  }, [rolls, filter, debouncedRollSearch, machineType]);
 
   const { paginatedData, ...paginationProps } = usePagination(filtered, 20);
 
@@ -180,7 +167,6 @@ export default function QualityChecks() {
               className="input-field h-10 pl-9 text-xs font-mono max-w-xs"
             />
           </div>
-<<<<<<< HEAD
           <select
             value={machineType}
             onChange={e => setMachineType(e.target.value)}
@@ -192,14 +178,12 @@ export default function QualityChecks() {
             <option value="weaving">Weaving</option>
             <option value="dyeing">Dyeing</option>
           </select>
-=======
           <button
             onClick={() => setIsModalOpen(true)}
             className="btn-primary text-xs h-10"
           >
             <Plus size={14} /> Log Quality Inspection
           </button>
->>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
         </div>
       </div>
 
@@ -458,4 +442,3 @@ export default function QualityChecks() {
     </div>
   );
 }
-

@@ -58,21 +58,14 @@ export default function ProductionOrders() {
     () =>
       orders.filter(
         o =>
-<<<<<<< HEAD
-          (o.id.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-            o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase())) &&
+          ((o.salesOrderId && o.salesOrderId.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            (o.id && o.id.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            (o.buyer && o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            (o.machineId && o.machineId.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            (o.fabricType && o.fabricType.toLowerCase().includes(debouncedSearch.toLowerCase()))) &&
           (statusFilter === 'all' || o.status === statusFilter),
       ),
-    [activeOrders, debouncedSearch, statusFilter],
-=======
-          (o.salesOrderId && o.salesOrderId.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-          (o.id && o.id.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-          (o.buyer && o.buyer.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-          (o.machineId && o.machineId.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-          (o.fabricType && o.fabricType.toLowerCase().includes(debouncedSearch.toLowerCase())),
-      ),
-    [orders, debouncedSearch],
->>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
+    [orders, debouncedSearch, statusFilter],
   );
 
   const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(filteredOrders, 20);
@@ -122,23 +115,21 @@ export default function ProductionOrders() {
             aria-label="Search production orders"
           />
         </div>
-<<<<<<< HEAD
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="input-field h-10 text-xs font-mono w-36"
-          aria-label="Filter by stage"
-        >
-          <option value="all">All Stages</option>
-          <option value="spinning">Spinning</option>
-          <option value="weaving">Weaving</option>
-          <option value="dyeing">Dyeing</option>
-        </select>
-        <button className="btn-primary text-xs h-10 flex-shrink-0">
-          <Plus size={14} /> New Production Order
-        </button>
-=======
         <div className="flex items-center gap-2">
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="input-field h-10 text-xs font-mono w-36"
+            aria-label="Filter by stage"
+          >
+            <option value="all">All Stages</option>
+            <option value="queued">Queued</option>
+            <option value="in_progress">In Progress</option>
+            <option value="spinning">Spinning</option>
+            <option value="weaving">Weaving</option>
+            <option value="dyeing">Dyeing</option>
+            <option value="completed">Completed</option>
+          </select>
           <button
             onClick={() => refetch()}
             className="p-2.5 rounded-lg border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)] transition-colors"
@@ -154,7 +145,6 @@ export default function ProductionOrders() {
             <Plus size={14} /> New Production Order
           </button>
         </div>
->>>>>>> 265b0773616e2a8e4edb6c5975b2d7c51d873d2e
       </div>
 
       {error && (
