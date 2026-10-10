@@ -14,7 +14,7 @@ export default function ClientOrders() {
   // In a real app we would pass ?clientId=user.id to filter.
   // For now, we fetch all and filter client-side, or assume backend filters by user auth token.
   const { data: rawOrders, loading, error, refetch } = useApi<SalesOrder[]>(
-    () => api.get<SalesOrder[]>('/sales-orders'),
+    () => api.get<SalesOrder[]>('/client/orders'),
     [],
     { autoPollMs: 30000 }
   );

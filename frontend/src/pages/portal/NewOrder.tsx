@@ -60,7 +60,7 @@ export default function NewOrder() {
     setIsSubmitting(true);
     setError(null);
     try {
-      await api.post('/sales-orders', {
+      await api.post('/client/orders', {
         clientId: user?.id,
         buyer: user?.name || 'Client',
         deliveryDate,

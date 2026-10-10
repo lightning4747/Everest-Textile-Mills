@@ -46,7 +46,7 @@ salesOrdersRouter.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-salesOrdersRouter.post('/', authorize('admin', 'manager'), async (req: Request, res: Response) => {
+salesOrdersRouter.post('/', authorize('admin', 'manager', 'client'), async (req: Request, res: Response) => {
   try {
     const { buyer, deliveryDate, items } = req.body;
     // req.user!.sub is the logged-in user id, assuming it is the client ID if they are creating it, but for internal it might be a selected client.
