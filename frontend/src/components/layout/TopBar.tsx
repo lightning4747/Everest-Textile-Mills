@@ -1,4 +1,4 @@
-import { Bell, Search, User, AlertTriangle, X, ChevronRight, CheckCheck, LogOut } from 'lucide-react';
+import { AlertTriangle, User, X, ChevronRight, CheckCheck, LogOut } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -69,10 +69,8 @@ export default function TopBar() {
 
   const unreadCount = lowItems.filter(y => !readIds.has(y.id)).length;
 
-  // Toggle panel on bell click; if already open navigate to /yarn/alerts and close
-  const handleBellClick = useCallback(() => {
+  const handleAlertsClick = useCallback(() => {
     if (notifOpen) {
-      // Second click — navigate to the full alerts page and close panel
       navigate('/yarn/alerts');
       setNotifOpen(false);
     } else {
@@ -80,12 +78,10 @@ export default function TopBar() {
     }
   }, [notifOpen, navigate]);
 
-  // Mark all as read
   const markAllRead = useCallback(() => {
     setReadIds(new Set(lowItems.map(y => y.id)));
   }, [lowItems]);
 
-  // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -115,34 +111,25 @@ export default function TopBar() {
 
       {/* Right Actions */}
       <div className="flex items-center gap-3">
-        <div className="relative hidden md:flex items-center">
-          <Search size={13} className="absolute left-3 text-[var(--olive-grey)] pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search roll, order ref, machine..."
-            className="input-field pl-8 pr-3 py-1.5 text-xs w-56 font-mono"
-          />
-        </div>
-
-        {/* Notification Bell */}
+        {/* Alerts Button */}
         <div className="relative">
           <button
             ref={bellRef}
-            onClick={handleBellClick}
-            className={`relative p-2 rounded-lg transition-colors ${
+            onClick={handleAlertsClick}
+            className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
               notifOpen
-                ? 'bg-[var(--panel-bg)] text-[var(--text)]'
-                : 'text-[var(--olive-grey)] hover:text-[var(--text)] hover:bg-[var(--panel-bg)]'
+                ? 'bg-[var(--panel-bg)] text-[var(--text)] border-[var(--border)]'
+                : 'bg-[var(--surface)] text-[var(--text-soft)] border-[var(--border)] hover:text-[var(--text)] hover:bg-[var(--panel-bg)]'
             }`}
             title={notifOpen ? 'Click again to view full alerts page' : `${unreadCount} unread stock alert${unreadCount !== 1 ? 's' : ''}`}
             aria-haspopup="true"
             aria-expanded={notifOpen}
           >
-            <Bell size={16} />
-            {/* Unread badge */}
+            <AlertTriangle size={15} className={unreadCount > 0 ? 'text-[var(--warn)]' : 'text-[var(--text-soft)]'} />
+            <span>Alerts</span>
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--bad)] border-2 border-[var(--surface)] flex items-center justify-center">
-                <span className="text-[9px] font-mono font-bold text-white leading-none">{unreadCount}</span>
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--bad)] text-white text-[9px] font-mono font-bold flex items-center justify-center leading-none">
+                {unreadCount}
               </span>
             )}
           </button>
@@ -156,7 +143,7 @@ export default function TopBar() {
               {/* Panel Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2">
-                  <Bell size={14} className="text-[var(--text-soft)]" />
+                  <AlertTriangle size={14} className="text-[var(--warn)]" />
                   <span className="text-xs font-semibold text-[var(--text)]">Stock Alerts</span>
                   {unreadCount > 0 && (
                     <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--panel-bg)] text-[var(--bad)]">
@@ -165,7 +152,6 @@ export default function TopBar() {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  {/* Mark all read */}
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllRead}
@@ -182,13 +168,6 @@ export default function TopBar() {
                     <X size={13} />
                   </button>
                 </div>
-              </div>
-
-              {/* Hint */}
-              <div className="px-4 pt-2 pb-1">
-                <p className="text-[10px] font-mono text-[var(--text-soft)]">
-                  Click bell again to open full alerts page ↗
-                </p>
               </div>
 
               {/* Alert Items */}
@@ -209,7 +188,6 @@ export default function TopBar() {
                         className={`px-4 py-3 transition-colors cursor-pointer hover:bg-[var(--panel-bg)] ${isRead ? 'opacity-50' : ''}`}
                       >
                         <div className="flex items-start gap-2.5">
-                          {/* Unread dot */}
                           <div className="flex-shrink-0 mt-1.5">
                             {!isRead
                               ? <span className="block w-1.5 h-1.5 rounded-full bg-[var(--bad)]" />

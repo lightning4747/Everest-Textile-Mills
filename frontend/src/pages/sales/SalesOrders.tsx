@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, PackageSearch, RefreshCw } from 'lucide-react';
+import { Search, PackageSearch, RefreshCw } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ProgressBar from '../../components/ui/ProgressBar';
 import type { SalesOrder } from '../../types';
@@ -12,19 +12,7 @@ import { api } from '../../services/apiClient';
 export default function SalesOrders() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showForm, setShowForm] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
   const debouncedSearch = useDebounce(search, 300);
-
-  const [formData, setFormData] = useState({
-    buyer: '',
-    fabricType: '',
-    colour: '',
-    quantityMetres: 2000,
-    unitPrice: 100,
-    deliveryDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-  });
 
   const { data: rawOrders, loading, error, refetch } = useApi<SalesOrder[]>(
     () => api.get<SalesOrder[]>('/sales-orders?limit=200'),
@@ -48,36 +36,6 @@ export default function SalesOrders() {
   const totalRevenue = orders.reduce((s, o) => s + (o.quantityMetres || 0) * (o.unitPrice || 0), 0);
   const activeOrdersCount = orders.filter(o => !['dispatched'].includes(o.status)).length;
   const readyOrdersCount = orders.filter(o => o.status === 'ready_to_ship').length;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      await api.post('/sales-orders', {
-        buyer: formData.buyer,
-        fabricType: formData.fabricType,
-        colour: formData.colour,
-        quantityMetres: Number(formData.quantityMetres),
-        unitPrice: Number(formData.unitPrice),
-        deliveryDate: formData.deliveryDate,
-      });
-      setShowForm(false);
-      setFormData({
-        buyer: '',
-        fabricType: '',
-        colour: '',
-        quantityMetres: 2000,
-        unitPrice: 100,
-        deliveryDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-      });
-      refetch();
-    } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Failed to create sales order');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -132,105 +90,12 @@ export default function SalesOrders() {
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button className="btn-primary text-xs h-10" onClick={() => setShowForm(!showForm)}>
-            <Plus size={14} /> New Sales Order
-          </button>
         </div>
       </div>
 
       {error && (
         <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs">
           {error}
-        </div>
-      )}
-
-      {showForm && (
-        <div className="card p-5 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20">
-          <h3 className="text-sm font-display font-semibold text-[var(--text)] mb-4">Book New Customer Sales Order</h3>
-          {formError && (
-            <div className="mb-4 p-2.5 rounded bg-red-500/10 border border-red-500/20 text-red-600 text-xs">
-              {formError}
-            </div>
-          )}
-          <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <label className="section-title block mb-1.5">Buyer Entity *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Arvind Mills Ltd."
-                  value={formData.buyer}
-                  onChange={e => setFormData(f => ({ ...f, buyer: e.target.value }))}
-                  className="input-field text-xs w-full"
-                />
-              </div>
-              <div>
-                <label className="section-title block mb-1.5">Fabric Quality *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Cotton 60s Twill"
-                  value={formData.fabricType}
-                  onChange={e => setFormData(f => ({ ...f, fabricType: e.target.value }))}
-                  className="input-field text-xs w-full"
-                />
-              </div>
-              <div>
-                <label className="section-title block mb-1.5">Colourway *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Vintage Indigo"
-                  value={formData.colour}
-                  onChange={e => setFormData(f => ({ ...f, colour: e.target.value }))}
-                  className="input-field text-xs w-full"
-                />
-              </div>
-              <div>
-                <label className="section-title block mb-1.5">Quantity (metres) *</label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  placeholder="2000"
-                  value={formData.quantityMetres}
-                  onChange={e => setFormData(f => ({ ...f, quantityMetres: Number(e.target.value) }))}
-                  className="input-field text-xs w-full"
-                />
-              </div>
-              <div>
-                <label className="section-title block mb-1.5">Rate (₹/metre) *</label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  placeholder="100"
-                  value={formData.unitPrice}
-                  onChange={e => setFormData(f => ({ ...f, unitPrice: Number(e.target.value) }))}
-                  className="input-field text-xs w-full"
-                />
-              </div>
-              <div>
-                <label className="section-title block mb-1.5">Target Delivery *</label>
-                <input
-                  type="date"
-                  required
-                  value={formData.deliveryDate}
-                  onChange={e => setFormData(f => ({ ...f, deliveryDate: e.target.value }))}
-                  className="input-field text-xs w-full"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button type="submit" disabled={isSubmitting} className="btn-primary text-xs">
-                {isSubmitting ? 'Creating…' : 'Create & Commit Order'}
-              </button>
-              <button type="button" className="btn-secondary text-xs" onClick={() => setShowForm(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
         </div>
       )}
 

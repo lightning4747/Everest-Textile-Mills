@@ -10,6 +10,7 @@ import ProgressBar from '../../components/ui/ProgressBar';
 import { fetchRevenueForecast, ForecastPoint } from '../../services/forecastApi';
 import { api } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { AnimatedStatusIcon } from '../../components/ui/AnimatedStatusIcon';
 
 interface DashboardKPIs {
   activeOrders: number;
@@ -320,15 +321,14 @@ export default function Dashboard() {
             <h3 className="section-title mb-3">Shop Floor Machine Health</h3>
             <div className="space-y-2.5">
               {[
-                { label: 'Running',     count: machineHealth.running,     dot: 'dot-ok' },
-                { label: 'Idle',        count: machineHealth.idle,        dot: 'dot-idle' },
-                { label: 'Maintenance', count: machineHealth.maintenance, dot: 'dot-warn' },
-                { label: 'Breakdown',   count: machineHealth.breakdown,   dot: 'dot-bad' },
+                { label: 'Running',     count: machineHealth.running,     status: 'running' },
+                { label: 'Idle',        count: machineHealth.idle,        status: 'idle' },
+                { label: 'Maintenance', count: machineHealth.maintenance, status: 'maintenance' },
+                { label: 'Breakdown',   count: machineHealth.breakdown,   status: 'breakdown' },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={item.dot}></span>
-                    <span className="text-xs text-[var(--text)]">{item.label}</span>
+                    <AnimatedStatusIcon status={item.status} showText={true} />
                   </div>
                   <span className="text-xs font-mono font-semibold text-[var(--text)]">{item.count}</span>
                 </div>

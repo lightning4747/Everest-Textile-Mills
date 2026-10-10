@@ -1,69 +1,72 @@
-import { useState, useRef, useEffect } from 'react';
-import { Plus, Package, Calendar, User, FileText, AlertCircle, ChevronDown, Check, Boxes, Search } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Package, Calendar, User, FileText, AlertCircle, Search } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
+import { useDebounce } from '../../hooks/useDebounce';
 import Pagination from '../../components/ui/Pagination';
 import { api } from '../../services/apiClient';
 import { useApi } from '../../hooks/useApi';
-import type { YarnReceipt, YarnType, YarnStock } from '../../types';
-
-const STANDARD_COLORS = [
-  'White',
-  'Natural White',
-  'Navy Blue',
-  'Black',
-  'Red',
-  'Grey',
-  'Ivory',
-  'Khaki',
-  'Olive Green',
-  'Charcoal',
-  'Teal',
-  'Royal Blue',
-];
+import type { YarnReceipt, YarnStock, YarnType } from '../../types';
 
 export default function YarnReceipts() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Search & Filter state
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const debouncedSearch = useDebounce(search, 300);
+
   // Form states
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [supplier, setSupplier] = useState('');
+  const [selectedStockId, setSelectedStockId] = useState('');
   const [yarnType, setYarnType] = useState<YarnType>('Cotton');
-  const [colour, setColour] = useState('White');
+  const [colour, setColour] = useState('');
   const [quantityKg, setQuantityKg] = useState<number | ''>('');
   const [forOrderId, setForOrderId] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
   const [receivedBy, setReceivedBy] = useState('');
-  const [selectedStockId, setSelectedStockId] = useState<string>('');
 
-  // Fetch receipts history
   const { data, loading, error, refetch } = useApi<YarnReceipt[]>(
     () => api.get<YarnReceipt[]>('/yarn/receipts'),
     []
   );
 
-  // Fetch current warehouse stock items for catalog alignment
-  const { data: stockItemsData, refetch: refetchStock } = useApi<YarnStock[]>(
+  const { data: stockData } = useApi<YarnStock[]>(
     () => api.get<YarnStock[]>('/yarn/stock'),
     []
   );
 
-  const stockItems = stockItemsData || [];
+  const stockLedgers = stockData || [];
   const receipts = data || [];
-  const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(receipts, 20);
 
-  // Handle stock bin selection
-  const handleStockBinSelect = (stockId: string) => {
+  const handleStockSelect = (stockId: string) => {
     setSelectedStockId(stockId);
     if (!stockId) return;
-
-    const matched = stockItems.find(s => s.id === stockId);
-    if (matched) {
-      setYarnType(matched.type);
-      setColour(matched.colour);
+    const found = stockLedgers.find(s => s.id === stockId);
+    if (found) {
+      setYarnType(found.type as YarnType);
+      setColour(found.colour);
     }
   };
+
+  const filtered = receipts.filter(r => {
+    const q = debouncedSearch.toLowerCase();
+    const matchesSearch =
+      !debouncedSearch.trim() ||
+      r.id.toLowerCase().includes(q) ||
+      r.supplier.toLowerCase().includes(q) ||
+      r.yarnType.toLowerCase().includes(q) ||
+      r.colour.toLowerCase().includes(q) ||
+      (r.forOrderId && r.forOrderId.toLowerCase().includes(q)) ||
+      (r.invoiceNo && r.invoiceNo.toLowerCase().includes(q));
+
+    const matchesType = typeFilter === 'all' || r.yarnType === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  const { paginatedData, page, totalPages, pageSize, setPage, setPageSize } = usePagination(filtered, 20);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,8 +76,8 @@ export default function YarnReceipts() {
       setFormError('Supplier name is required.');
       return;
     }
-    if (!colour.trim() || !STANDARD_COLORS.includes(colour.trim())) {
-      setFormError('Please select a valid standard mill colour from the catalog list.');
+    if (!colour.trim()) {
+      setFormError('Yarn colour is required.');
       return;
     }
     if (!quantityKg || Number(quantityKg) <= 0) {
@@ -84,11 +87,6 @@ export default function YarnReceipts() {
 
     setSubmitting(true);
     try {
-      // Find matching stock bin if not explicitly selected
-      const resolvedStockId = selectedStockId ||
-        stockItems.find(s => s.type === yarnType && s.colour.toLowerCase() === colour.trim().toLowerCase())?.id ||
-        null;
-
       await api.post<YarnReceipt>('/yarn/receipts', {
         date,
         supplier: supplier.trim(),
@@ -96,24 +94,24 @@ export default function YarnReceipts() {
         yarnType,
         colour: colour.trim(),
         quantityKg: Number(quantityKg),
-        yarnStockId: resolvedStockId,
+        yarnStockId: selectedStockId || undefined,
         forOrderId: forOrderId.trim() ? forOrderId.trim() : null,
         invoiceNo: invoiceNo.trim() ? invoiceNo.trim() : `INV-${Date.now().toString().slice(-6)}`,
         receivedBy: receivedBy.trim() ? receivedBy.trim() : 'Store Clerk',
       });
 
       // Reset form and refetch
-      setSupplier('');
-      setColour('White');
       setSelectedStockId('');
+      setSupplier('');
+      setColour('');
       setQuantityKg('');
       setForOrderId('');
       setInvoiceNo('');
       setReceivedBy('');
       setShowForm(false);
-      await Promise.all([refetch(), refetchStock()]);
-    } catch (err: any) {
-      setFormError(err?.message || 'Failed to record yarn receipt consignment');
+      await refetch();
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Failed to record yarn receipt consignment');
     } finally {
       setSubmitting(false);
     }
@@ -121,8 +119,32 @@ export default function YarnReceipts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-[var(--text-soft)] text-sm font-medium">{receipts.length} material intake receipts logged</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3 flex-1 max-w-lg">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--olive-grey)]" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search receipts by ID, supplier, yarn type, invoice..."
+              className="input-field h-10 pl-9 text-xs font-mono w-full"
+            />
+          </div>
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            className="input-field h-10 text-xs font-mono w-40"
+          >
+            <option value="all">All Yarn Types</option>
+            <option value="Cotton">Cotton</option>
+            <option value="Polyester">Polyester</option>
+            <option value="Wool">Wool</option>
+            <option value="Silk">Silk</option>
+            <option value="Blended">Blended</option>
+          </select>
+        </div>
+
         <button className="btn-primary text-xs h-10" onClick={() => setShowForm(!showForm)}>
           <Plus size={14} /> Record Yarn Inward Receipt
         </button>
@@ -136,10 +158,7 @@ export default function YarnReceipts() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="card p-5 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-display font-semibold text-[var(--text)]">Record New Inward Yarn Consignment</h3>
-            <span className="text-xs text-[var(--text-soft)] font-mono">Atomic Warehouse Allocation</span>
-          </div>
+          <h3 className="text-sm font-display font-semibold text-[var(--text)]">Record New Inward Yarn Consignment</h3>
 
           {formError && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 flex items-center gap-2">
@@ -148,26 +167,22 @@ export default function YarnReceipts() {
             </div>
           )}
 
-          {/* Quick Stock Bin Selection */}
-          <div className="p-3 rounded-lg bg-[var(--panel-bg)] border border-[var(--border)]">
-            <label className="section-title block mb-1 text-[11px] font-semibold text-[var(--olive-dark)] flex items-center gap-1.5">
-              <Boxes size={13} /> Select Existing Warehouse Bin / Lot (Auto-populates Variety & Colour)
-            </label>
-            <select
-              value={selectedStockId}
-              onChange={e => handleStockBinSelect(e.target.value)}
-              className="input-field text-xs w-full font-mono"
-            >
-              <option value="">-- Manual Variety & Colour Selection --</option>
-              {stockItems.map(item => (
-                <option key={item.id} value={item.id}>
-                  {item.id} · {item.colour} {item.type} ({item.location} — {item.quantityKg.toLocaleString()} kg on hand)
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <label className="section-title block mb-1.5">Link Warehouse Stock Ledger</label>
+              <select
+                value={selectedStockId}
+                onChange={e => handleStockSelect(e.target.value)}
+                className="input-field text-xs font-mono"
+              >
+                <option value="">-- Select Stock Ledger --</option>
+                {stockLedgers.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.id} · {s.type} {s.colour} ({s.quantityKg} kg on hand)
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="section-title block mb-1.5">Receipt Date</label>
               <input
@@ -178,7 +193,6 @@ export default function YarnReceipts() {
                 className="input-field text-xs font-mono"
               />
             </div>
-
             <div>
               <label className="section-title block mb-1.5">Supplier / Mill</label>
               <input
@@ -186,19 +200,15 @@ export default function YarnReceipts() {
                 value={supplier}
                 onChange={e => setSupplier(e.target.value)}
                 required
-                placeholder="e.g. Shree Yarns Ltd."
+                placeholder="e.g. Shree Yarns Pvt. Ltd."
                 className="input-field text-xs"
               />
             </div>
-
             <div>
               <label className="section-title block mb-1.5">Yarn Variety</label>
               <select
                 value={yarnType}
-                onChange={e => {
-                  setYarnType(e.target.value as YarnType);
-                  setSelectedStockId('');
-                }}
+                onChange={e => setYarnType(e.target.value as YarnType)}
                 className="input-field text-xs"
               >
                 {(['Cotton','Polyester','Wool','Silk','Blended'] as YarnType[]).map(t => (
@@ -206,19 +216,17 @@ export default function YarnReceipts() {
                 ))}
               </select>
             </div>
-
-            {/* Predefined Searchable Color Combobox */}
             <div>
-              <label className="section-title block mb-1.5">Standard Mill Colour</label>
-              <ColorCombobox
+              <label className="section-title block mb-1.5">Colour / Shade</label>
+              <input
+                type="text"
                 value={colour}
-                onChange={c => {
-                  setColour(c);
-                  setSelectedStockId('');
-                }}
+                onChange={e => setColour(e.target.value)}
+                required
+                placeholder="e.g. White"
+                className="input-field text-xs"
               />
             </div>
-
             <div>
               <label className="section-title block mb-1.5">Inward Net (kg)</label>
               <input
@@ -232,7 +240,6 @@ export default function YarnReceipts() {
                 className="input-field text-xs font-mono"
               />
             </div>
-
             <div>
               <label className="section-title block mb-1.5">Linked Order Ref</label>
               <input
@@ -243,7 +250,6 @@ export default function YarnReceipts() {
                 className="input-field text-xs font-mono"
               />
             </div>
-
             <div>
               <label className="section-title block mb-1.5">Supplier Invoice #</label>
               <input
@@ -254,7 +260,6 @@ export default function YarnReceipts() {
                 className="input-field text-xs font-mono"
               />
             </div>
-
             <div>
               <label className="section-title block mb-1.5">Receiving Officer</label>
               <input
@@ -266,7 +271,6 @@ export default function YarnReceipts() {
               />
             </div>
           </div>
-
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={submitting} className="btn-primary text-xs">
               {submitting ? 'Saving Consignment...' : 'Save Consignment Entry'}
@@ -286,43 +290,59 @@ export default function YarnReceipts() {
                 <th className="px-4 py-3 section-title whitespace-nowrap text-left">Receipt ID</th>
                 <th className="px-4 py-3 section-title whitespace-nowrap text-left">Date</th>
                 <th className="px-4 py-3 section-title whitespace-nowrap text-left">Supplier</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Yarn Variety</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Yarn Type</th>
                 <th className="px-4 py-3 section-title whitespace-nowrap text-left">Colour</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Net Quantity</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Stock Bin</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Invoice No</th>
-                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Received By</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-right">Net Qty (kg)</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Linked Order</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Invoice Ref</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-left">Receiving Clerk</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
               {loading && receipts.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-xs text-[var(--text-soft)] font-mono">
-                    Loading receipts history...
+                    Loading receipts archive...
                   </td>
                 </tr>
-              ) : receipts.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-xs text-[var(--text-soft)]">
-                    No yarn receipts logged yet.
+                    No yarn receipts match your search filter.
                   </td>
                 </tr>
               ) : (
                 paginatedData.map(r => (
                   <tr key={r.id} className="table-row-hover">
-                    <td className="px-4 py-3 text-xs font-mono font-bold text-[var(--olive-dark)]">{r.id}</td>
-                    <td className="px-4 py-3 text-xs font-mono text-[var(--text-soft)]">{r.date}</td>
-                    <td className="px-4 py-3 text-xs font-medium text-[var(--text)]">{r.supplier}</td>
-                    <td className="px-4 py-3 text-xs text-[var(--text)]">{r.yarnType}</td>
-                    <td className="px-4 py-3 text-xs text-[var(--text-soft)]">{r.colour}</td>
-                    <td className="px-4 py-3 text-xs font-mono font-bold text-right tabular-nums text-[var(--text)]">
-                      {r.quantityKg.toLocaleString()} <span className="text-[10px] text-[var(--text-soft)] font-normal">kg</span>
+                    <td className="px-4 py-3.5 text-left">
+                      <div className="flex items-center gap-2">
+                        <Package size={13} className="text-[var(--olive-grey)] flex-shrink-0" />
+                        <span className="text-xs font-mono font-bold text-[var(--olive-dark)]">{r.id}</span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-xs font-mono text-[var(--text-soft)]">
-                      {(r as any).yarnStockId || '—'}
+                    <td className="px-4 py-3.5 text-left">
+                      <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-soft)]">
+                        <Calendar size={12} />
+                        <span>{r.date}</span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-xs font-mono text-[var(--text-soft)]">{r.invoiceNo || '—'}</td>
-                    <td className="px-4 py-3 text-xs text-[var(--text-soft)]">{r.receivedBy}</td>
+                    <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{r.supplier}</td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text)] text-left">{r.yarnType}</td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text-soft)] text-left">{r.colour}</td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold tabular-nums text-[var(--ok)] text-right">{r.quantityKg.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-semibold text-[var(--olive-dark)] text-left">{r.forOrderId || '—'}</td>
+                    <td className="px-4 py-3.5 text-left">
+                      <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-soft)]">
+                        <FileText size={12} />
+                        <span>{r.invoiceNo}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 text-left">
+                      <div className="flex items-center gap-1.5 text-xs text-[var(--text)]">
+                        <User size={12} className="text-[var(--olive-grey)]" />
+                        <span>{r.receivedBy}</span>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -343,101 +363,3 @@ export default function YarnReceipts() {
   );
 }
 
-/** Predefined Searchable Color Combobox Component */
-function ColorCombobox({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (val: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState(value);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        // Ensure input reverts to valid selected color if user typed an unmatched string
-        if (!STANDARD_COLORS.includes(query)) {
-          setQuery(value);
-        }
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [query, value]);
-
-  const filteredColors = STANDARD_COLORS.filter(c =>
-    c.toLowerCase().includes(query.toLowerCase())
-  );
-
-  const handleSelect = (color: string) => {
-    onChange(color);
-    setQuery(color);
-    setIsOpen(false);
-  };
-
-  return (
-    <div ref={wrapperRef} className="relative w-full">
-      <div className="relative">
-        <input
-          type="text"
-          value={query}
-          onFocus={() => setIsOpen(true)}
-          onChange={e => {
-            setQuery(e.target.value);
-            setIsOpen(true);
-            const exactMatch = STANDARD_COLORS.find(
-              c => c.toLowerCase() === e.target.value.trim().toLowerCase()
-            );
-            if (exactMatch) {
-              onChange(exactMatch);
-            }
-          }}
-          placeholder="Search standard color..."
-          className="input-field text-xs pr-8 w-full"
-        />
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-soft)] hover:text-[var(--text)]"
-        >
-          <ChevronDown size={14} />
-        </button>
-      </div>
-
-      {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-[var(--surface-1)] border border-[var(--border)] rounded-lg shadow-xl max-h-48 overflow-y-auto z-50 divide-y divide-[var(--border)]/30">
-          {filteredColors.length === 0 ? (
-            <div className="p-2.5 text-center text-xs text-[var(--text-soft)]">
-              No matching standard mill colour.
-            </div>
-          ) : (
-            filteredColors.map(c => {
-              const isSelected = c === value;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => handleSelect(c)}
-                  className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-[var(--surface-2)] transition-colors ${
-                    isSelected ? 'font-bold text-[var(--olive-dark)] bg-[var(--olive-dark)]/5' : 'text-[var(--text)]'
-                  }`}
-                >
-                  <span>{c}</span>
-                  {isSelected && <Check size={12} className="text-[var(--olive-dark)]" />}
-                </button>
-              );
-            })
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
