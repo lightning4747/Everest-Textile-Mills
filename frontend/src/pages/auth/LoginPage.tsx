@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../context/AuthContext';
 import { ShieldCheck, LogIn, AlertCircle, KeyRound, User } from 'lucide-react';
+import LuminousFilaments from '../../components/ui/LuminousFilaments';
 
 const DEMO_ACCOUNTS: { role: UserRole; name: string; email: string; desc: string }[] = [
   { role: 'admin', name: 'Admin User', email: 'admin@everest.local', desc: 'Full System & Config Control' },
@@ -48,10 +49,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen w-full flex bg-[#f8f9fb] overflow-hidden">
-      {/* 1. Left side: clean inset framed image with lower padding */}
-      <div className="hidden lg:flex lg:w-1/2 h-full p-2 lg:p-3 bg-[#f8f9fb]">
-        <div className="relative w-full h-full rounded-[24px] overflow-hidden border border-black/5 shadow-xl">
+    <div className="h-screen w-full flex bg-[#0a0e14] overflow-hidden">
+      {/* 1. Left side: clean inset framed image */}
+      <div className="hidden lg:flex lg:w-1/2 h-full p-3 bg-[#0a0e14]">
+        <div className="relative w-full h-full rounded-[24px] overflow-hidden border border-white/10 shadow-2xl">
           <img
             src="/assets/image.png"
             alt="Everest Textile Mills"
@@ -60,33 +61,32 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* 2. Right side: tinted background with subtle shapes, grid, centered form card, and footer */}
-      <div className="relative w-full lg:w-1/2 h-full flex flex-col justify-between items-center px-4 py-3 sm:px-8 sm:py-4 bg-[#f8f9fb] overflow-hidden">
-        {/* Decorative background shapes (pointer-events-none, non-competing) */}
-        <div
-          aria-hidden="true"
-          className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#004643] opacity-[0.12] blur-3xl pointer-events-none"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-[#1C7C54] opacity-[0.10] blur-3xl pointer-events-none"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 pointer-events-none opacity-[0.25]"
-          style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, #53706D 1px, transparent 0)',
-            backgroundSize: '24px 24px',
-            maskImage: 'radial-gradient(ellipse 65% 65% at 50% 50%, black 20%, transparent 85%)',
-            WebkitMaskImage: 'radial-gradient(ellipse 65% 65% at 50% 50%, black 20%, transparent 85%)',
-          }}
+      {/* 2. Right side: Luminous Filaments background with centered login form card */}
+      <div className="relative w-full lg:w-1/2 h-full flex flex-col justify-between items-center px-4 py-4 sm:px-8 overflow-hidden bg-[#0a0e14]">
+        {/* React Bits Pro: Luminous Filaments glowing background */}
+        <LuminousFilaments
+          colors={['#004643', '#1C7C54']}
+          backgroundColor="#0a0e14"
+          mode="glow"
+          fibers={84}
+          lineWidth={1.6}
+          glow={0.7}
+          intensity={1.3}
+          speed={0.7}
+          flare={1.4}
+          twist={0.3}
+          sway={0.8}
+          interactive={true}
+          hoverPulses={true}
+          clickSurge={true}
+          className="absolute inset-0 w-full h-full"
         />
 
         {/* Top spacer */}
-        <div className="w-full h-0 sm:h-1" />
+        <div className="w-full h-0 sm:h-1 relative z-10" />
 
         {/* 3. Form card */}
-        <div className="relative z-10 w-full max-w-[390px] p-5 sm:p-6 bg-white border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-[18px] space-y-3.5 my-auto">
+        <div className="relative z-10 w-full max-w-[400px] p-5 sm:p-6 bg-white/95 backdrop-blur-md border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-[20px] space-y-3.5 my-auto">
           {/* Above form: logo, short heading ("Welcome back"), subtext */}
           <div className="text-center pb-1">
             <img
@@ -94,8 +94,8 @@ export default function LoginPage() {
               alt="Everest Textile Mills"
               className="h-8 w-auto mx-auto mb-2 object-contain"
             />
-            <h2 className="text-lg font-display font-semibold text-[var(--text)] leading-tight">Welcome back</h2>
-            <p className="text-[11px] text-[var(--text-soft)] mt-0.5">Sign in to Everest Mills</p>
+            <h2 className="text-lg font-display font-semibold text-[var(--cyprus)] leading-tight">Welcome back</h2>
+            <p className="text-[11px] text-[var(--text-soft)] mt-0.5">Sign in to Everest Mills Terminal</p>
           </div>
 
           {error && (
@@ -176,10 +176,11 @@ export default function LoginPage() {
         </div>
 
         {/* Small footer at bottom of right side */}
-        <footer className="relative z-10 pt-2 pb-1 text-center text-[10.5px] text-[var(--text-soft)]">
+        <footer className="relative z-10 pt-2 pb-1 text-center text-[10.5px] text-white/70">
           © {new Date().getFullYear()} Everest Textile Mills. All rights reserved.
         </footer>
       </div>
     </div>
   );
 }
+
