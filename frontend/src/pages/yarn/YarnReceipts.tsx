@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Package, Calendar, User, FileText, AlertCircle, Search, ShoppingCart, CheckCircle2, Truck, Sparkles } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -100,6 +101,17 @@ export default function YarnReceipts() {
       setQuantityKg(remainingKg > 0 ? remainingKg : Number(pendingItem.orderedKg));
     }
   };
+
+  const [searchParams] = useSearchParams();
+  const urlPoId = searchParams.get('poId');
+
+  useEffect(() => {
+    if (urlPoId && pendingPOs.length > 0) {
+      setShowForm(true);
+      setIntakeMode('po');
+      handlePoSelect(urlPoId);
+    }
+  }, [urlPoId, pendingPOs]);
 
   const handleStockSelect = (stockId: string) => {
     setSelectedStockId(stockId);
