@@ -10,7 +10,7 @@ export const machineShiftEnum  = pgEnum('machine_shift',  ['A', 'B', 'C']);
 export const yarnTypeEnum      = pgEnum('yarn_type', ['Cotton', 'Polyester', 'Wool', 'Silk', 'Blended']);
 
 export const orderStatusEnum   = pgEnum('order_status', [
-  'pending', 'awaiting_yarn', 'confirmed', 'spinning', 'weaving', 'dyeing',
+  'pending', 'yarn_check', 'awaiting_yarn', 'confirmed', 'spinning', 'weaving', 'dyeing',
   'quality_check', 'ready_to_ship', 'dispatched',
 ]);
 
@@ -129,12 +129,18 @@ export const products = pgTable('products', {
 // ─── Sales Orders (Header) ───────────────────────────────────────────────────
 export const salesOrders = pgTable('sales_orders', {
   id:               varchar('id', { length: 20 }).primaryKey(),  // ORD-NNNN
-  clientId:         uuid('client_id').notNull().references(() => users.id),
+  clientId:         uuid('client_id').references(() => users.id),
   buyer:            varchar('buyer', { length: 200 }).notNull(),
+  fabricType:       varchar('fabric_type', { length: 120 }),
+  colour:           varchar('colour', { length: 80 }),
+  quantityMetres:   numeric('quantity_metres', { precision: 10, scale: 2 }),
+  unitPrice:        numeric('unit_price', { precision: 10, scale: 2 }),
   totalAmount:      numeric('total_amount', { precision: 12, scale: 2 }).notNull().default('0'),
   deliveryDate:     date('delivery_date').notNull(),
   createdDate:      date('created_date').notNull().default(sql`CURRENT_DATE`),
   status:           orderStatusEnum('status').notNull().default('pending'),
+  machineId:        varchar('machine_id', { length: 10 }).references(() => machines.id),
+  completedMetres:  numeric('completed_metres', { precision: 10, scale: 2 }).default('0'),
   updatedAt:        timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

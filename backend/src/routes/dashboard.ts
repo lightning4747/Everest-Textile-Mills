@@ -242,8 +242,8 @@ router.get('/recent-orders', async (_req, res, next) => {
       return {
         id: o.id,
         buyer: o.buyer,
-        fabric: o.fabricType,
-        /* colour removed */
+        fabric: o.fabricType ?? 'Cotton Twill',
+        colour: o.colour ?? 'White',
         targetMetres,
         completedMetres,
         progressPct,
@@ -293,7 +293,7 @@ router.get('/low-stock', async (_req, res, next) => {
       return {
         id: r.id,
         type: r.type,
-        /* colour removed */
+        colour: r.colour,
         quantityKg,
         reorderLevel,
         bin: r.location,

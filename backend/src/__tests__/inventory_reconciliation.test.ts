@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeAll } from 'bun:test';
+import { execSync } from 'child_process';
 import { db } from '../db/index.js';
 import {
   inventoryBalances,
@@ -14,6 +15,10 @@ import { inventoryService } from '../services/inventoryService.js';
 import { eq, and } from 'drizzle-orm';
 
 describe('Inventory 4-Way Mathematical Reconciliation Suite', () => {
+  beforeAll(() => {
+    execSync('bun --env-file=.env src/db/seed.ts', { stdio: 'ignore' });
+  });
+
   it('Initial baseline reconciliation suite passes with zero drift across all 4 checks', async () => {
     const report = await inventoryService.reconcileInventory();
 

@@ -26,7 +26,7 @@ export default function LowStockAlerts() {
   const [selectedYarnForPo, setSelectedYarnForPo] = useState<YarnAlertItem | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const lowItems = data || [];
+  const lowItems = Array.isArray(data) ? data : [];
   const critical = lowItems.filter(y => y.severity === 'critical');
   const warning  = lowItems.filter(y => y.severity === 'warning');
 
