@@ -67,10 +67,10 @@ export default function ClientOrders() {
           {orders.map(order => {
             const isExpanded = expandedIds.has(order.id);
             const items = order.items || [];
-            const totalQty = items.reduce((s, i) => s + (i.quantityMetres || 0), 0) || 1;
-            const totalCompleted = items.reduce((s, i) => s + (i.completedMetres || 0), 0);
+            const totalQty = items.reduce((s, i) => s + Number(i.quantityMetres || 0), 0) || 1;
+            const totalCompleted = items.reduce((s, i) => s + Number(i.completedMetres || 0), 0);
             const pct = Math.round((totalCompleted / totalQty) * 100);
-            const totalValue = order.totalAmount || 0;
+            const totalValue = Number(order.totalAmount || 0);
 
             return (
               <div key={order.id} className="card overflow-hidden">
@@ -116,7 +116,7 @@ export default function ClientOrders() {
                       {items.map(item => {
                         const itemFabric = item.product?.fabricType || item.fabricType || 'N/A';
                         const itemColor = item.colour || '';
-                        const itemPct = Math.round(((item.completedMetres || 0) / (item.quantityMetres || 1)) * 100);
+                        const itemPct = Math.round((Number(item.completedMetres || 0) / Number(item.quantityMetres || 1)) * 100);
                         
                         return (
                           <div key={item.id} className="flex items-center justify-between p-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg">
@@ -130,11 +130,11 @@ export default function ClientOrders() {
                             <div className="flex items-center gap-6 text-right">
                               <div>
                                 <div className="text-xs text-[var(--text-soft)]">Qty</div>
-                                <div className="text-sm font-mono">{item.quantityMetres?.toLocaleString()} m</div>
+                                <div className="text-sm font-mono">{Number(item.quantityMetres || 0).toLocaleString()} m</div>
                               </div>
                               <div className="w-24">
                                 <ProgressBar value={itemPct} color={itemPct >= 100 ? 'ok' : 'default'} />
-                                <div className="text-[10px] text-[var(--text-soft)] mt-1 text-right">{item.completedMetres?.toLocaleString()} m done</div>
+                                <div className="text-[10px] text-[var(--text-soft)] mt-1 text-right">{Number(item.completedMetres || 0).toLocaleString()} m done</div>
                               </div>
                               <div className="w-24">
                                 <StatusBadge status={item.status} />
