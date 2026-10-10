@@ -7,6 +7,7 @@ import { ok, created, notFound, badRequest } from '../lib/response.js';
 import { db } from '../db/index.js';
 import { salesOrders, machines, type SalesOrder, orderStatusEnum } from '../db/schema.js';
 import { ordersCreatedTotal } from '../metrics.js';
+import { reserveYarnStock } from '../services/stubs.js';
 
 const router = Router();
 router.use(authenticate);
@@ -269,6 +270,15 @@ router.patch(
           `Invalid transition: order is currently '${order.status}' and cannot transition back or to the same status '${targetStatus}'`,
         );
         return;
+      }
+
+      // If advancing to or past yarn_check, consume reserveYarnStock stub
+      if (targetStatus === 'yarn_check') {
+        const requiredKg = Math.round(Number(order.quantityMetres) * 0.25); // estimate 0.25kg per metre
+        await reserveYarnStock({
+          orderId: order.id,
+          quantityKg: requiredKg,
+        });
       }
 
       const [updated] = await db

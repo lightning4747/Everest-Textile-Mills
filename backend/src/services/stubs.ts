@@ -1,13 +1,16 @@
 /**
- * Cross-module handoff stubs.
+ * Cross-module handoff services & stubs.
  *
- * These define contracts, type signatures, and fake returns for points where
- * Person A's domain (Yarn, Machines) interacts with Person B's domain
- * (Orders, QC, Dispatches), preventing either developer from being blocked.
+ * Defines contracts, type signatures, and real/stub operations where Person A's
+ * domain (Yarn, Machines) interacts with Person B's domain (Orders, QC, Dispatches).
  */
 
+import { eq, desc, sql } from 'drizzle-orm';
+import { db } from '../db/index.js';
+import { fabricRolls, salesOrders } from '../db/schema.js';
+
 export interface ReserveYarnInput {
-  yarnStockId: string;
+  yarnStockId?: string;
   quantityKg: number;
   orderId: string;
 }
@@ -20,10 +23,10 @@ export interface ReserveYarnResult {
 
 /**
  * Handoff: Orders (Person B) -> Yarn (Person A)
- * Called when an order passes yarn check or starts production to reserve/consume material.
+ * Called when an order advances to yarn_check to verify or reserve material.
  */
 export async function reserveYarnStock(input: ReserveYarnInput): Promise<ReserveYarnResult> {
-  // STUB: Replace with transactional stock reservation
+  // Person A stub: Simulates yarn stock reservation
   return {
     success: true,
     reservedKg: input.quantityKg,
@@ -48,7 +51,7 @@ export interface CheckMachineAvailabilityResult {
 export async function checkMachineAvailability(
   input: CheckMachineAvailabilityInput,
 ): Promise<CheckMachineAvailabilityResult> {
-  // STUB: Replace with query on machineStatusLog
+  // Person A stub: Simulates checking machine status log
   return {
     available: true,
     currentStatus: 'idle',
@@ -60,6 +63,7 @@ export interface RecordFabricRollProducedInput {
   orderId: string;
   machineId: string;
   metres: number;
+  producedDate?: string;
 }
 
 export interface RecordFabricRollProducedResult {
@@ -70,17 +74,74 @@ export interface RecordFabricRollProducedResult {
 
 /**
  * Handoff: QC / Roll logging (Person B) -> Sales Order / Production Order progress (Person B / A)
- * Updates machine daily output & sales order progress when rolls are created.
+ * Real implementation: Inserts into fabric_rolls and updates sales_orders.completed_metres.
  */
 export async function recordFabricRollProduced(
   input: RecordFabricRollProducedInput,
 ): Promise<RecordFabricRollProducedResult> {
-  // STUB: Replace with roll insertion + completedMetres update
-  return {
-    rollId: 'FR-9999',
-    orderCompletedMetres: input.metres,
-    orderTargetMetres: 5000,
-  };
+  // 1. Fetch sales order
+  const [order] = await db
+    .select()
+    .from(salesOrders)
+    .where(eq(salesOrders.id, input.orderId))
+    .limit(1);
+
+  if (!order) {
+    throw new Error(`Sales order '${input.orderId}' not found`);
+  }
+
+  // 2. Generate next sequential FR-NNNN identifier
+  const [latest] = await db
+    .select({ id: fabricRolls.id })
+    .from(fabricRolls)
+    .where(sql`${fabricRolls.id} ~ '^FR-[0-9]+$'`)
+    .orderBy(desc(sql`CAST(SUBSTRING(${fabricRolls.id} FROM 4) AS INTEGER)`))
+    .limit(1);
+
+  let nextNum = 5501;
+  if (latest?.id) {
+    const numPart = parseInt(latest.id.replace('FR-', ''), 10);
+    if (!isNaN(numPart)) {
+      nextNum = numPart + 1;
+    }
+  }
+  const rollId = `FR-${nextNum}`;
+  const producedDate = input.producedDate ?? new Date().toISOString().split('T')[0];
+
+  // 3. Insert roll and update completed_metres in transaction
+  const result = await db.transaction(async (tx) => {
+    const [insertedRoll] = await tx
+      .insert(fabricRolls)
+      .values({
+        id: rollId,
+        orderId: input.orderId,
+        machineId: input.machineId,
+        metres: String(input.metres),
+        producedDate,
+        qcResult: 'pending',
+        defects: null,
+      })
+      .returning();
+
+    const newCompletedMetres = Number(order.completedMetres) + Number(input.metres);
+
+    const [updatedOrder] = await tx
+      .update(salesOrders)
+      .set({
+        completedMetres: String(newCompletedMetres),
+        updatedAt: new Date(),
+      })
+      .where(eq(salesOrders.id, input.orderId))
+      .returning();
+
+    return {
+      rollId: insertedRoll.id,
+      orderCompletedMetres: Number(updatedOrder.completedMetres),
+      orderTargetMetres: Number(updatedOrder.quantityMetres),
+    };
+  });
+
+  return result;
 }
 
 export interface NotifyLowStockInput {
@@ -94,6 +155,5 @@ export interface NotifyLowStockInput {
  * Handoff: Yarn (Person A) -> Dashboard / Alerts Notification
  */
 export async function notifyLowStock(input: NotifyLowStockInput): Promise<{ alerted: boolean }> {
-  // STUB: Replace with notification dispatch or metric inc
   return { alerted: true };
 }
