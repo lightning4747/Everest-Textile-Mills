@@ -46,7 +46,21 @@ clientPortalRouter.get('/orders', async (req: Request, res: Response) => {
       .from(salesOrders)
       .where(eq(salesOrders.clientId, clientId))
       .orderBy(desc(salesOrders.createdDate));
-    res.json(orders);
+
+    const allItems = await db.select().from(salesOrderItems);
+    const allProducts = await db.select().from(products);
+
+    const ordersWithItems = orders.map(order => ({
+      ...order,
+      items: allItems
+        .filter(item => item.orderId === order.id)
+        .map(item => ({
+          ...item,
+          product: allProducts.find(p => p.id === item.productId)
+        }))
+    }));
+
+    res.json(ordersWithItems);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
