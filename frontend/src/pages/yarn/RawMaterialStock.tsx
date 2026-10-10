@@ -7,6 +7,7 @@ import Pagination from '../../components/ui/Pagination';
 import { api } from '../../services/apiClient';
 import { useApi } from '../../hooks/useApi';
 import type { YarnStock } from '../../types';
+import DetailModal from '../../components/ui/DetailModal';
 
 interface InventoryBalance {
   id: string;
@@ -27,6 +28,7 @@ export default function RawMaterialStock() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const debouncedSearch = useDebounce(search, 300);
+  const [selectedStock, setSelectedStock] = useState<YarnStock | null>(null);
 
   // Real-time inventory balances from central inventory service
   const { data: balanceData, loading: balanceLoading, error: balanceError } = useApi<InventoryBalance[]>(
@@ -304,6 +306,40 @@ export default function RawMaterialStock() {
           />
         </div>
       </div>
+
+      {/* Stock Detail Modal */}
+      <DetailModal
+        open={!!selectedStock}
+        onClose={() => setSelectedStock(null)}
+        title={selectedStock ? `${selectedStock.type} — ${selectedStock.colour}` : ''}
+        subtitle={selectedStock?.id}
+        sections={selectedStock ? (() => {
+          const isCritical = selectedStock.quantityKg <= selectedStock.reorderLevel * 0.4;
+          const isLow = selectedStock.quantityKg <= selectedStock.reorderLevel;
+          const pct = Math.min(100, Math.round((selectedStock.quantityKg / (selectedStock.reorderLevel * 4)) * 100));
+          return [
+            {
+              title: 'Stock Identity',
+              fields: [
+                { label: 'Stock ID',        value: selectedStock.id,                    mono: true, accent: 'text-[var(--olive-dark)]' },
+                { label: 'Fiber Type',      value: selectedStock.type },
+                { label: 'Colour / Shade',  value: selectedStock.colour },
+                { label: 'Warehouse Bin',   value: selectedStock.location,              mono: true },
+              ],
+            },
+            {
+              title: 'Inventory Levels',
+              fields: [
+                { label: 'Current Qty',     value: `${selectedStock.quantityKg.toLocaleString()} kg`, mono: true, accent: isCritical ? 'text-[var(--bad)]' : isLow ? 'text-[var(--warn)]' : 'text-[var(--ok)]' },
+                { label: 'Reorder Level',   value: `${selectedStock.reorderLevel.toLocaleString()} kg`, mono: true },
+                { label: 'Stock Fill',      value: `${pct}% of capacity`,              mono: true, accent: isCritical ? 'text-[var(--bad)]' : isLow ? 'text-[var(--warn)]' : 'text-[var(--ok)]' },
+                { label: 'Status',          value: isCritical ? 'Critical Deficit' : isLow ? 'Low Stock Alert' : 'Healthy Stock', accent: isCritical ? 'text-[var(--bad)] font-bold' : isLow ? 'text-[var(--warn)] font-bold' : 'text-[var(--ok)]' },
+                { label: 'Last Verified',   value: selectedStock.lastUpdated,           mono: true },
+              ],
+            },
+          ];
+        })() : []}
+      />
     </div>
   );
 }

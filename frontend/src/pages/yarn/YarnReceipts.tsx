@@ -6,11 +6,13 @@ import Pagination from '../../components/ui/Pagination';
 import { api } from '../../services/apiClient';
 import { useApi } from '../../hooks/useApi';
 import type { YarnReceipt, YarnStock, YarnType } from '../../types';
+import DetailModal from '../../components/ui/DetailModal';
 
 export default function YarnReceipts() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<YarnReceipt | null>(null);
 
   // Search & Filter state
   const [search, setSearch] = useState('');
@@ -313,7 +315,7 @@ export default function YarnReceipts() {
                 </tr>
               ) : (
                 paginatedData.map(r => (
-                  <tr key={r.id} className="table-row-hover">
+                  <tr key={r.id} className="table-row-hover cursor-pointer" onClick={() => setSelectedReceipt(r)}>
                     <td className="px-4 py-3.5 text-left">
                       <div className="flex items-center gap-2">
                         <Package size={13} className="text-[var(--olive-grey)] flex-shrink-0" />
@@ -359,6 +361,40 @@ export default function YarnReceipts() {
           />
         </div>
       </div>
+
+      {/* Receipt Detail Modal */}
+      <DetailModal
+        open={!!selectedReceipt}
+        onClose={() => setSelectedReceipt(null)}
+        title={selectedReceipt?.id ?? ''}
+        subtitle="Yarn Inward Receipt"
+        sections={selectedReceipt ? [
+          {
+            title: 'Receipt Details',
+            fields: [
+              { label: 'Receipt ID',        value: selectedReceipt.id,           mono: true, accent: 'text-[var(--olive-dark)]' },
+              { label: 'Date',              value: selectedReceipt.date,          mono: true },
+              { label: 'Supplier / Mill',   value: selectedReceipt.supplier,      accent: 'font-semibold text-[var(--text)]' },
+              { label: 'Invoice Ref',       value: selectedReceipt.invoiceNo,     mono: true },
+            ],
+          },
+          {
+            title: 'Yarn Specification',
+            fields: [
+              { label: 'Yarn Type',         value: selectedReceipt.yarnType },
+              { label: 'Colour / Shade',    value: selectedReceipt.colour },
+              { label: 'Net Qty Inward',    value: `${selectedReceipt.quantityKg.toLocaleString()} kg`, mono: true, accent: 'text-[var(--ok)] font-bold' },
+              { label: 'Linked Order',      value: selectedReceipt.forOrderId || '—', mono: true, accent: 'text-[var(--olive-dark)]' },
+            ],
+          },
+          {
+            title: 'Processing Info',
+            fields: [
+              { label: 'Received By',       value: selectedReceipt.receivedBy },
+            ],
+          },
+        ] : []}
+      />
     </div>
   );
 }
