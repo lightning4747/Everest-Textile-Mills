@@ -9,6 +9,7 @@ import { eq, desc, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { machines, machineStatusLog, yarnStock, machineOutputLog, fabricRolls, salesOrders } from '../db/schema.js';
 import { yarnStockLowCount, productionOutputMetresToday } from '../metrics.js';
+import { fabricRolls, salesOrders } from '../db/schema.js';
 
 export interface ReserveYarnInput {
   yarnStockId?: string;
@@ -87,6 +88,12 @@ export async function reserveYarnStock(input: ReserveYarnInput): Promise<Reserve
       remainingStockKg,
     };
   });
+  // Person A stub: Simulates yarn stock reservation
+  return {
+    success: true,
+    reservedKg: input.quantityKg,
+    remainingStockKg: 1000,
+  };
 }
 
 export interface CheckMachineAvailabilityInput {
@@ -130,7 +137,7 @@ export async function checkMachineAvailability(
   const currentStatus = latestStatus ? latestStatus.status : 'idle';
   const currentOrderId = latestStatus?.currentOrderId ?? null;
   const available = currentStatus === 'idle';
-
+  // Person A stub: Simulates checking machine status log
   return {
     available,
     currentStatus,
@@ -267,6 +274,7 @@ export async function updateProductionOutputGauge(): Promise<number> {
  * Handoff: Yarn (Person A) -> Dashboard / Alerts Notification
  */
 export async function notifyLowStock(input: NotifyLowStockInput): Promise<{ alerted: boolean }> {
+
   await updateYarnLowStockGauge();
   return { alerted: input.currentKg <= input.reorderLevel };
 }
