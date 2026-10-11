@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, Download, Printer, Search, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Download, Printer, Calendar, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { usePagination } from '../../hooks/usePagination';
 import Pagination from '../../components/ui/Pagination';
 import { exportCsv } from '../../utils/exportCsv';
-import { useDebounce } from '../../hooks/useDebounce';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../services/apiClient';
 
@@ -40,9 +39,9 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 const ALL = 'all';
 
 export default function OrderCosting() {
-  const [search, setSearch]     = useState('');
   const [buyerFilter, setBuyer] = useState(ALL);
-  const debouncedSearch         = useDebounce(search, 300);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate]     = useState('');
 
   const { data: rawCosts, loading, error, refetch } = useApi<OrderCostItem[]>(
     () => api.get<OrderCostItem[]>('/reports/order-costs'),
@@ -55,12 +54,22 @@ export default function OrderCosting() {
 
   const filtered = useMemo(() =>
     orderCostsList.filter(o => {
-      const q = debouncedSearch.toLowerCase();
-      const matchSearch = !q || o.orderId.toLowerCase().includes(q) || (o.buyer && o.buyer.toLowerCase().includes(q));
-      const matchBuyer  = buyerFilter === ALL || o.buyer === buyerFilter;
-      return matchSearch && matchBuyer;
+      const matchBuyer = buyerFilter === ALL || o.buyer === buyerFilter;
+
+      let matchDate = true;
+      if (o.updatedAt) {
+        const orderDateStr = o.updatedAt.split('T')[0];
+        if (startDate && orderDateStr < startDate) {
+          matchDate = false;
+        }
+        if (endDate && orderDateStr > endDate) {
+          matchDate = false;
+        }
+      }
+
+      return matchBuyer && matchDate;
     }),
-  [orderCostsList, debouncedSearch, buyerFilter]);
+  [orderCostsList, buyerFilter, startDate, endDate]);
 
   const { totalRevenue, totalCost, totalProfit, margin, chartData } = useMemo(() => {
     const totalRevenue = filtered.reduce((s, o) => s + (o.revenue || 0), 0);
@@ -81,9 +90,11 @@ export default function OrderCosting() {
   function handleExport() {
     exportCsv(
       `order-costing${buyerFilter !== ALL ? `-${buyerFilter.replace(/\s+/g, '-')}` : ''}.csv`,
-      ['Order ID', 'Buyer', 'Yarn Cost (₹)', 'Labour Cost (₹)', 'Machine Cost (₹)', 'Total Cost (₹)', 'Revenue (₹)', 'Profit (₹)', 'Margin (%)'],
+      ['Order ID', 'Date', 'Buyer', 'Yarn Cost (₹)', 'Labour Cost (₹)', 'Machine Cost (₹)', 'Total Cost (₹)', 'Revenue (₹)', 'Profit (₹)', 'Margin (%)'],
       filtered.map(o => [
-        o.orderId, o.buyer,
+        o.orderId,
+        o.updatedAt ? o.updatedAt.split('T')[0] : '—',
+        o.buyer,
         o.yarnCost, o.labourCost, o.machineCost,
         o.totalCost, o.revenue, o.profit,
         o.marginPct || Math.round((o.profit / (o.revenue || 1)) * 100),
@@ -121,25 +132,43 @@ export default function OrderCosting() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Date & Buyer Filters (Search bar removed per user request) */}
       <div className="flex items-center gap-3 flex-wrap print-hide">
-        <div className="relative flex items-center">
-          <Search size={13} className="absolute left-3 text-[var(--text-soft)] pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search order ID, buyer..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="input-field h-9 pl-8 pr-3 text-xs font-mono w-52"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center">
+            <Calendar size={13} className="absolute left-2.5 text-[var(--text-soft)] pointer-events-none" />
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              className="input-field h-9 pl-8 pr-2.5 text-xs font-mono w-36"
+              title="From Date"
+            />
+          </div>
+          <span className="text-xs text-[var(--text-soft)] font-mono">to</span>
+          <div className="relative flex items-center">
+            <Calendar size={13} className="absolute left-2.5 text-[var(--text-soft)] pointer-events-none" />
+            <input
+              type="date"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              className="input-field h-9 pl-8 pr-2.5 text-xs font-mono w-36"
+              title="To Date"
+            />
+          </div>
         </div>
+
         <select value={buyerFilter} onChange={e => setBuyer(e.target.value)} className="input-field h-9 text-xs font-mono w-48">
           <option value={ALL}>All Buyers</option>
           {buyers.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
-        {(buyerFilter !== ALL || search) && (
-          <button className="btn-ghost h-9 text-xs" onClick={() => { setSearch(''); setBuyer(ALL); }}>
-            Reset
+
+        {(buyerFilter !== ALL || startDate || endDate) && (
+          <button
+            className="btn-ghost h-9 text-xs"
+            onClick={() => { setStartDate(''); setEndDate(''); setBuyer(ALL); }}
+          >
+            Reset Filters
           </button>
         )}
       </div>
@@ -189,7 +218,7 @@ export default function OrderCosting() {
         ) : filtered.length === 0 ? (
           <div className="px-5 py-12 text-center">
             <p className="text-sm text-[var(--text-soft)]">No orders match the current filters.</p>
-            <button className="btn-ghost mt-3 text-xs" onClick={() => { setSearch(''); setBuyer(ALL); }}>Reset Filters</button>
+            <button className="btn-ghost mt-3 text-xs" onClick={() => { setStartDate(''); setEndDate(''); setBuyer(ALL); }}>Reset Filters</button>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -197,6 +226,7 @@ export default function OrderCosting() {
               <thead>
                 <tr className="border-b border-[var(--border)] bg-[var(--panel-bg)]">
                   <th className="px-4 py-3 section-title whitespace-nowrap text-left">Order ID</th>
+                  <th className="px-4 py-3 section-title whitespace-nowrap text-left">Date</th>
                   <th className="px-4 py-3 section-title whitespace-nowrap text-left">Buyer</th>
                   <th className="px-4 py-3 section-title whitespace-nowrap text-right">Yarn Cost</th>
                   <th className="px-4 py-3 section-title whitespace-nowrap text-right">Labour</th>
@@ -210,9 +240,11 @@ export default function OrderCosting() {
               <tbody className="divide-y divide-[var(--border)]">
                 {paginatedData.map(o => {
                   const m = o.marginPct ? Math.round(o.marginPct) : Math.round((o.profit / (o.revenue || 1)) * 100);
+                  const formattedDate = o.updatedAt ? o.updatedAt.split('T')[0] : '—';
                   return (
                     <tr key={o.orderId} className="table-row-hover">
                       <td className="px-4 py-3.5 text-xs font-mono font-bold text-[var(--olive-dark)] text-left">{o.orderId}</td>
+                      <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-left whitespace-nowrap">{formattedDate}</td>
                       <td className="px-4 py-3.5 text-xs font-semibold text-[var(--text)] text-left">{o.buyer}</td>
                       <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right tabular-nums">₹{(o.yarnCost / 1000).toFixed(0)}K</td>
                       <td className="px-4 py-3.5 text-xs font-mono text-[var(--text-soft)] text-right tabular-nums">₹{(o.labourCost / 1000).toFixed(0)}K</td>
