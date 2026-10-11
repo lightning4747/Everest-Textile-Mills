@@ -1,6 +1,8 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Suspense } from 'react';
 import { LogOut, LayoutDashboard, FilePlus, Package } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import PageSkeleton from '../../components/ui/PageSkeleton';
 
 export default function PortalLayout() {
   const { user, logout } = useAuth();
@@ -44,7 +46,9 @@ export default function PortalLayout() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
-        <Outlet />
+        <Suspense fallback={<PageSkeleton />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <footer className="border-t border-[var(--border)] mt-auto py-6">

@@ -7,7 +7,7 @@ import React from 'react';
  */
 const PageSkeleton = React.memo(function PageSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full animate-in fade-in duration-150">
       {/* Heading bar */}
       <div className="h-8 w-48 animate-pulse bg-[var(--sand)] rounded-lg" />
 

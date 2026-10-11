@@ -1,7 +1,8 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
+import PageSkeleton from '../ui/PageSkeleton';
 import { animateEntrance } from '../../utils/motion';
 
 export default function AppLayout() {
@@ -22,7 +23,9 @@ export default function AppLayout() {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <TopBar />
         <main className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          <Outlet />
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>
