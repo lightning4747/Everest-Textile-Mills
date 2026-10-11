@@ -13,6 +13,7 @@ interface UseApiResult<T> {
     page?: number;
     limit?: number;
     total?: number;
+    totalPages?: number;
   };
   refetch: () => Promise<void>;
   setData: React.Dispatch<React.SetStateAction<T | null>>;

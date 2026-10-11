@@ -141,4 +141,21 @@ salesOrdersRouter.post('/:id/fast-forward', authorize('admin', 'manager', 'opera
   }
 });
 
+/**
+ * POST /api/v1/sales-orders/:id/reset
+ * Resets the order back to 'spinning' for hackathon demo replay.
+ */
+salesOrdersRouter.post('/:id/reset', authorize('admin', 'manager', 'operator'), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const actor = req.user?.username || req.user?.name || 'Demo Reset';
+    const result = await orderLifecycleService.resetOrderToSpinning(id, actor);
+    res.json(result);
+  } catch (err: any) {
+    console.error(`Failed to reset order ${req.params.id}:`, err);
+    res.status(400).json({ error: err.message || 'Failed to reset order' });
+  }
+});
+
 export default salesOrdersRouter;
+

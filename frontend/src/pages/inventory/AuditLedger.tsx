@@ -93,6 +93,7 @@ export default function AuditLedger() {
     data: movementData,
     loading: movementsLoading,
     error: movementsError,
+    meta: movementMeta,
     refetch: refetchMovements,
   } = useApi<InventoryMovement[]>(
     () => api.get<InventoryMovement[]>(`/inventory/movements?${queryParams.toString()}`),
@@ -114,6 +115,29 @@ export default function AuditLedger() {
 
   const movements = movementData || [];
   const isHealthy = reconReport?.status === 'CONSISTENT' && reconReport?.driftCount === 0;
+
+  const totalCount = movementMeta?.total ?? movements.length;
+  const totalPages = movementMeta?.totalPages ?? Math.max(1, Math.ceil(totalCount / pageSize));
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
+
+  const handleStateFilterChange = (val: string) => {
+    setStateFilter(val);
+    setPage(1);
+  };
+
+  const handleReasonFilterChange = (val: string) => {
+    setReasonFilter(val);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+  };
 
   const handleRefresh = () => {
     refetchMovements();
@@ -238,14 +262,14 @@ export default function AuditLedger() {
             <input
               type="text"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => handleSearchChange(e.target.value)}
               placeholder="Search by Item ID (e.g. YS-001, ORD-1033)..."
               className="input-field h-10 pl-9 text-xs font-mono w-full"
             />
           </div>
           <select
             value={stateFilter}
-            onChange={e => setStateFilter(e.target.value)}
+            onChange={e => handleStateFilterChange(e.target.value)}
             className="input-field h-10 text-xs font-mono w-44"
           >
             <option value="all">All States</option>
@@ -257,7 +281,7 @@ export default function AuditLedger() {
           </select>
           <select
             value={reasonFilter}
-            onChange={e => setReasonFilter(e.target.value)}
+            onChange={e => handleReasonFilterChange(e.target.value)}
             className="input-field h-10 text-xs font-mono w-44"
           >
             <option value="all">All Reasons</option>
@@ -287,7 +311,7 @@ export default function AuditLedger() {
             <h2 className="text-sm font-display font-semibold text-[var(--text)]">Transaction Log Entries</h2>
           </div>
           <span className="text-xs font-mono text-[var(--text-soft)]">
-            Showing {movements.length} events
+            Showing {movements.length > 0 ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, totalCount)} of {totalCount} events
           </span>
         </div>
 
@@ -385,10 +409,10 @@ export default function AuditLedger() {
         <div className="px-5 pb-4">
           <Pagination
             page={page}
-            totalPages={Math.max(1, Math.ceil(movements.length / pageSize))}
+            totalPages={totalPages}
             pageSize={pageSize}
             setPage={setPage}
-            setPageSize={setPageSize}
+            setPageSize={handlePageSizeChange}
           />
         </div>
       </div>

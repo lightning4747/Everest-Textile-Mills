@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, CheckCircle, Clock, Circle, SearchX, RefreshCw, Zap, FastForward, Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import { Search, CheckCircle, Clock, Circle, SearchX, RefreshCw, Zap, FastForward, Loader2, CheckCircle2, AlertTriangle, X, RotateCcw } from 'lucide-react';
 import type { SalesOrder } from '../../types';
 import { useDebounce } from '../../hooks/useDebounce';
 import { usePagination } from '../../hooks/usePagination';
@@ -62,6 +62,19 @@ export default function OrderStatus() {
     }
   };
 
+  const handleReset = async (orderId: string) => {
+    setAdvancingOrderId(orderId);
+    try {
+      const res = await api.post<{ success: boolean; message: string }>(`/sales-orders/${orderId}/reset`);
+      setNotification({ type: 'success', message: res.data?.message || 'Order reset to Spinning phase!' });
+      await refetch();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Failed to reset order' });
+    } finally {
+      setAdvancingOrderId(null);
+    }
+  };
+
   const getNextStageLabel = (status: string) => {
     switch (status) {
       case 'pending':
@@ -76,11 +89,12 @@ export default function OrderStatus() {
       case 'quality_check':
         return 'Approve QC';
       case 'ready_to_ship':
-        return 'Dispatch';
+        return '⚡ Dispatch Order';
       default:
         return 'Next Stage';
     }
   };
+
 
   const salesOrders = rawOrders || [];
 
@@ -172,9 +186,18 @@ export default function OrderStatus() {
             {paginatedData.map(order => {
               const currentIdx = getStageIndex(order.status);
               const items = order.items || [];
-              const completed = items.reduce((sum, item) => sum + (item.completedMetres || 0), 0);
-              const total = items.reduce((sum, item) => sum + (item.quantityMetres || 0), 0) || 1;
-              const pct        = Math.round((completed / total) * 100);
+              const itemsQty = items.reduce((sum, item) => sum + (Number(item.quantityMetres) || 0), 0);
+              const headerQty = Number(order.quantityMetres) || 0;
+              const total = itemsQty > 0 ? itemsQty : (headerQty > 0 ? headerQty : 1);
+
+              const itemsCompleted = items.reduce((sum, item) => sum + (Number(item.completedMetres) || 0), 0);
+              const headerCompleted = Number(order.completedMetres) || 0;
+              const completed = itemsCompleted > 0 ? itemsCompleted : headerCompleted;
+
+              // When in ready_to_ship or dispatched, 100% of production target is complete
+              const pct = (order.status === 'ready_to_ship' || order.status === 'dispatched')
+                ? 100
+                : (total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0);
 
               const statusBorderColor = order.status === 'ready_to_ship' || order.status === 'dispatched'
                 ? 'border-l-[var(--ok)]'
@@ -217,40 +240,93 @@ export default function OrderStatus() {
                         <p className="font-display text-xl font-semibold text-[var(--ok)]">{pct}%</p>
                       </div>
 
-                      {order.status !== 'dispatched' && order.status !== 'awaiting_yarn' && (
-                        <div className="flex items-center gap-1.5 pl-3 border-l border-[var(--border)]">
-                          <button
-                            disabled={advancingOrderId === order.id}
-                            onClick={() => handleAdvance(order.id)}
-                            className="btn-primary text-xs h-7 px-2.5 py-0 inline-flex items-center gap-1 whitespace-nowrap"
-                            title="Advance to next manufacturing phase"
-                          >
-                            {advancingOrderId === order.id ? (
-                              <Loader2 size={11} className="animate-spin" />
-                            ) : (
-                              <Zap size={11} />
-                            )}
-                            <span>{getNextStageLabel(order.status)}</span>
-                          </button>
-                          <button
-                            disabled={advancingOrderId === order.id}
-                            onClick={() => handleFastForward(order.id)}
-                            className="btn-ghost text-xs h-7 px-2 py-0 inline-flex items-center gap-1 whitespace-nowrap border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)]"
-                            title="Fast-forward order directly to Dispatched"
-                          >
-                            <FastForward size={12} />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 pl-3 border-l border-[var(--border)]">
+                        {order.status === 'dispatched' ? (
+                          <>
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--ok)] bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
+                              <CheckCircle2 size={13} /> Dispatched & Delivered
+                            </span>
+                            <button
+                              disabled={advancingOrderId === order.id}
+                              onClick={() => handleReset(order.id)}
+                              className="btn-secondary text-xs h-7 px-2.5 py-0 inline-flex items-center gap-1 text-[var(--text-soft)] hover:text-[var(--text)] border border-[var(--border)]"
+                              title="Reset order back to Spinning to replay demo"
+                            >
+                              {advancingOrderId === order.id ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <RotateCcw size={11} />
+                              )}
+                              <span>Replay Demo</span>
+                            </button>
+                          </>
+                        ) : order.status === 'ready_to_ship' ? (
+                          <>
+                            <button
+                              disabled={advancingOrderId === order.id}
+                              onClick={() => handleAdvance(order.id)}
+                              className="btn-primary text-xs h-8 px-3 py-0 inline-flex items-center gap-1.5 whitespace-nowrap bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
+                              title="Dispatch order and generate gate pass delivery challan"
+                            >
+                              {advancingOrderId === order.id ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Zap size={12} />
+                              )}
+                              <span>⚡ Dispatch Order</span>
+                            </button>
+                            <button
+                              disabled={advancingOrderId === order.id}
+                              onClick={() => handleFastForward(order.id)}
+                              className="btn-secondary text-xs h-8 px-2.5 py-0 inline-flex items-center gap-1.5 whitespace-nowrap border border-amber-500/40 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20 font-medium"
+                              title="Skip straight through dispatch to completed delivery"
+                            >
+                              <FastForward size={12} className="text-amber-700" />
+                              <span>Skip Dispatch</span>
+                            </button>
+                          </>
+                        ) : order.status !== 'awaiting_yarn' ? (
+                          <>
+                            <button
+                              disabled={advancingOrderId === order.id}
+                              onClick={() => handleAdvance(order.id)}
+                              className="btn-primary text-xs h-7 px-2.5 py-0 inline-flex items-center gap-1 whitespace-nowrap"
+                              title="Advance to next manufacturing phase"
+                            >
+                              {advancingOrderId === order.id ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <Zap size={11} />
+                              )}
+                              <span>{getNextStageLabel(order.status)}</span>
+                            </button>
+                            <button
+                              disabled={advancingOrderId === order.id}
+                              onClick={() => handleFastForward(order.id)}
+                              className="btn-ghost text-xs h-7 px-2.5 py-0 inline-flex items-center gap-1 whitespace-nowrap border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-soft)]"
+                              title="Fast-forward order directly to Dispatched"
+                            >
+                              <FastForward size={12} />
+                              <span>Skip to End</span>
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-amber-700 font-medium bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded">
+                            Awaiting Yarn Allocation
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
+
 
                   {/* Pipeline Progression Timeline */}
                   <div className="px-4 py-3">
                     <div className="flex items-center justify-between gap-1 overflow-x-auto py-2">
                       {stages.map((stage, idx) => {
-                        const isDone    = idx < currentIdx;
-                        const isCurrent = idx === currentIdx;
+                        const isOrderDispatched = order.status === 'dispatched';
+                        const isDone    = isOrderDispatched || idx < currentIdx;
+                        const isCurrent = !isOrderDispatched && idx === currentIdx;
 
                         return (
                           <div key={stage.key} className="flex items-center flex-1 min-w-[70px]">
@@ -275,7 +351,7 @@ export default function OrderStatus() {
                               </span>
                             </div>
                             {idx < stages.length - 1 && (
-                              <div className={`flex-1 h-0.5 mx-1.5 rounded ${idx < currentIdx ? 'bg-[var(--ok)]' : 'bg-[var(--sand)]'}`} />
+                              <div className={`flex-1 h-0.5 mx-1.5 rounded ${(isOrderDispatched || idx < currentIdx) ? 'bg-[var(--ok)]' : 'bg-[var(--sand)]'}`} />
                             )}
                           </div>
                         );

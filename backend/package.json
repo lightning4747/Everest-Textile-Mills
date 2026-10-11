@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "seed": "tsx src/db/seed.ts",
+    "seed:realistic": "bun src/scripts/seedRealistic.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

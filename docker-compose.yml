@@ -37,6 +37,7 @@ services:
       - "3000:3000"
     volumes:
       - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
 
   prometheus:
     image: prom/prometheus:v2.51.0

@@ -193,4 +193,37 @@ describe('Order Lifecycle Advancement & Fast-Forward Suite', () => {
     const body = await res.json();
     expect(body.newStatus).toBe('weaving');
   });
+
+  it('resets an order back to spinning via HTTP API POST /sales-orders/:id/reset', async () => {
+    const testOrderId = `ORD-RST-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    await db.insert(salesOrders).values({
+      id: testOrderId,
+      buyer: 'Reset Test Buyer',
+      fabricType: 'Denim',
+      colour: 'Indigo',
+      quantityMetres: '200.00',
+      totalAmount: '50000.00',
+      deliveryDate: new Date('2026-11-01'),
+      status: 'dispatched',
+      completedMetres: '200.00',
+    });
+
+    const res = await fetch(`${baseUrl}/sales-orders/${testOrderId}/reset`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.newStatus).toBe('spinning');
+
+    const [updated] = await db.select().from(salesOrders).where(eq(salesOrders.id, testOrderId));
+    expect(updated.status).toBe('spinning');
+    expect(Number(updated.completedMetres)).toBe(0);
+  });
 });
+

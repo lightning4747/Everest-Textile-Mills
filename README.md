@@ -38,7 +38,11 @@ A manufacturing ERP system for Everest Textile Mills built with TypeScript, Bun,
    ```bash
    docker compose exec backend bun run db:migrate
    docker compose exec backend bun run seed
+
+   # Generate full realistic enterprise dataset (100+ users, 45 machines, 300+ orders, zero-drift ledger):
+   docker compose exec backend bun run seed:realistic
    ```
+
 
 5. **Access Service Interfaces:**
    - **Backend API:** [http://localhost:3000](http://localhost:3000)
@@ -65,8 +69,12 @@ bun install
 bun run db:migrate
 bun run seed
 
+# (Optional) Seed realistic enterprise dataset (100+ users, 45 machines, 300+ orders, zero drift):
+bun run seed:realistic
+
 # Start backend development server
 bun run dev
+
 ```
 
 ### 3. Frontend Setup

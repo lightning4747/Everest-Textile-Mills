@@ -617,4 +617,49 @@ export const orderLifecycleService = {
       message: `Order ${orderId} fast-forwarded successfully to Dispatched in ${transitions.length} phases!`,
     };
   },
+
+  /**
+   * Reset order back to 'spinning' for hackathon demo replay.
+   */
+  async resetOrderToSpinning(orderId: string, actor: string = 'Demo Reset') {
+    return await db.transaction(async (tx) => {
+      const [order] = await tx
+        .select()
+        .from(salesOrders)
+        .where(eq(salesOrders.id, orderId));
+
+      if (!order) {
+        throw new Error(`Order ${orderId} not found`);
+      }
+
+      const prevStatus = order.status;
+
+      await tx
+        .update(salesOrders)
+        .set({
+          status: 'spinning',
+          completedMetres: '0.00',
+          machineId: order.machineId || 'SP-01',
+          updatedAt: new Date(),
+        })
+        .where(eq(salesOrders.id, orderId));
+
+      await tx
+        .update(salesOrderItems)
+        .set({
+          status: 'spinning',
+          completedMetres: '0.00',
+          dispatchedMetres: '0.00',
+        })
+        .where(eq(salesOrderItems.orderId, orderId));
+
+      return {
+        orderId,
+        previousStatus: prevStatus,
+        newStatus: 'spinning',
+        message: `Order ${orderId} reset back to Spinning phase for demo replay.`,
+      };
+    });
+  },
 };
+

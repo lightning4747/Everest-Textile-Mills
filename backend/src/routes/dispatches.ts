@@ -1,18 +1,92 @@
-// @ts-nocheck
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { db } from '../db/index.js';
-import { dispatches, dispatchItems, salesOrders, salesOrderItems, fabricRolls } from '../db/schema.js';
+import { dispatches, dispatchItems, dispatchRolls, salesOrders, salesOrderItems, fabricRolls, products } from '../db/schema.js';
 import { inventoryService } from '../types/contract.js';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, inArray, and, desc } from 'drizzle-orm';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { ok } from '../lib/response.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export const dispatchesRouter = Router();
 
 dispatchesRouter.use(authenticate);
-dispatchesRouter.use(authorize('admin', 'manager'));
 
-dispatchesRouter.post('/', async (req: Request, res: Response) => {
+/**
+ * GET /api/v1/dispatches
+ * Lists all dispatches with total metres, vehicle, invoice, roll IDs, and line items.
+ */
+dispatchesRouter.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { orderId, status } = req.query;
+
+    const conditions = [];
+    if (orderId) conditions.push(eq(dispatches.orderId, String(orderId)));
+    if (status) conditions.push(eq(dispatches.status, status as any));
+
+    const rows = conditions.length > 0
+      ? await db.select().from(dispatches).where(and(...conditions)).orderBy(desc(dispatches.dispatchDate), desc(dispatches.createdAt))
+      : await db.select().from(dispatches).orderBy(desc(dispatches.dispatchDate), desc(dispatches.createdAt));
+
+    // Map rollIds per dispatch
+    const allRolls = await db.select().from(dispatchRolls);
+    const rollsByDispatch = new Map<string, string[]>();
+    for (const r of allRolls) {
+      const arr = rollsByDispatch.get(r.dispatchId) ?? [];
+      arr.push(r.rollId);
+      rollsByDispatch.set(r.dispatchId, arr);
+    }
+
+    // Map items per dispatch
+    const allItems = await db
+      .select({
+        id: dispatchItems.id,
+        dispatchId: dispatchItems.dispatchId,
+        salesOrderItemId: dispatchItems.salesOrderItemId,
+        metres: dispatchItems.metres,
+        quantityMetres: salesOrderItems.quantityMetres,
+        fabricType: products.fabricType,
+        productName: products.name,
+      })
+      .from(dispatchItems)
+      .leftJoin(salesOrderItems, eq(dispatchItems.salesOrderItemId, salesOrderItems.id))
+      .leftJoin(products, eq(salesOrderItems.productId, products.id));
+
+    const itemsByDispatch = new Map<string, any[]>();
+    for (const it of allItems) {
+      const arr = itemsByDispatch.get(it.dispatchId) ?? [];
+      arr.push({
+        id: it.id,
+        dispatchId: it.dispatchId,
+        orderItemId: it.salesOrderItemId,
+        metres: Number(it.metres),
+        item: {
+          fabricType: it.fabricType || 'Fabric',
+          product: { fabricType: it.fabricType || 'Fabric', name: it.productName },
+        },
+      });
+      itemsByDispatch.set(it.dispatchId, arr);
+    }
+
+    const data = rows.map((d) => ({
+      id: d.id,
+      orderId: d.orderId,
+      buyer: d.buyer,
+      totalMetres: Number(d.totalMetres),
+      dispatchDate: typeof d.dispatchDate === 'string' ? d.dispatchDate : new Date(d.dispatchDate).toISOString().split('T')[0],
+      invoiceNo: d.invoiceNo,
+      truckNo: d.truckNo,
+      status: d.status,
+      rollIds: rollsByDispatch.get(d.id) ?? [],
+      items: itemsByDispatch.get(d.id) ?? [],
+    }));
+
+    ok(res, data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+dispatchesRouter.post('/', authorize('admin', 'manager'), async (req: Request, res: Response) => {
   try {
     const { orderId, rollIds, truckNo, invoiceNo, dispatchDate } = req.body;
 

@@ -40,7 +40,7 @@ export default function DeliveryStatus() {
   const debouncedSearch = useDebounce(search, 300);
 
   const { data: rawOrders, loading: loadingOrders, refetch: refetchOrders } = useApi<BackendSalesOrder[]>(
-    () => api.get<BackendSalesOrder[]>('/sales-orders?limit=200'),
+    () => api.get<BackendSalesOrder[]>('/sales-orders'),
     [],
     { autoPollMs: 15000 }
   );
@@ -51,8 +51,8 @@ export default function DeliveryStatus() {
     { autoPollMs: 15000 }
   );
 
-  const { data: rawRolls, refetch: refetchRolls } = useApi<BackendFabricRoll[]>(
-    () => api.get<BackendFabricRoll[]>('/fabric-rolls?limit=200'),
+  const { data: rawRolls, meta: rollsMeta, refetch: refetchRolls } = useApi<BackendFabricRoll[]>(
+    () => api.get<BackendFabricRoll[]>('/fabric-rolls?qc_result=passed&limit=1'),
     [],
     { autoPollMs: 15000 }
   );
@@ -76,8 +76,8 @@ export default function DeliveryStatus() {
   // KPI values
   const readyToShipCount = salesOrders.filter(o => o.status === 'ready_to_ship').length;
   const dispatchedCount  = dispatches.length;
-  const totalMetresDispatched = dispatches.reduce((sum, d) => sum + (d.totalMetres || 0), 0);
-  const qcClearedCount = fabricRolls.filter(r => r.qcResult === 'passed').length;
+  const totalMetresDispatched = dispatches.reduce((sum, d) => sum + (Number(d.totalMetres) || 0), 0);
+  const qcClearedCount = rollsMeta?.total ?? fabricRolls.length;
 
   const filtered = useMemo(() => {
     return deliveryOrders.filter(o => {
