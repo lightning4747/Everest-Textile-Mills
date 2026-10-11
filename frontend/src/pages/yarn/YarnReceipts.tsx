@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Package, Calendar, User, FileText, AlertCircle, Search, ShoppingCart, CheckCircle2, Truck, Sparkles } from 'lucide-react';
+import { Plus, Package, Calendar, User, FileText, AlertCircle, Search, ShoppingCart, CheckCircle2, Truck, Sparkles, FileDown } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import { useDebounce } from '../../hooks/useDebounce';
 import Pagination from '../../components/ui/Pagination';
@@ -8,6 +8,7 @@ import { api } from '../../services/apiClient';
 import { useApi } from '../../hooks/useApi';
 import type { YarnReceipt, YarnStock, YarnType, PurchaseOrder, PurchaseOrderItem } from '../../types';
 import DetailModal from '../../components/ui/DetailModal';
+import { exportYarnReceiptPdf, exportYarnReceiptsListPdf } from '../../utils/exportYarnReceiptPdf';
 
 const MILL_SHADES = [
   'White',
@@ -273,16 +274,26 @@ export default function YarnReceipts() {
           </select>
         </div>
 
-        <button className="btn-primary text-xs h-10" onClick={() => setShowForm(!showForm)}>
-          <Plus size={14} /> Record Yarn Inward Receipt
-        </button>
-      </div>
-
-      {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600">
-          {error}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportYarnReceiptsListPdf(filtered, typeFilter === 'all' ? 'All Types' : typeFilter)}
+              disabled={filtered.length === 0}
+              className="btn-secondary text-xs h-10 flex items-center gap-1.5"
+              title="Export current filtered view to PDF"
+            >
+              <FileDown size={14} /> Export Register (PDF)
+            </button>
+            <button className="btn-primary text-xs h-10 flex items-center gap-1.5" onClick={() => setShowForm(!showForm)}>
+              <Plus size={14} /> Record Yarn Inward Receipt
+            </button>
+          </div>
         </div>
-      )}
+
+        {error && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600">
+            {error}
+          </div>
+        )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="card p-5 border-l-4 border-l-[var(--olive-dark)] bg-[var(--surface-2)]/20 space-y-4">
@@ -508,18 +519,19 @@ export default function YarnReceipts() {
                 <th className="px-4 py-3 section-title whitespace-nowrap text-left">Linked Order</th>
                 <th className="px-4 py-3 section-title whitespace-nowrap text-left">Invoice Ref</th>
                 <th className="px-4 py-3 section-title whitespace-nowrap text-left">Receiving Clerk</th>
+                <th className="px-4 py-3 section-title whitespace-nowrap text-center">Receipt PDF</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
               {loading && receipts.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-xs text-[var(--text-soft)] font-mono">
+                  <td colSpan={11} className="px-4 py-8 text-center text-xs text-[var(--text-soft)] font-mono">
                     Loading receipts archive...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-xs text-[var(--text-soft)]">
+                  <td colSpan={11} className="px-4 py-8 text-center text-xs text-[var(--text-soft)]">
                     No yarn receipts match your search filter.
                   </td>
                 </tr>
@@ -564,6 +576,16 @@ export default function YarnReceipts() {
                         <span>{r.receivedBy}</span>
                       </div>
                     </td>
+                    <td className="px-4 py-3.5 text-center" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => exportYarnReceiptPdf(r)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-[var(--olive-dark)]/10 hover:bg-[var(--olive-dark)]/20 text-[var(--olive-dark)] transition-colors"
+                        title="Download official receipt PDF"
+                      >
+                        <FileDown size={12} />
+                        <span>PDF</span>
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -587,6 +609,21 @@ export default function YarnReceipts() {
         onClose={() => setSelectedReceipt(null)}
         title={selectedReceipt?.id ?? ''}
         subtitle="Yarn Inward Receipt"
+        footer={
+          selectedReceipt && (
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[11px] text-[var(--text-soft)]">
+                Official Raw Material Intake Document (ISO 9001:2015)
+              </span>
+              <button
+                onClick={() => exportYarnReceiptPdf(selectedReceipt)}
+                className="btn-primary text-xs flex items-center gap-1.5"
+              >
+                <FileDown size={14} /> Download Receipt PDF
+              </button>
+            </div>
+          )
+        }
         sections={selectedReceipt ? [
           {
             title: 'Receipt Details',
