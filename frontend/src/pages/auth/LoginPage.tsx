@@ -7,10 +7,7 @@ import FloatingAnimation from '../../components/ui/FloatingAnimation';
 const DEMO_ACCOUNTS: { role: UserRole; name: string; email: string; desc: string }[] = [
   { role: 'admin', name: 'Admin User', email: 'admin@everest.local', desc: 'Full System & Config Control' },
   { role: 'manager', name: 'Plant Manager', email: 'manager@everest.local', desc: 'Financials, Costs & Scheduling' },
-  { role: 'operator', name: 'Floor Operator', email: 'operator@everest.local', desc: 'Machines & Yarn Receipts' },
-  { role: 'qc_inspector', name: 'QC Specialist', email: 'qc@everest.local', desc: 'Inspection Queue & Decisions' },
-  { role: 'viewer', name: 'Guest Viewer', email: 'viewer@everest.local', desc: 'Read-only Dashboards' },
-  { role: 'client', name: 'Acme Corp', email: 'client@acme.com', desc: 'Client Portal Access' },
+  { role: 'client', name: 'Acme Corp (Customer)', email: 'client@acme.com', desc: 'Customer Portal & Order Placement' },
 ];
 
 export default function LoginPage() {
